@@ -693,8 +693,8 @@ function applyFilters() {
     // Use requestAnimationFrame to ensure loading indicator renders before heavy processing
     requestAnimationFrame(() => {
         setTimeout(() => {
-            const yearFrom = parseInt(document.getElementById('yearFrom').value);
-            const yearTo = parseInt(document.getElementById('yearTo').value);
+            const yearFrom = currentYearRange[0];
+            const yearTo = currentYearRange[1];
             const severitySelect = document.getElementById('severity');
             const selectedSeverities = Array.from(severitySelect.selectedOptions).map(opt => opt.value);
             const crashType = document.getElementById('crashType').value;
@@ -912,6 +912,11 @@ function applyFilters() {
 
             // Update map layers
             updateMapLayers();
+
+            // Update advanced filter badge
+            if (typeof updateAdvancedFilterBadge === 'function') {
+                updateAdvancedFilterBadge();
+            }
         }, 0);
     });
 }
@@ -1198,10 +1203,11 @@ function addHeatmap() {
     });
 
     heatmapLayer = L.heatLayer(heatmapData, {
-        radius: 5,
-        blur: 0,
+        radius: 10,
+        blur: 5,
         maxZoom: 17,
-        max: 5,
+        max: 3,
+        minOpacity: 0.5,      // Minimum opacity for visibility
         gradient: {
             0.0: '#0000ff',
             0.3: '#00ffff',
@@ -1211,6 +1217,21 @@ function addHeatmap() {
             1.0: '#8B0000'
         }
     }).addTo(map);
+
+    // Update heatmap radius based on zoom level for better visibility at all scales
+    map.on('zoomend', function() {
+        if (heatmapLayer && map.hasLayer(heatmapLayer)) {
+            const zoom = map.getZoom();
+            // Scale radius: larger when zoomed out, smaller when zoomed in
+            const radius = Math.max(15, 35 - (zoom * 1.5));
+            const blur = Math.max(10, 25 - (zoom * 1.0));
+
+            heatmapLayer.setOptions({
+                radius: radius,
+                blur: blur
+            });
+        }
+    });
 }
 
 // Add choropleth layer (by LGA)
@@ -1445,34 +1466,54 @@ function togglePanelCollapse() {
 }
 
 // Update year range display and validate
-function updateYearRange() {
-    const yearFrom = parseInt(document.getElementById('yearFrom').value);
-    const yearTo = parseInt(document.getElementById('yearTo').value);
+// Global variables for year range
+let yearRangeSlider;
+let currentYearRange = [2012, 2024];
 
-    // Update display values
-    document.getElementById('yearFromValue').textContent = yearFrom;
-    document.getElementById('yearToValue').textContent = yearTo;
-    document.getElementById('yearRangeDisplay').textContent = `${yearFrom} - ${yearTo}`;
+// Initialize dual-handle year range slider
+function initYearRangeSlider() {
+    const sliderElement = document.getElementById('yearRangeSlider');
 
-    // Validate range
-    const errorDiv = document.getElementById('yearError');
-    if (yearFrom > yearTo) {
-        errorDiv.style.display = 'block';
-        // Auto-correct: move the "to" year to match "from" year
-        document.getElementById('yearTo').value = yearFrom;
-        document.getElementById('yearToValue').textContent = yearFrom;
-        document.getElementById('yearRangeDisplay').textContent = `${yearFrom} - ${yearFrom}`;
-    } else {
-        errorDiv.style.display = 'none';
-    }
+    if (!sliderElement) return;
+
+    yearRangeSlider = noUiSlider.create(sliderElement, {
+        start: [2012, 2024],
+        connect: true,
+        step: 1,
+        tooltips: [
+            {
+                to: function(value) { return Math.round(value); },
+                from: function(value) { return Math.round(value); }
+            },
+            {
+                to: function(value) { return Math.round(value); },
+                from: function(value) { return Math.round(value); }
+            }
+        ],
+        range: {
+            'min': 2012,
+            'max': 2024
+        },
+        format: {
+            to: function(value) { return Math.round(value); },
+            from: function(value) { return Math.round(value); }
+        }
+    });
+
+    // Update display when slider changes
+    yearRangeSlider.on('update', function(values) {
+        currentYearRange = [parseInt(values[0]), parseInt(values[1])];
+        document.getElementById('yearRangeDisplay').textContent =
+            `${currentYearRange[0]} - ${currentYearRange[1]}`;
+    });
 }
 
 // Clear all filters
 function clearFilters() {
-    // Reset year range
-    document.getElementById('yearFrom').value = '2012';
-    document.getElementById('yearTo').value = '2024';
-    updateYearRange();
+    // Reset year range slider
+    if (yearRangeSlider) {
+        yearRangeSlider.set([2012, 2024]);
+    }
 
     // Reset all dropdowns
     document.getElementById('severity').value = 'all';
@@ -1556,8 +1597,125 @@ function clearFilters() {
     // Reset towing
     document.getElementById('towing').value = 'all';
 
+    // Update advanced filter badge
+    updateAdvancedFilterBadge();
+
     // Apply the cleared filters
     applyFilters();
+}
+
+// Advanced Filters Modal Functions
+function openAdvancedFilters() {
+    document.getElementById('advancedFiltersModal').style.display = 'block';
+}
+
+function closeAdvancedFilters() {
+    document.getElementById('advancedFiltersModal').style.display = 'none';
+}
+
+function switchTab(tabName) {
+    // Hide all tabs
+    const tabs = document.querySelectorAll('.tab-content');
+    tabs.forEach(tab => tab.classList.remove('active'));
+
+    // Deactivate all tab buttons
+    const tabBtns = document.querySelectorAll('.tab-btn');
+    tabBtns.forEach(btn => btn.classList.remove('active'));
+
+    // Show selected tab
+    document.getElementById(tabName + 'Tab').classList.add('active');
+
+    // Activate selected tab button
+    event.target.classList.add('active');
+}
+
+function applyAdvancedFilters() {
+    closeAdvancedFilters();
+    updateAdvancedFilterBadge();
+    applyFilters();
+}
+
+function updateAdvancedFilterBadge() {
+    let count = 0;
+
+    // Count active advanced filters (filters that are NOT set to "all")
+
+    // Weather
+    if (document.getElementById('weather').value !== 'all') count++;
+
+    // Day/Night
+    if (document.getElementById('dayNight').value !== 'all') count++;
+
+    // Road User Type
+    const roadUserSelect = document.getElementById('roadUserType');
+    const selectedRoadUsers = Array.from(roadUserSelect.selectedOptions).map(opt => opt.value);
+    if (!selectedRoadUsers.includes('all')) count++;
+
+    // Age Group
+    const ageGroupSelect = document.getElementById('ageGroup');
+    const selectedAges = Array.from(ageGroupSelect.selectedOptions).map(opt => opt.value);
+    if (!selectedAges.includes('all')) count++;
+
+    // Casualty Sex
+    const sexSelect = document.getElementById('casualtySex');
+    const selectedSexes = Array.from(sexSelect.selectedOptions).map(opt => opt.value);
+    if (!selectedSexes.includes('all')) count++;
+
+    // Injury Extent
+    const injurySelect = document.getElementById('injuryExtent');
+    const selectedInjuries = Array.from(injurySelect.selectedOptions).map(opt => opt.value);
+    if (!selectedInjuries.includes('all')) count++;
+
+    // Seat Belt
+    const seatBeltSelect = document.getElementById('seatBelt');
+    const selectedSeatBelts = Array.from(seatBeltSelect.selectedOptions).map(opt => opt.value);
+    if (!selectedSeatBelts.includes('all')) count++;
+
+    // Helmet
+    const helmetSelect = document.getElementById('helmet');
+    const selectedHelmets = Array.from(helmetSelect.selectedOptions).map(opt => opt.value);
+    if (!selectedHelmets.includes('all')) count++;
+
+    // Involved Entities
+    const vehicleSelect = document.getElementById('vehicleType');
+    const selectedVehicles = Array.from(vehicleSelect.selectedOptions).map(opt => opt.value);
+    if (!selectedVehicles.includes('all')) count++;
+
+    // Vehicle Year
+    const vehicleYearSelect = document.getElementById('vehicleYear');
+    const selectedYears = Array.from(vehicleYearSelect.selectedOptions).map(opt => opt.value);
+    if (!selectedYears.includes('all')) count++;
+
+    // Occupants
+    const occupantsSelect = document.getElementById('occupants');
+    const selectedOccupants = Array.from(occupantsSelect.selectedOptions).map(opt => opt.value);
+    if (!selectedOccupants.includes('all')) count++;
+
+    // Towing
+    if (document.getElementById('towing').value !== 'all') count++;
+
+    // Rollover
+    if (document.getElementById('rollover').value !== 'all') count++;
+
+    // Fire
+    if (document.getElementById('fire').value !== 'all') count++;
+
+    // Update badge
+    const badge = document.getElementById('advancedFilterBadge');
+    if (count > 0) {
+        badge.textContent = count;
+        badge.style.display = 'inline-block';
+    } else {
+        badge.style.display = 'none';
+    }
+}
+
+// Close modal when clicking outside of it
+window.onclick = function(event) {
+    const modal = document.getElementById('advancedFiltersModal');
+    if (event.target === modal) {
+        closeAdvancedFilters();
+    }
 }
 
 // Initialize application
@@ -1565,10 +1723,6 @@ document.addEventListener('DOMContentLoaded', function() {
     initMap();
     loadData();
 
-    // Set up year range slider event listeners
-    document.getElementById('yearFrom').addEventListener('input', updateYearRange);
-    document.getElementById('yearTo').addEventListener('input', updateYearRange);
-
-    // Initialize year range display
-    updateYearRange();
+    // Initialize dual-handle year range slider
+    initYearRangeSlider();
 });
