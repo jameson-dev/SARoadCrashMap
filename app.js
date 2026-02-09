@@ -2035,16 +2035,18 @@ function encodeFiltersToURL() {
     if (filters.yearTo !== 2024) params.set('yearTo', filters.yearTo);
 
     if (!filters.selectedSeverities.includes('all')) {
-        params.set('severity', filters.selectedSeverities.join(','));
+        // Trim all values to remove padding spaces
+        params.set('severity', filters.selectedSeverities.map(s => s.trim()).join(','));
     }
-    if (filters.crashType !== 'all') params.set('crashType', filters.crashType);
-    if (filters.weather !== 'all') params.set('weather', filters.weather);
-    if (filters.dayNight !== 'all') params.set('dayNight', filters.dayNight);
-    if (filters.duiInvolved !== 'all') params.set('dui', filters.duiInvolved);
-    if (filters.drugsInvolved !== 'all') params.set('drugs', filters.drugsInvolved);
+    if (filters.crashType !== 'all') params.set('crashType', filters.crashType.trim());
+    if (filters.weather !== 'all') params.set('weather', filters.weather.trim());
+    if (filters.dayNight !== 'all') params.set('dayNight', filters.dayNight.trim());
+    if (filters.duiInvolved !== 'all') params.set('dui', filters.duiInvolved.trim());
+    if (filters.drugsInvolved !== 'all') params.set('drugs', filters.drugsInvolved.trim());
 
     if (!filters.selectedAreas.includes('all')) {
-        params.set('areas', filters.selectedAreas.join(','));
+        // Trim all area names to remove padding spaces
+        params.set('areas', filters.selectedAreas.map(a => a.trim()).join(','));
     }
 
     if (filters.dateFrom) params.set('dateFrom', filters.dateFrom);
@@ -2076,26 +2078,56 @@ function loadFiltersFromURL() {
 
         // Severity
         if (params.has('severity')) {
-            const severities = params.get('severity').split(',');
+            const severities = params.get('severity').split(',').map(s => s.trim());
             const select = document.getElementById('severity');
             Array.from(select.options).forEach(opt => {
-                opt.selected = severities.includes(opt.value);
+                opt.selected = severities.includes(opt.value.trim());
             });
         }
 
-        // Simple filters
-        if (params.has('crashType')) document.getElementById('crashType').value = params.get('crashType');
-        if (params.has('weather')) document.getElementById('weather').value = params.get('weather');
-        if (params.has('dayNight')) document.getElementById('dayNight').value = params.get('dayNight');
-        if (params.has('dui')) document.getElementById('duiInvolved').value = params.get('dui');
-        if (params.has('drugs')) document.getElementById('drugsInvolved').value = params.get('drugs');
+        // Simple filters - need to match by trimmed value
+        if (params.has('crashType')) {
+            const crashType = params.get('crashType');
+            const select = document.getElementById('crashType');
+            Array.from(select.options).forEach(opt => {
+                if (opt.value.trim() === crashType) select.value = opt.value;
+            });
+        }
+        if (params.has('weather')) {
+            const weather = params.get('weather');
+            const select = document.getElementById('weather');
+            Array.from(select.options).forEach(opt => {
+                if (opt.value.trim() === weather) select.value = opt.value;
+            });
+        }
+        if (params.has('dayNight')) {
+            const dayNight = params.get('dayNight');
+            const select = document.getElementById('dayNight');
+            Array.from(select.options).forEach(opt => {
+                if (opt.value.trim() === dayNight) select.value = opt.value;
+            });
+        }
+        if (params.has('dui')) {
+            const dui = params.get('dui');
+            const select = document.getElementById('duiInvolved');
+            Array.from(select.options).forEach(opt => {
+                if (opt.value.trim() === dui) select.value = opt.value;
+            });
+        }
+        if (params.has('drugs')) {
+            const drugs = params.get('drugs');
+            const select = document.getElementById('drugsInvolved');
+            Array.from(select.options).forEach(opt => {
+                if (opt.value.trim() === drugs) select.value = opt.value;
+            });
+        }
 
-        // Areas
+        // Areas - match by trimmed values
         if (params.has('areas')) {
-            const areas = params.get('areas').split(',');
+            const areas = params.get('areas').split(',').map(a => a.trim());
             const select = document.getElementById('area');
             Array.from(select.options).forEach(opt => {
-                opt.selected = areas.includes(opt.value);
+                opt.selected = areas.includes(opt.value.trim());
             });
         }
 
