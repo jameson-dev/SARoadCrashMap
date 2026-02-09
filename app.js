@@ -18,7 +18,7 @@ let activeLayers = {
 function showLoading(message = 'Loading...') {
     const loadingEl = document.getElementById('loading');
     if (loadingEl) {
-        const textEl = loadingEl.querySelector('div:last-child');
+        const textEl = loadingEl.querySelector('.loading-content div:last-child');
         if (textEl) textEl.textContent = message;
         loadingEl.classList.remove('hidden');
     }
@@ -63,11 +63,45 @@ function initMap() {
         maxBoundsViscosity: 0.8 // Make bounds "sticky" (0.0 = soft, 1.0 = hard boundaries)
     });
 
-    // Add tile layer
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
-        subdomains: 'abcd',
-        maxZoom: 19
+    // Define multiple base map layers
+    const baseMaps = {
+        "Dark": L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+            subdomains: 'abcd',
+            maxZoom: 19
+        }),
+        "Light": L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+            subdomains: 'abcd',
+            maxZoom: 19
+        }),
+        "Voyager": L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+            subdomains: 'abcd',
+            maxZoom: 19
+        }),
+        "Street": L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+            maxZoom: 19
+        }),
+        "Satellite": L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+            attribution: '&copy; <a href="https://www.esri.com/">Esri</a>',
+            maxZoom: 19
+        }),
+        "Terrain": L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, <a href="http://viewfinderpanoramas.org">SRTM</a> | &copy; <a href="https://opentopomap.org">OpenTopoMap</a>',
+            subdomains: 'abc',
+            maxZoom: 17
+        })
+    };
+
+    // Add default layer (Dark)
+    baseMaps["Dark"].addTo(map);
+
+    // Add layer control to switch between maps
+    L.control.layers(baseMaps, null, {
+        position: 'topleft',
+        collapsed: true
     }).addTo(map);
 
     // Initialize layers
@@ -239,11 +273,12 @@ function loadUnitsData() {
 
 // Link casualty and units data to crashes by REPORT_ID
 function linkCrashData() {
-    showLoading('Linking crash, casualty, and units data...');
+    try {
+        showLoading('Linking crash, casualty, and units data...');
 
-    // Create lookup maps for faster access
-    const casualtyMap = {};
-    const unitsMap = {};
+        // Create lookup maps for faster access
+        const casualtyMap = {};
+        const unitsMap = {};
 
     // Group casualties by REPORT_ID
     casualtyData.forEach(casualty => {
@@ -274,8 +309,13 @@ function linkCrashData() {
         }
     });
 
-    console.log('Data linking complete');
-    console.log('Crashes with linked data:', linkedCount, 'out of', crashData.length);
+        console.log('Data linking complete');
+        console.log('Crashes with linked data:', linkedCount, 'out of', crashData.length);
+    } catch (error) {
+        console.error('Error linking crash data:', error);
+        hideLoading();
+        alert('Error linking crash data. Some details may be missing.');
+    }
 }
 
 // Normalize LGA name for matching
@@ -683,6 +723,348 @@ function populateFilterOptions() {
         option.textContent = type;
         vehicleSelect.appendChild(option);
     });
+
+    // Road Surface (from crash data)
+    const roadSurfaces = [...new Set(crashData.map(row => row['Road Surface']).filter(v => v))];
+    const roadSurfaceSelect = document.getElementById('roadSurface');
+    roadSurfaces.sort().forEach(surface => {
+        const option = document.createElement('option');
+        option.value = surface;
+        option.textContent = surface;
+        roadSurfaceSelect.appendChild(option);
+    });
+
+    // Moisture Conditions (from crash data)
+    const moistureConditions = [...new Set(crashData.map(row => row['Moisture Cond']).filter(v => v))];
+    const moistureSelect = document.getElementById('moistureCond');
+    moistureConditions.sort().forEach(condition => {
+        const option = document.createElement('option');
+        option.value = condition;
+        option.textContent = condition;
+        moistureSelect.appendChild(option);
+    });
+
+    // License Types (from units data)
+    const licenseTypes = [...new Set(unitsData.map(row => row['Licence Type']).filter(v => v))];
+    const licenseTypeSelect = document.getElementById('licenseType');
+    licenseTypes.sort().forEach(type => {
+        const option = document.createElement('option');
+        option.value = type;
+        option.textContent = type;
+        licenseTypeSelect.appendChild(option);
+    });
+
+    // Vehicle Registration States (from units data)
+    const regStates = [...new Set(unitsData.map(row => row['Veh Reg State']).filter(v => v))];
+    const regStateSelect = document.getElementById('vehRegState');
+    regStates.sort().forEach(state => {
+        const option = document.createElement('option');
+        option.value = state;
+        option.textContent = state;
+        regStateSelect.appendChild(option);
+    });
+
+    // Direction of Travel (from units data)
+    const directions = [...new Set(unitsData.map(row => row['Direction Of Travel']).filter(v => v))];
+    const directionSelect = document.getElementById('directionTravel');
+    directions.sort().forEach(direction => {
+        const option = document.createElement('option');
+        option.value = direction;
+        option.textContent = direction;
+        directionSelect.appendChild(option);
+    });
+
+    // Unit Movement (from units data)
+    const movements = [...new Set(unitsData.map(row => row['Unit Movement']).filter(v => v))];
+    const movementSelect = document.getElementById('unitMovement');
+    movements.sort().forEach(movement => {
+        const option = document.createElement('option');
+        option.value = movement;
+        option.textContent = movement;
+        movementSelect.appendChild(option);
+    });
+}
+
+// Helper: Get selected values from a multi-select element
+function getSelectedValues(elementId) {
+    const element = document.getElementById(elementId);
+    if (!element) return ['all'];
+    return Array.from(element.selectedOptions).map(opt => opt.value);
+}
+
+// Helper: Get value from a single-select element
+function getValue(elementId, defaultValue = 'all') {
+    const element = document.getElementById(elementId);
+    return element ? element.value : defaultValue;
+}
+
+// Get all filter values from the DOM
+function getFilterValues() {
+    return {
+        // Year range
+        yearFrom: currentYearRange[0],
+        yearTo: currentYearRange[1],
+
+        // Basic filters
+        selectedSeverities: getSelectedValues('severity'),
+        crashType: getValue('crashType'),
+        weather: getValue('weather'),
+        dayNight: getValue('dayNight'),
+        duiInvolved: getValue('duiInvolved'),
+        selectedAreas: getSelectedValues('area'),
+
+        // Date and time
+        dateFrom: getValue('dateFrom', ''),
+        dateTo: getValue('dateTo', ''),
+        timeFrom: getValue('timeFrom', ''),
+        timeTo: getValue('timeTo', ''),
+
+        // Casualty filters
+        selectedRoadUsers: getSelectedValues('roadUserType'),
+        selectedAgeGroups: getSelectedValues('ageGroup'),
+        selectedSexes: getSelectedValues('casualtySex'),
+        selectedInjuries: getSelectedValues('injuryExtent'),
+        selectedSeatBelts: getSelectedValues('seatBelt'),
+        selectedHelmets: getSelectedValues('helmet'),
+
+        // Vehicle/Units filters
+        selectedVehicles: getSelectedValues('vehicleType'),
+        selectedVehicleYears: getSelectedValues('vehicleYear'),
+        selectedOccupants: getSelectedValues('occupants'),
+        towing: getValue('towing'),
+        rollover: getValue('rollover'),
+        fire: getValue('fire'),
+        selectedLicenseTypes: getSelectedValues('licenseType'),
+        selectedRegStates: getSelectedValues('vehRegState'),
+        selectedDirections: getSelectedValues('directionTravel'),
+        selectedMovements: getSelectedValues('unitMovement'),
+
+        // Crash conditions
+        selectedRoadSurfaces: getSelectedValues('roadSurface'),
+        selectedMoistureConds: getSelectedValues('moistureCond'),
+        drugsInvolved: getValue('drugsInvolved')
+    };
+}
+
+// Helper: Check if a crash matches basic filters
+function matchesBasicFilters(row, filters) {
+    const year = parseInt(row.Year);
+    const severity = row['CSEF Severity'];
+
+    // Year filter
+    if (year < filters.yearFrom || year > filters.yearTo) return false;
+
+    // Severity filter
+    if (!filters.selectedSeverities.includes('all') && !filters.selectedSeverities.includes(severity)) {
+        return false;
+    }
+
+    // Crash type filter
+    if (filters.crashType !== 'all' && row['Crash Type'] !== filters.crashType) return false;
+
+    // Weather filter
+    if (filters.weather !== 'all' && row['Weather Cond'] !== filters.weather) return false;
+
+    // Day/Night filter
+    if (filters.dayNight !== 'all' && row.DayNight !== filters.dayNight) return false;
+
+    // DUI filter
+    if (filters.duiInvolved !== 'all') {
+        const hasDUI = row['DUI Involved'] && row['DUI Involved'].trim() !== '';
+        if (filters.duiInvolved === 'Yes' && !hasDUI) return false;
+        if (filters.duiInvolved === 'No' && hasDUI) return false;
+    }
+
+    // Drugs filter
+    if (filters.drugsInvolved !== 'all') {
+        const hasDrugs = row['Drugs Involved'] && row['Drugs Involved'].trim() !== '';
+        if (filters.drugsInvolved === 'Yes' && !hasDrugs) return false;
+        if (filters.drugsInvolved === 'No' && hasDrugs) return false;
+    }
+
+    // Area filter
+    if (!filters.selectedAreas.includes('all') && !filters.selectedAreas.includes(row['LGA Name'])) {
+        return false;
+    }
+
+    // Road Surface filter
+    if (!filters.selectedRoadSurfaces.includes('all')) {
+        if (!filters.selectedRoadSurfaces.includes(row['Road Surface'])) return false;
+    }
+
+    // Moisture Condition filter
+    if (!filters.selectedMoistureConds.includes('all')) {
+        if (!filters.selectedMoistureConds.includes(row['Moisture Cond'])) return false;
+    }
+
+    // Rollover filter
+    if (filters.rollover !== 'all') {
+        const hasRollover = row.ROLLOVER && row.ROLLOVER.trim() !== '';
+        if (filters.rollover === 'Yes' && !hasRollover) return false;
+        if (filters.rollover === 'No' && hasRollover) return false;
+    }
+
+    // Fire filter
+    if (filters.fire !== 'all') {
+        const hasFire = row.FIRE && row.FIRE.trim() !== '';
+        if (filters.fire === 'Yes' && !hasFire) return false;
+        if (filters.fire === 'No' && hasFire) return false;
+    }
+
+    return true;
+}
+
+// Helper: Check if a crash matches date/time filters
+function matchesDateTimeFilters(row, filters) {
+    const crashDateTime = row['Crash Date Time'];
+    if (!crashDateTime) return filters.dateFrom || filters.dateTo || filters.timeFrom || filters.timeTo ? false : true;
+
+    const parts = crashDateTime.split(' ');
+
+    // Date filter
+    if (filters.dateFrom || filters.dateTo) {
+        if (parts.length >= 1) {
+            const dateParts = parts[0].split('/');
+            if (dateParts.length === 3) {
+                const crashDate = `${dateParts[2]}-${dateParts[1].padStart(2, '0')}-${dateParts[0].padStart(2, '0')}`;
+                if (filters.dateFrom && crashDate < filters.dateFrom) return false;
+                if (filters.dateTo && crashDate > filters.dateTo) return false;
+            }
+        }
+    }
+
+    // Time filter
+    if (filters.timeFrom || filters.timeTo) {
+        if (parts.length >= 2) {
+            const crashTime = parts[1];
+            if (filters.timeFrom && filters.timeTo) {
+                if (filters.timeFrom <= filters.timeTo) {
+                    if (crashTime < filters.timeFrom || crashTime > filters.timeTo) return false;
+                } else {
+                    if (crashTime < filters.timeFrom && crashTime > filters.timeTo) return false;
+                }
+            } else if (filters.timeFrom) {
+                if (crashTime < filters.timeFrom) return false;
+            } else if (filters.timeTo) {
+                if (crashTime > filters.timeTo) return false;
+            }
+        }
+    }
+
+    return true;
+}
+
+// Helper: Check if crash matches casualty-related filters
+function matchesCasualtyFilters(row, filters) {
+    const casualties = row._casualties || [];
+
+    // Road User Type filter
+    if (!filters.selectedRoadUsers.includes('all')) {
+        if (casualties.length === 0) return false;
+        if (!casualties.some(c => filters.selectedRoadUsers.includes(c['Casualty Type']))) return false;
+    }
+
+    // Age Group filter
+    if (!filters.selectedAgeGroups.includes('all')) {
+        if (casualties.length === 0) return false;
+        const hasMatchingAge = casualties.some(c => {
+            const age = parseInt(c.AGE);
+            if (isNaN(age)) return false;
+            return filters.selectedAgeGroups.some(group => {
+                if (group === '0-17') return age >= 0 && age <= 17;
+                if (group === '18-25') return age >= 18 && age <= 25;
+                if (group === '26-35') return age >= 26 && age <= 35;
+                if (group === '36-50') return age >= 36 && age <= 50;
+                if (group === '51-65') return age >= 51 && age <= 65;
+                if (group === '66+') return age >= 66;
+                return false;
+            });
+        });
+        if (!hasMatchingAge) return false;
+    }
+
+    // Casualty Sex filter
+    if (!filters.selectedSexes.includes('all')) {
+        if (casualties.length === 0) return false;
+        if (!casualties.some(c => filters.selectedSexes.includes(c.Sex))) return false;
+    }
+
+    // Injury Extent filter
+    if (!filters.selectedInjuries.includes('all')) {
+        if (casualties.length === 0) return false;
+        if (!casualties.some(c => filters.selectedInjuries.includes(c['Injury Extent']))) return false;
+    }
+
+    // Seat Belt filter
+    if (!filters.selectedSeatBelts.includes('all')) {
+        if (casualties.length === 0) return false;
+        if (!casualties.some(c => filters.selectedSeatBelts.includes(c['Seat Belt']))) return false;
+    }
+
+    // Helmet filter
+    if (!filters.selectedHelmets.includes('all')) {
+        if (casualties.length === 0) return false;
+        if (!casualties.some(c => filters.selectedHelmets.includes(c.HELMET))) return false;
+    }
+
+    return true;
+}
+
+// Helper: Check if crash matches units/vehicle-related filters
+function matchesUnitsFilters(row, filters) {
+    const units = row._units || [];
+
+    // Vehicle Type filter
+    if (!filters.selectedVehicles.includes('all')) {
+        if (units.length === 0) return false;
+        if (!units.some(u => filters.selectedVehicles.includes(u['Unit Type']))) return false;
+    }
+
+    // Vehicle Year filter
+    if (!filters.selectedVehicleYears.includes('all')) {
+        if (units.length === 0) return false;
+        if (!units.some(u => filters.selectedVehicleYears.includes(u['Veh Build Year']))) return false;
+    }
+
+    // Occupants filter
+    if (!filters.selectedOccupants.includes('all')) {
+        if (units.length === 0) return false;
+        if (!units.some(u => filters.selectedOccupants.includes(u.TOTAL_OCCS))) return false;
+    }
+
+    // Towing filter
+    if (filters.towing !== 'all') {
+        if (units.length === 0) return filters.towing !== 'Yes';
+        const hasTowing = units.some(u => u.TOWING && u.TOWING.trim() !== '');
+        if (filters.towing === 'Yes' && !hasTowing) return false;
+        if (filters.towing === 'No' && hasTowing) return false;
+    }
+
+    // License Type filter
+    if (!filters.selectedLicenseTypes.includes('all')) {
+        if (units.length === 0) return false;
+        if (!units.some(u => filters.selectedLicenseTypes.includes(u['License Type']))) return false;
+    }
+
+    // Vehicle Reg State filter
+    if (!filters.selectedRegStates.includes('all')) {
+        if (units.length === 0) return false;
+        if (!units.some(u => filters.selectedRegStates.includes(u['Veh Reg State']))) return false;
+    }
+
+    // Direction of Travel filter
+    if (!filters.selectedDirections.includes('all')) {
+        if (units.length === 0) return false;
+        if (!units.some(u => filters.selectedDirections.includes(u['Direction Of Travel']))) return false;
+    }
+
+    // Unit Movement filter
+    if (!filters.selectedMovements.includes('all')) {
+        if (units.length === 0) return false;
+        if (!units.some(u => filters.selectedMovements.includes(u['Unit Movement']))) return false;
+    }
+
+    return true;
 }
 
 // Apply filters and update map
@@ -690,221 +1072,17 @@ function applyFilters() {
     // Show loading indicator
     showLoading('Filtering crash data...');
 
-    // Use requestAnimationFrame to ensure loading indicator renders before heavy processing
-    requestAnimationFrame(() => {
-        setTimeout(() => {
-            const yearFrom = currentYearRange[0];
-            const yearTo = currentYearRange[1];
-            const severitySelect = document.getElementById('severity');
-            const selectedSeverities = Array.from(severitySelect.selectedOptions).map(opt => opt.value);
-            const crashType = document.getElementById('crashType').value;
-            const weather = document.getElementById('weather').value;
-            const dayNight = document.getElementById('dayNight').value;
-            const duiInvolved = document.getElementById('duiInvolved').value;
-            const areaSelect = document.getElementById('area');
-            const selectedAreas = Array.from(areaSelect.selectedOptions).map(opt => opt.value);
-            const roadUserSelect = document.getElementById('roadUserType');
-            const selectedRoadUsers = Array.from(roadUserSelect.selectedOptions).map(opt => opt.value);
-            const vehicleSelect = document.getElementById('vehicleType');
-            const selectedVehicles = Array.from(vehicleSelect.selectedOptions).map(opt => opt.value);
+    // Use setTimeout to ensure loading indicator renders before heavy processing
+    setTimeout(() => {
+        try {
+            const filters = getFilterValues();
 
-            // New filters
-            const ageGroupSelect = document.getElementById('ageGroup');
-            const selectedAgeGroups = Array.from(ageGroupSelect.selectedOptions).map(opt => opt.value);
-            const casualtySexSelect = document.getElementById('casualtySex');
-            const selectedSexes = Array.from(casualtySexSelect.selectedOptions).map(opt => opt.value);
-            const injuryExtentSelect = document.getElementById('injuryExtent');
-            const selectedInjuries = Array.from(injuryExtentSelect.selectedOptions).map(opt => opt.value);
-            const seatBeltSelect = document.getElementById('seatBelt');
-            const selectedSeatBelts = Array.from(seatBeltSelect.selectedOptions).map(opt => opt.value);
-            const helmetSelect = document.getElementById('helmet');
-            const selectedHelmets = Array.from(helmetSelect.selectedOptions).map(opt => opt.value);
-            const rollover = document.getElementById('rollover').value;
-            const fire = document.getElementById('fire').value;
-            const vehicleYearSelect = document.getElementById('vehicleYear');
-            const selectedVehicleYears = Array.from(vehicleYearSelect.selectedOptions).map(opt => opt.value);
-            const occupantsSelect = document.getElementById('occupants');
-            const selectedOccupants = Array.from(occupantsSelect.selectedOptions).map(opt => opt.value);
-            const towing = document.getElementById('towing').value;
-
-            // Filter data
+            // Filter data using helper functions
             filteredData = crashData.filter(row => {
-                const year = parseInt(row.Year);
-                const severity = row['CSEF Severity'];
-
-                // Year filter
-                if (year < yearFrom || year > yearTo) return false;
-
-                // Severity filter
-                if (!selectedSeverities.includes('all') && !selectedSeverities.includes(severity)) {
-                    return false;
-                }
-
-                // Crash type filter
-                if (crashType !== 'all' && row['Crash Type'] !== crashType) return false;
-
-                // Weather filter
-                if (weather !== 'all' && row['Weather Cond'] !== weather) return false;
-
-                // Day/Night filter
-                if (dayNight !== 'all' && row.DayNight !== dayNight) return false;
-
-                // DUI filter
-                if (duiInvolved !== 'all') {
-                    const hasDUI = row['DUI Involved'] && row['DUI Involved'].trim() !== '';
-                    if (duiInvolved === 'Yes' && !hasDUI) return false;
-                    if (duiInvolved === 'No' && hasDUI) return false;
-                }
-
-                // Area filter
-                if (!selectedAreas.includes('all') && !selectedAreas.includes(row['LGA Name'])) {
-                    return false;
-                }
-
-                // Road User Type filter (check casualties)
-                if (!selectedRoadUsers.includes('all')) {
-                    const casualties = row._casualties || [];
-                    if (casualties.length === 0) return false;
-                    const hasMatchingRoadUser = casualties.some(c =>
-                        selectedRoadUsers.includes(c['Casualty Type'])
-                    );
-                    if (!hasMatchingRoadUser) return false;
-                }
-
-                // Vehicle Type filter (check units)
-                if (!selectedVehicles.includes('all')) {
-                    const units = row._units || [];
-                    if (units.length === 0) return false;
-                    const hasMatchingVehicle = units.some(u =>
-                        selectedVehicles.includes(u['Unit Type'])
-                    );
-                    if (!hasMatchingVehicle) return false;
-                }
-
-                // Age Group filter (check casualties)
-                if (!selectedAgeGroups.includes('all')) {
-                    const casualties = row._casualties || [];
-                    if (casualties.length === 0) return false;
-                    const hasMatchingAge = casualties.some(c => {
-                        const age = parseInt(c.AGE);
-                        if (isNaN(age)) return false;
-
-                        return selectedAgeGroups.some(group => {
-                            if (group === '0-17') return age >= 0 && age <= 17;
-                            if (group === '18-25') return age >= 18 && age <= 25;
-                            if (group === '26-35') return age >= 26 && age <= 35;
-                            if (group === '36-50') return age >= 36 && age <= 50;
-                            if (group === '51-65') return age >= 51 && age <= 65;
-                            if (group === '66+') return age >= 66;
-                            return false;
-                        });
-                    });
-                    if (!hasMatchingAge) return false;
-                }
-
-                // Casualty Sex filter (check casualties)
-                if (!selectedSexes.includes('all')) {
-                    const casualties = row._casualties || [];
-                    if (casualties.length === 0) return false;
-                    const hasMatchingSex = casualties.some(c =>
-                        selectedSexes.includes(c.Sex)
-                    );
-                    if (!hasMatchingSex) return false;
-                }
-
-                // Injury Extent filter (check casualties)
-                if (!selectedInjuries.includes('all')) {
-                    const casualties = row._casualties || [];
-                    if (casualties.length === 0) return false;
-                    const hasMatchingInjury = casualties.some(c =>
-                        selectedInjuries.includes(c['Injury Extent'])
-                    );
-                    if (!hasMatchingInjury) return false;
-                }
-
-                // Seat Belt filter (check casualties)
-                if (!selectedSeatBelts.includes('all')) {
-                    const casualties = row._casualties || [];
-                    if (casualties.length === 0) return false;
-                    const hasMatchingSeatBelt = casualties.some(c =>
-                        selectedSeatBelts.includes(c['Seat Belt'])
-                    );
-                    if (!hasMatchingSeatBelt) return false;
-                }
-
-                // Helmet filter (check casualties)
-                if (!selectedHelmets.includes('all')) {
-                    const casualties = row._casualties || [];
-                    if (casualties.length === 0) return false;
-                    const hasMatchingHelmet = casualties.some(c =>
-                        selectedHelmets.includes(c.Helmet)
-                    );
-                    if (!hasMatchingHelmet) return false;
-                }
-
-                // Rollover filter (check units)
-                if (rollover !== 'all') {
-                    const units = row._units || [];
-                    if (units.length === 0) return false;
-                    const hasRollover = units.some(u => u.Rollover === rollover);
-                    if (!hasRollover) return false;
-                }
-
-                // Fire filter (check units)
-                if (fire !== 'all') {
-                    const units = row._units || [];
-                    if (units.length === 0) return false;
-                    const hasFire = units.some(u => u.Fire === fire);
-                    if (!hasFire) return false;
-                }
-
-                // Vehicle Year filter (check units)
-                if (!selectedVehicleYears.includes('all')) {
-                    const units = row._units || [];
-                    if (units.length === 0) return false;
-                    const hasMatchingYear = units.some(u => {
-                        const year = parseInt(u['Veh Year']);
-                        if (isNaN(year)) return false;
-
-                        return selectedVehicleYears.some(yearRange => {
-                            if (yearRange === 'pre-2000') return year < 2000;
-                            if (yearRange === '2000-2010') return year >= 2000 && year <= 2010;
-                            if (yearRange === '2011-2020') return year >= 2011 && year <= 2020;
-                            if (yearRange === '2021+') return year >= 2021;
-                            return false;
-                        });
-                    });
-                    if (!hasMatchingYear) return false;
-                }
-
-                // Number of Occupants filter (check units)
-                if (!selectedOccupants.includes('all')) {
-                    const units = row._units || [];
-                    if (units.length === 0) return false;
-                    const hasMatchingOccupants = units.some(u => {
-                        const occupants = parseInt(u['Number Occupants']);
-                        if (isNaN(occupants)) return false;
-
-                        return selectedOccupants.some(range => {
-                            if (range === '1') return occupants === 1;
-                            if (range === '2') return occupants === 2;
-                            if (range === '3-4') return occupants >= 3 && occupants <= 4;
-                            if (range === '5+') return occupants >= 5;
-                            return false;
-                        });
-                    });
-                    if (!hasMatchingOccupants) return false;
-                }
-
-                // Towing filter (check units)
-                if (towing !== 'all') {
-                    const units = row._units || [];
-                    if (units.length === 0) return false;
-                    const hasTowing = units.some(u => u.Towing === towing);
-                    if (!hasTowing) return false;
-                }
-
-                return true;
+                return matchesBasicFilters(row, filters) &&
+                       matchesDateTimeFilters(row, filters) &&
+                       matchesCasualtyFilters(row, filters) &&
+                       matchesUnitsFilters(row, filters);
             });
 
             // Update statistics
@@ -917,11 +1095,17 @@ function applyFilters() {
             if (typeof updateAdvancedFilterBadge === 'function') {
                 updateAdvancedFilterBadge();
             }
-        }, 0);
-    });
+
+            // Update URL with current filters
+            encodeFiltersToURL();
+        } catch (error) {
+            console.error('Filter error:', error);
+            alert('An error occurred while filtering. Please try again.');
+            hideLoading();
+        }
+    }, 0);
 }
 
-// Update statistics panel
 function updateStatistics() {
     const totalCrashes = filteredData.length;
     let totalFatalities = 0;
@@ -942,21 +1126,28 @@ function updateStatistics() {
 
 // Update map layers based on active selections
 function updateMapLayers(changedLayer = null) {
-    // If a specific layer changed, only update that layer
-    if (changedLayer) {
-        if (changedLayer === 'markers') {
-            if (activeLayers.markers) {
-                showLoading('Adding markers to map...');
-                requestAnimationFrame(() => {
-                    setTimeout(() => {
-                        addMarkers();
-                        hideLoading();
-                    }, 0);
-                });
-            } else {
-                if (markersLayer) {
-                    markersLayer.clearLayers();
-                    if (map.hasLayer(markersLayer)) {
+    try {
+        // If a specific layer changed, only update that layer
+        if (changedLayer) {
+            if (changedLayer === 'markers') {
+                if (activeLayers.markers) {
+                    showLoading('Adding markers to map...');
+                    requestAnimationFrame(() => {
+                        setTimeout(() => {
+                            try {
+                                addMarkers();
+                                hideLoading();
+                            } catch (error) {
+                                console.error('Error adding markers:', error);
+                                hideLoading();
+                                alert('Error displaying markers. Please try again.');
+                            }
+                        }, 0);
+                    });
+                } else {
+                    if (markersLayer) {
+                        markersLayer.clearLayers();
+                        if (map.hasLayer(markersLayer)) {
                         map.removeLayer(markersLayer);
                     }
                 }
@@ -1036,10 +1227,16 @@ function updateMapLayers(changedLayer = null) {
             });
         }, 0);
     });
+    } catch (error) {
+        console.error('Error updating map layers:', error);
+        hideLoading();
+        alert('Error updating map display. Please refresh the page.');
+    }
 }
 
 // Generate rich popup content with casualty and vehicle information
 function generatePopupContent(crash) {
+    try {
     const severity = crash['CSEF Severity'];
     const color = severityColors[severity] || '#808080';
     const casualties = crash._casualties || [];
@@ -1057,8 +1254,10 @@ function generatePopupContent(crash) {
                 <p style="margin: 3px 0; font-size: 12px;"><strong>Location:</strong> ${crash.Suburb || 'N/A'}, ${crash.Postcode || 'N/A'}</p>
                 <p style="margin: 3px 0; font-size: 12px;"><strong>Type:</strong> ${crash['Crash Type'] || 'N/A'}</p>
                 <p style="margin: 3px 0; font-size: 12px;"><strong>Weather:</strong> ${crash['Weather Cond'] || 'N/A'} | ${crash.DayNight || 'N/A'}</p>
+                <p style="margin: 3px 0; font-size: 12px;"><strong>Road:</strong> ${crash['Road Surface'] || 'N/A'} | ${crash['Moisture Cond'] || 'N/A'}</p>
                 <p style="margin: 3px 0; font-size: 12px;"><strong>Speed Limit:</strong> ${crash['Area Speed'] || 'N/A'} km/h</p>
                 ${crash['DUI Involved'] && crash['DUI Involved'].trim() ? '<p style="margin: 3px 0; font-size: 12px; color: red; font-weight: bold;">⚠ DUI Involved</p>' : ''}
+                ${crash['Drugs Involved'] && crash['Drugs Involved'].trim() ? '<p style="margin: 3px 0; font-size: 12px; color: red; font-weight: bold;">⚠ Drugs Involved</p>' : ''}
             </div>`;
 
     // Casualties Section
@@ -1095,9 +1294,10 @@ function generatePopupContent(crash) {
                 const injury = c['Injury Extent'] || 'Unknown';
                 const seatbelt = c['Seat Belt'] === 'Yes' ? '🔒' : c['Seat Belt'] === 'No' ? '❌' : '';
                 const helmet = c.Helmet === 'Worn' ? '🪖' : c.Helmet === 'Not Worn' ? '❌' : '';
+                const hospital = c.Hospital ? ` (🏥 ${c.Hospital})` : '';
 
                 html += `<p style="margin: 3px 0 3px 10px;">
-                    ${idx + 1}. ${type}, ${age}/${sex}, ${injury} ${seatbelt}${helmet}
+                    ${idx + 1}. ${type}, ${age}/${sex}, ${injury} ${seatbelt}${helmet}${hospital}
                 </p>`;
             });
             if (casualties.length > 3) {
@@ -1137,9 +1337,12 @@ function generatePopupContent(crash) {
                 const type = u['Unit Type'] || 'Unknown';
                 const year = u['Veh Year'] ? ` (${u['Veh Year']})` : '';
                 const occupants = u['Number Occupants'] ? `, ${u['Number Occupants']} occupants` : '';
+                const regState = u['Veh Reg State'] ? `, Reg: ${u['Veh Reg State']}` : '';
+                const direction = u['Direction Of Travel'] ? `, ${u['Direction Of Travel']}` : '';
+                const movement = u['Unit Movement'] ? `, ${u['Unit Movement']}` : '';
 
                 html += `<p style="margin: 3px 0 3px 10px;">
-                    ${idx + 1}. ${type}${year}${occupants}
+                    ${idx + 1}. ${type}${year}${occupants}${regState}${direction}${movement}
                 </p>`;
             });
             if (units.length > 3) {
@@ -1152,6 +1355,10 @@ function generatePopupContent(crash) {
 
     html += `</div>`;
     return html;
+    } catch (error) {
+        console.error('Error generating popup content:', error);
+        return '<div style="padding: 10px; color: #ff4444;">Error loading crash details</div>';
+    }
 }
 
 // Add markers to map
@@ -1515,6 +1722,14 @@ function clearFilters() {
         yearRangeSlider.set([2012, 2024]);
     }
 
+    // Reset date range
+    document.getElementById('dateFrom').value = '';
+    document.getElementById('dateTo').value = '';
+
+    // Reset time range
+    document.getElementById('timeFrom').value = '';
+    document.getElementById('timeTo').value = '';
+
     // Reset all dropdowns
     document.getElementById('severity').value = 'all';
     // Reset multi-select by selecting all options
@@ -1596,6 +1811,45 @@ function clearFilters() {
 
     // Reset towing
     document.getElementById('towing').value = 'all';
+
+    // Reset road surface multi-select
+    const roadSurfaceSelect = document.getElementById('roadSurface');
+    for (let option of roadSurfaceSelect.options) {
+        option.selected = (option.value === 'all');
+    }
+
+    // Reset moisture condition multi-select
+    const moistureCondSelect = document.getElementById('moistureCond');
+    for (let option of moistureCondSelect.options) {
+        option.selected = (option.value === 'all');
+    }
+
+    // Reset drugs involved
+    document.getElementById('drugsInvolved').value = 'all';
+
+    // Reset license type multi-select
+    const licenseTypeSelect = document.getElementById('licenseType');
+    for (let option of licenseTypeSelect.options) {
+        option.selected = (option.value === 'all');
+    }
+
+    // Reset vehicle reg state multi-select
+    const vehRegStateSelect = document.getElementById('vehRegState');
+    for (let option of vehRegStateSelect.options) {
+        option.selected = (option.value === 'all');
+    }
+
+    // Reset direction of travel multi-select
+    const directionTravelSelect = document.getElementById('directionTravel');
+    for (let option of directionTravelSelect.options) {
+        option.selected = (option.value === 'all');
+    }
+
+    // Reset unit movement multi-select
+    const unitMovementSelect = document.getElementById('unitMovement');
+    for (let option of unitMovementSelect.options) {
+        option.selected = (option.value === 'all');
+    }
 
     // Update advanced filter badge
     updateAdvancedFilterBadge();
@@ -1700,6 +1954,42 @@ function updateAdvancedFilterBadge() {
     // Fire
     if (document.getElementById('fire').value !== 'all') count++;
 
+    // Road Surface
+    const roadSurfaceSelect = document.getElementById('roadSurface');
+    const selectedRoadSurfaces = Array.from(roadSurfaceSelect.selectedOptions).map(opt => opt.value);
+    if (!selectedRoadSurfaces.includes('all')) count++;
+
+    // Moisture Condition
+    const moistureCondSelect = document.getElementById('moistureCond');
+    const selectedMoistureConds = Array.from(moistureCondSelect.selectedOptions).map(opt => opt.value);
+    if (!selectedMoistureConds.includes('all')) count++;
+
+    // Drugs Involved
+    if (document.getElementById('drugsInvolved').value !== 'all') count++;
+
+    // License Type
+    const licenseTypeSelect = document.getElementById('licenseType');
+    const selectedLicenseTypes = Array.from(licenseTypeSelect.selectedOptions).map(opt => opt.value);
+    if (!selectedLicenseTypes.includes('all')) count++;
+
+    // Vehicle Reg State
+    const vehRegStateSelect = document.getElementById('vehRegState');
+    const selectedRegStates = Array.from(vehRegStateSelect.selectedOptions).map(opt => opt.value);
+    if (!selectedRegStates.includes('all')) count++;
+
+    // Direction of Travel
+    const directionTravelSelect = document.getElementById('directionTravel');
+    const selectedDirections = Array.from(directionTravelSelect.selectedOptions).map(opt => opt.value);
+    if (!selectedDirections.includes('all')) count++;
+
+    // Unit Movement
+    const unitMovementSelect = document.getElementById('unitMovement');
+    const selectedMovements = Array.from(unitMovementSelect.selectedOptions).map(opt => opt.value);
+    if (!selectedMovements.includes('all')) count++;
+
+    // Time of Day
+    if (document.getElementById('timeFrom').value || document.getElementById('timeTo').value) count++;
+
     // Update badge
     const badge = document.getElementById('advancedFilterBadge');
     if (count > 0) {
@@ -1708,6 +1998,250 @@ function updateAdvancedFilterBadge() {
     } else {
         badge.style.display = 'none';
     }
+}
+
+// Theme Toggle Functions
+function toggleTheme() {
+    const currentTheme = document.documentElement.getAttribute('data-theme');
+    const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+
+    document.documentElement.setAttribute('data-theme', newTheme);
+    localStorage.setItem('theme', newTheme);
+
+    // Update icon
+    const themeIcon = document.getElementById('themeIcon');
+    themeIcon.textContent = newTheme === 'dark' ? '☀️' : '🌙';
+}
+
+function initTheme() {
+    // Check for saved theme preference or default to light
+    const savedTheme = localStorage.getItem('theme') || 'light';
+    document.documentElement.setAttribute('data-theme', savedTheme);
+
+    // Update icon
+    const themeIcon = document.getElementById('themeIcon');
+    if (themeIcon) {
+        themeIcon.textContent = savedTheme === 'dark' ? '☀️' : '🌙';
+    }
+}
+
+// URL Parameter Sharing - Encode current filters to URL
+function encodeFiltersToURL() {
+    const filters = getFilterValues();
+    const params = new URLSearchParams();
+
+    // Only add non-default values to keep URL clean
+    if (filters.yearFrom !== 2012) params.set('yearFrom', filters.yearFrom);
+    if (filters.yearTo !== 2024) params.set('yearTo', filters.yearTo);
+
+    if (!filters.selectedSeverities.includes('all')) {
+        params.set('severity', filters.selectedSeverities.join(','));
+    }
+    if (filters.crashType !== 'all') params.set('crashType', filters.crashType);
+    if (filters.weather !== 'all') params.set('weather', filters.weather);
+    if (filters.dayNight !== 'all') params.set('dayNight', filters.dayNight);
+    if (filters.duiInvolved !== 'all') params.set('dui', filters.duiInvolved);
+    if (filters.drugsInvolved !== 'all') params.set('drugs', filters.drugsInvolved);
+
+    if (!filters.selectedAreas.includes('all')) {
+        params.set('areas', filters.selectedAreas.join(','));
+    }
+
+    if (filters.dateFrom) params.set('dateFrom', filters.dateFrom);
+    if (filters.dateTo) params.set('dateTo', filters.dateTo);
+    if (filters.timeFrom) params.set('timeFrom', filters.timeFrom);
+    if (filters.timeTo) params.set('timeTo', filters.timeTo);
+
+    // Update URL without reloading page
+    const newURL = params.toString() ? `${window.location.pathname}?${params.toString()}` : window.location.pathname;
+    window.history.replaceState({}, '', newURL);
+}
+
+// URL Parameter Sharing - Load filters from URL
+function loadFiltersFromURL() {
+    const params = new URLSearchParams(window.location.search);
+
+    if (!params.toString()) return; // No parameters, skip
+
+    try {
+        // Year range
+        if (params.has('yearFrom') || params.has('yearTo')) {
+            const yearFrom = parseInt(params.get('yearFrom')) || 2012;
+            const yearTo = parseInt(params.get('yearTo')) || 2024;
+            currentYearRange = [yearFrom, yearTo];
+            if (window.yearRangeSlider) {
+                window.yearRangeSlider.set([yearFrom, yearTo]);
+            }
+        }
+
+        // Severity
+        if (params.has('severity')) {
+            const severities = params.get('severity').split(',');
+            const select = document.getElementById('severity');
+            Array.from(select.options).forEach(opt => {
+                opt.selected = severities.includes(opt.value);
+            });
+        }
+
+        // Simple filters
+        if (params.has('crashType')) document.getElementById('crashType').value = params.get('crashType');
+        if (params.has('weather')) document.getElementById('weather').value = params.get('weather');
+        if (params.has('dayNight')) document.getElementById('dayNight').value = params.get('dayNight');
+        if (params.has('dui')) document.getElementById('duiInvolved').value = params.get('dui');
+        if (params.has('drugs')) document.getElementById('drugsInvolved').value = params.get('drugs');
+
+        // Areas
+        if (params.has('areas')) {
+            const areas = params.get('areas').split(',');
+            const select = document.getElementById('area');
+            Array.from(select.options).forEach(opt => {
+                opt.selected = areas.includes(opt.value);
+            });
+        }
+
+        // Date/time
+        if (params.has('dateFrom')) document.getElementById('dateFrom').value = params.get('dateFrom');
+        if (params.has('dateTo')) document.getElementById('dateTo').value = params.get('dateTo');
+        if (params.has('timeFrom')) document.getElementById('timeFrom').value = params.get('timeFrom');
+        if (params.has('timeTo')) document.getElementById('timeTo').value = params.get('timeTo');
+
+        // Apply filters after loading from URL
+        setTimeout(() => {
+            applyFilters();
+        }, 500);
+    } catch (error) {
+        console.error('Error loading filters from URL:', error);
+    }
+}
+
+// Share current view - Copy URL to clipboard
+function shareCurrentView() {
+    encodeFiltersToURL();
+    const url = window.location.href;
+
+    if (navigator.clipboard) {
+        navigator.clipboard.writeText(url).then(() => {
+            alert('Link copied to clipboard! Share this URL to show others your current view.');
+        }).catch(err => {
+            // Fallback for older browsers
+            prompt('Copy this link to share your current view:', url);
+        });
+    } else {
+        prompt('Copy this link to share your current view:', url);
+    }
+}
+
+// Search by Location - Geocode address and find nearby crashes
+let searchMarker = null;
+let searchCircle = null;
+
+async function searchByLocation() {
+    const searchInput = document.getElementById('locationSearch');
+    const query = searchInput.value.trim();
+
+    if (!query) {
+        alert('Please enter a location to search');
+        return;
+    }
+
+    showLoading('Searching for location...');
+
+    try {
+        // Use Nominatim geocoding (free, no API key required)
+        // Bias search to South Australia
+        const response = await fetch(
+            `https://nominatim.openstreetmap.org/search?` +
+            `q=${encodeURIComponent(query)},South Australia,Australia&` +
+            `format=json&limit=1&` +
+            `countrycodes=au`
+        );
+
+        if (!response.ok) throw new Error('Geocoding failed');
+
+        const results = await response.json();
+
+        if (results.length === 0) {
+            hideLoading();
+            alert('Location not found. Try searching for a suburb, street, or landmark in South Australia.');
+            return;
+        }
+
+        const location = results[0];
+        const lat = parseFloat(location.lat);
+        const lng = parseFloat(location.lon);
+
+        // Get search radius
+        const radiusKm = parseFloat(document.getElementById('searchRadius').value);
+        const radiusMeters = radiusKm * 1000;
+
+        // Clear previous search marker/circle
+        if (searchMarker) map.removeLayer(searchMarker);
+        if (searchCircle) map.removeLayer(searchCircle);
+
+        // Add marker at search location
+        searchMarker = L.marker([lat, lng], {
+            icon: L.divIcon({
+                className: 'search-marker',
+                html: '<div style="background: #4a90e2; width: 30px; height: 30px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 8px rgba(0,0,0,0.3);"></div>',
+                iconSize: [30, 30],
+                iconAnchor: [15, 15]
+            })
+        }).addTo(map).bindPopup(`<strong>📍 ${location.display_name}</strong>`).openPopup();
+
+        // Add circle showing search radius
+        searchCircle = L.circle([lat, lng], {
+            radius: radiusMeters,
+            color: '#4a90e2',
+            fillColor: '#4a90e2',
+            fillOpacity: 0.1,
+            weight: 2
+        }).addTo(map);
+
+        // Zoom to search area
+        map.fitBounds(searchCircle.getBounds(), { padding: [50, 50] });
+
+        // Filter crashes within radius
+        const nearbyCrashes = crashData.filter(crash => {
+            const coords = convertCoordinates(crash.ACCLOC_X, crash.ACCLOC_Y);
+            if (!coords) return false;
+
+            const [crashLat, crashLng] = coords;
+            const distance = map.distance([lat, lng], [crashLat, crashLng]);
+            return distance <= radiusMeters;
+        });
+
+        hideLoading();
+
+        // Show results
+        const resultMsg = `Found ${nearbyCrashes.length} crashes within ${radiusKm}km of "${location.display_name.split(',')[0]}"`;
+        document.getElementById('searchResults').textContent = resultMsg;
+        document.getElementById('searchResults').style.display = 'block';
+
+        // Apply filter to show only nearby crashes
+        filteredData = nearbyCrashes;
+        updateStatistics();
+        updateMapLayers();
+
+    } catch (error) {
+        console.error('Location search error:', error);
+        hideLoading();
+        alert('Error searching location. Please try again.');
+    }
+}
+
+function clearLocationSearch() {
+    // Clear search marker and circle
+    if (searchMarker) map.removeLayer(searchMarker);
+    if (searchCircle) map.removeLayer(searchCircle);
+    searchMarker = null;
+    searchCircle = null;
+
+    // Clear input and results
+    document.getElementById('locationSearch').value = '';
+    document.getElementById('searchResults').style.display = 'none';
+
+    // Reapply normal filters
+    applyFilters();
 }
 
 // Close modal when clicking outside of it
@@ -1720,9 +2254,15 @@ window.onclick = function(event) {
 
 // Initialize application
 document.addEventListener('DOMContentLoaded', function() {
+    initTheme();
     initMap();
     loadData();
 
     // Initialize dual-handle year range slider
     initYearRangeSlider();
+
+    // Load filters from URL if present (after data loads)
+    setTimeout(() => {
+        loadFiltersFromURL();
+    }, 2000); // Wait for data to load
 });
