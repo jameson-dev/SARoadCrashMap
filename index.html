@@ -610,6 +610,47 @@
             color: var(--accent);
         }
 
+        .attribution-panel {
+            margin-top: 12px;
+            padding: 10px;
+            background: rgba(74, 144, 226, 0.1);
+            border-radius: 6px;
+            border-left: 3px solid var(--accent);
+        }
+
+        .attribution-panel h3 {
+            font-size: 11px;
+            margin-bottom: 6px;
+            color: var(--accent);
+            font-weight: 700;
+        }
+
+        .attribution-panel p {
+            font-size: 10px;
+            color: var(--text-secondary);
+            line-height: 1.4;
+            margin: 4px 0;
+        }
+
+        .attribution-panel a {
+            color: var(--accent);
+            text-decoration: none;
+            font-weight: 600;
+        }
+
+        .attribution-panel a:hover {
+            text-decoration: underline;
+        }
+
+        .attribution-disclaimer {
+            font-size: 9px;
+            color: var(--text-secondary);
+            font-style: italic;
+            margin-top: 6px;
+            padding-top: 6px;
+            border-top: 1px solid var(--border);
+        }
+
         .loading {
             position: fixed;
             top: 0;
@@ -1126,6 +1167,271 @@
             border-top: 1px solid var(--border);
             margin: 8px 0;
         }
+
+        /* Footer Styles */
+        .page-footer {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: var(--bg-panel);
+            backdrop-filter: blur(10px);
+            border-top: 1px solid var(--border);
+            padding: 10px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 999;
+            font-size: 12px;
+            box-shadow: 0 -4px 12px var(--shadow);
+        }
+
+        .footer-links {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+
+        .footer-links a {
+            color: var(--accent);
+            text-decoration: none;
+            transition: all 0.2s;
+            font-weight: 500;
+        }
+
+        .footer-links a:hover {
+            color: var(--accent-hover);
+            text-decoration: underline;
+        }
+
+        .footer-attribution {
+            color: var(--text-secondary);
+            font-size: 11px;
+        }
+
+        .footer-attribution a {
+            color: var(--accent);
+            text-decoration: none;
+        }
+
+        .footer-attribution a:hover {
+            text-decoration: underline;
+        }
+
+        @media (max-width: 768px) {
+            .page-footer {
+                flex-direction: column;
+                gap: 8px;
+                padding: 12px 15px;
+                text-align: center;
+            }
+
+            .footer-links {
+                justify-content: center;
+                gap: 10px;
+            }
+
+            .footer-links a {
+                font-size: 11px;
+            }
+
+            .footer-attribution {
+                font-size: 10px;
+            }
+        }
+
+        /* Fullscreen Info Modals */
+        .info-modal {
+            display: none;
+            position: fixed;
+            z-index: 20000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: var(--bg-primary);
+            overflow-y: auto;
+            animation: fadeIn 0.3s;
+        }
+
+        .info-modal.show {
+            display: block;
+        }
+
+        .info-modal-header {
+            position: sticky;
+            top: 0;
+            background: var(--bg-secondary);
+            border-bottom: 3px solid var(--accent);
+            padding: 20px;
+            z-index: 100;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 8px var(--shadow);
+        }
+
+        .info-modal-header h1 {
+            color: var(--accent);
+            font-size: 24px;
+            margin: 0;
+        }
+
+        .info-modal-close {
+            background: var(--accent);
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+
+        .info-modal-close:hover {
+            background: var(--accent-hover);
+            transform: scale(1.05);
+        }
+
+        .info-modal-container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 30px 20px 60px 20px;
+        }
+
+        .info-modal-section {
+            background: var(--bg-secondary);
+            border-left: 4px solid var(--accent);
+            padding: 18px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px var(--shadow);
+        }
+
+        .info-modal h2 {
+            color: var(--accent);
+            font-size: 18px;
+            margin-bottom: 12px;
+        }
+
+        .info-modal h3 {
+            color: var(--accent);
+            font-size: 15px;
+            margin: 15px 0 8px 0;
+        }
+
+        .info-modal h4 {
+            color: var(--accent);
+            font-size: 13px;
+            margin: 12px 0 6px 0;
+        }
+
+        .info-modal p {
+            margin-bottom: 10px;
+            color: var(--text-primary);
+            font-size: 13px;
+            line-height: 1.5;
+        }
+
+        .info-modal ul, .info-modal ol {
+            margin-left: 25px;
+            margin-bottom: 12px;
+            font-size: 13px;
+        }
+
+        .info-modal li {
+            margin-bottom: 6px;
+            line-height: 1.4;
+        }
+
+        .info-modal table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 15px 0;
+            background: var(--bg-primary);
+            box-shadow: 0 2px 6px var(--shadow);
+            font-size: 12px;
+        }
+
+        .info-modal th, .info-modal td {
+            padding: 8px;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .info-modal th {
+            background: var(--accent);
+            color: white;
+            font-weight: 600;
+            font-size: 12px;
+        }
+
+        .info-modal tr:hover {
+            background: var(--bg-secondary);
+        }
+
+        .info-modal code {
+            background: var(--input-bg);
+            padding: 2px 5px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+        }
+
+        .info-modal .important-notice {
+            background: rgba(255, 68, 68, 0.1);
+            border-left: 4px solid #ff4444;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 8px;
+        }
+
+        .info-modal .important-notice h3 {
+            color: #ff4444;
+            margin-bottom: 8px;
+            font-size: 15px;
+        }
+
+        .info-modal .info-box {
+            background: rgba(74, 144, 226, 0.1);
+            border-left: 4px solid var(--accent);
+            padding: 12px;
+            margin: 15px 0;
+            border-radius: 8px;
+            font-size: 13px;
+        }
+
+        .info-modal .info-box strong {
+            color: var(--accent);
+        }
+
+        .info-modal a {
+            color: var(--accent);
+            text-decoration: none;
+        }
+
+        .info-modal a:hover {
+            text-decoration: underline;
+        }
+
+        @media (max-width: 768px) {
+            .info-modal-header h1 {
+                font-size: 20px;
+            }
+
+            .info-modal-container {
+                padding: 20px 15px 50px 15px;
+            }
+
+            .info-modal h2 {
+                font-size: 16px;
+            }
+
+            .info-modal p, .info-modal ul, .info-modal ol {
+                font-size: 12px;
+            }
+        }
     </style>
 </head>
 <body>
@@ -1278,6 +1584,16 @@
                 <span>Minor Injuries:</span>
                 <span class="stat-value" id="totalMinor">0</span>
             </div>
+        </div>
+
+        <div class="attribution-panel">
+            <h3>Data Attribution</h3>
+            <p>Data sourced from <a href="https://data.sa.gov.au" target="_blank" rel="noopener noreferrer">Data SA</a> (Government of South Australia)</p>
+            <p>Road Crash Data: 2012-2024</p>
+            <p class="attribution-disclaimer">
+                This is an independent project not affiliated with the SA Government.
+                See <a href="disclaimer.html" target="_blank">full disclaimer</a> for terms of use.
+            </p>
         </div>
         </div><!-- End panel-content -->
     </div>
@@ -1590,5 +1906,364 @@
     <script src="https://unpkg.com/@turf/turf@6.5.0/turf.min.js"></script>
 
     <script src="app.js"></script>
+
+    <!-- Disclaimer Modal -->
+    <div id="disclaimerModal" class="info-modal">
+        <div class="info-modal-header">
+            <h1>Disclaimer</h1>
+            <button class="info-modal-close" onclick="closeInfoModal('disclaimerModal')">Close</button>
+        </div>
+        <div class="info-modal-container">
+            <div class="important-notice">
+                <h3>⚠️ Important Notice</h3>
+                <p><strong>This website is provided for informational and visualisation purposes only. It must not be relied upon for legal, insurance, regulatory, enforcement, property, safety, or emergency decision-making.</strong></p>
+            </div>
+
+            <div class="info-modal-section">
+                <h2>Data Source</h2>
+                <p>All crash data displayed on this website is sourced from publicly available datasets published by <strong>Data SA</strong> (Government of South Australia).</p>
+                <p>The original datasets can be accessed at: <a href="https://data.sa.gov.au" target="_blank" rel="noopener noreferrer">data.sa.gov.au</a></p>
+            </div>
+
+            <div class="info-modal-section">
+                <h2>Data Processing</h2>
+                <p>The datasets have been cleaned and standardised across yearly releases (2012–2024) to ensure consistent formatting and comparability. No material alterations have been made to the original published records beyond necessary formatting and structural adjustments.</p>
+            </div>
+
+            <div class="info-modal-section">
+                <h2>Accuracy & Limitations</h2>
+                <p>While reasonable care has been taken to ensure accurate representation of the source data, <strong>no guarantee is provided</strong> regarding the completeness, accuracy, reliability, or timeliness of the information displayed.</p>
+                <p>Users should verify information against official government sources where required. The data may contain errors, omissions, or outdated information.</p>
+                <p>Geographic coordinates and location information may be approximate and should not be considered precise.</p>
+            </div>
+
+            <div class="info-modal-section">
+                <h2>Informational Use Only</h2>
+                <p>This website is provided for <strong>informational and visualisation purposes only</strong>. The information presented here must not be relied upon for:</p>
+                <ul>
+                    <li>Legal proceedings or decisions</li>
+                    <li>Insurance claims or assessments</li>
+                    <li>Regulatory compliance or reporting</li>
+                    <li>Law enforcement activities</li>
+                    <li>Property valuations or real estate decisions</li>
+                    <li>Safety assessments or emergency planning</li>
+                    <li>Any other critical or official purpose</li>
+                </ul>
+                <p>For official information, please consult the relevant South Australian Government agencies and authorities.</p>
+            </div>
+
+            <div class="info-modal-section">
+                <h2>No Government Affiliation</h2>
+                <p>This is an <strong>independent project</strong> and is not affiliated with, endorsed by, or representing the Government of South Australia, Data SA, or any other government agency.</p>
+                <p>This website is not an official government resource. All official inquiries should be directed to the appropriate South Australian Government departments.</p>
+            </div>
+
+            <div class="info-modal-section">
+                <h2>Privacy & Data Protection</h2>
+                <p>This website only displays aggregated crash statistics from publicly available datasets. No personal information or identifiable data about individuals involved in crashes is displayed or stored.</p>
+                <p>The website does not collect personal information from users beyond standard web server logs.</p>
+            </div>
+
+            <div class="info-modal-section">
+                <h2>Limitation of Liability</h2>
+                <p><strong>Use of this website is at your own risk.</strong> The site owner, contributors, and data providers accept no liability for any loss, damage, injury, or consequences arising directly or indirectly from:</p>
+                <ul>
+                    <li>The use of this website or its content</li>
+                    <li>Reliance on information displayed on this website</li>
+                    <li>Errors, omissions, or inaccuracies in the data</li>
+                    <li>Unavailability or interruption of service</li>
+                    <li>Any decisions made based on information from this website</li>
+                </ul>
+                <p>To the maximum extent permitted by law, all warranties, express or implied, are excluded.</p>
+            </div>
+
+            <div class="info-modal-section">
+                <h2>Third-Party Services</h2>
+                <p>This website uses third-party services and libraries including Leaflet (mapping), OpenStreetMap (map tiles), and various JavaScript libraries. The site owner is not responsible for the availability, accuracy, or content provided by these third-party services.</p>
+            </div>
+
+            <div class="info-modal-section">
+                <h2>Changes to This Disclaimer</h2>
+                <p>This disclaimer may be updated from time to time without notice. Continued use of this website constitutes acceptance of any changes to this disclaimer.</p>
+                <p style="font-style: italic; color: var(--text-secondary); margin-top: 15px;">Last Updated: February 2026</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Methodology Modal -->
+    <div id="methodologyModal" class="info-modal">
+        <div class="info-modal-header">
+            <h1>Data Processing Methodology</h1>
+            <button class="info-modal-close" onclick="closeInfoModal('methodologyModal')">Close</button>
+        </div>
+        <div class="info-modal-container">
+            <div class="info-modal-section">
+                <h2>Overview</h2>
+                <p>This page documents the data processing methodology used to prepare the South Australian crash data for visualization on this website. The goal is to provide transparency about how the raw data has been transformed and to help users understand any limitations or considerations when interpreting the visualizations.</p>
+            </div>
+
+            <div class="info-modal-section">
+                <h2>Data Sources</h2>
+                <p>All data is sourced from publicly available datasets published by <strong>Data SA</strong> (Government of South Australia):</p>
+                <ul>
+                    <li><strong>Primary Dataset:</strong> Road Crash Data (2012-2024)</li>
+                    <li><strong>Source URL:</strong> <a href="https://data.sa.gov.au" target="_blank" rel="noopener noreferrer">data.sa.gov.au</a></li>
+                    <li><strong>Data Format:</strong> CSV (Comma-Separated Values)</li>
+                    <li><strong>Update Frequency:</strong> Periodically updated by Data SA</li>
+                    <li><strong>Coverage Period:</strong> January 1, 2012 to December 31, 2024</li>
+                </ul>
+                <div class="info-box">
+                    <strong>Note:</strong> The datasets are published by the South Australian Government under open data licensing terms. Please refer to Data SA for the most current and official data.
+                </div>
+            </div>
+
+            <div class="info-modal-section">
+                <h2>Data Processing Steps</h2>
+
+                <h3>1. Data Collection & Consolidation</h3>
+                <p>Yearly crash data files (2012-2024) were collected from Data SA and consolidated into a single unified dataset. This process involved:</p>
+                <ul>
+                    <li>Downloading individual yearly CSV files from Data SA</li>
+                    <li>Merging multiple datasets while preserving all original records</li>
+                    <li>Creating a combined dataset for efficient querying and visualization</li>
+                </ul>
+
+                <h3>2. Data Cleaning & Standardization</h3>
+                <p>To ensure consistency across different yearly releases, the following standardization procedures were applied:</p>
+
+                <h4>Column Name Standardization</h4>
+                <ul>
+                    <li>Inconsistent column names across years were normalized to a common schema</li>
+                    <li>Whitespace and special characters in column headers were standardized</li>
+                    <li>Column names were made case-consistent for reliable programmatic access</li>
+                </ul>
+
+                <h4>Data Type Validation</h4>
+                <ul>
+                    <li>Numeric fields (e.g., year, casualty counts) validated and converted to appropriate types</li>
+                    <li>Date and time fields parsed and standardized to ISO 8601 format where applicable</li>
+                    <li>Text fields trimmed of leading/trailing whitespace</li>
+                </ul>
+
+                <h4>Missing Data Handling</h4>
+                <ul>
+                    <li>Empty fields preserved as empty strings (not converted to null/undefined arbitrarily)</li>
+                    <li>No imputation or artificial data generation performed</li>
+                    <li>Missing geographic coordinates excluded from mapping visualizations</li>
+                </ul>
+
+                <h3>3. Geographic Coordinate Processing</h3>
+                <p>The crash data includes geographic coordinates that enable map-based visualization:</p>
+                <ul>
+                    <li><strong>Coordinate System:</strong> Original data uses GDA2020 / MGA Zone 54 (EPSG:7854)</li>
+                    <li><strong>Conversion:</strong> Coordinates converted to WGS84 (latitude/longitude) using Proj4js library for web mapping compatibility</li>
+                    <li><strong>Validation:</strong> Records with missing or invalid coordinates excluded from map layers</li>
+                    <li><strong>Precision:</strong> Coordinates displayed with standard precision; exact crash locations may be approximate</li>
+                </ul>
+
+                <div class="info-box">
+                    <strong>Important:</strong> Geographic coordinates should be considered approximate. They are suitable for visualization and general analysis but not for precise location-based decisions.
+                </div>
+
+                <h3>4. Categorical Data Harmonization</h3>
+                <p>Categorical fields (e.g., crash severity, weather conditions, crash type) were standardized:</p>
+                <ul>
+                    <li>Consistent encoding of categories across years</li>
+                    <li>Removal of redundant or duplicate category labels</li>
+                    <li>Preservation of original category meanings without reclassification</li>
+                </ul>
+
+                <h3>5. Temporal Data Processing</h3>
+                <ul>
+                    <li>Crash dates and times preserved in original form where available</li>
+                    <li>Year extracted and validated for filtering purposes</li>
+                    <li>Time-of-day filters support 24-hour format</li>
+                </ul>
+            </div>
+
+            <div class="info-modal-section">
+                <h2>Data Schema</h2>
+                <p>The consolidated dataset includes the following key fields:</p>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Field Category</th>
+                            <th>Example Fields</th>
+                            <th>Description</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>Temporal</strong></td>
+                            <td>Year, Date, Time, Day/Night</td>
+                            <td>When the crash occurred</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Geographic</strong></td>
+                            <td>Latitude, Longitude, Area/LGA, Suburb</td>
+                            <td>Where the crash occurred</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Severity</strong></td>
+                            <td>Crash Severity, Casualties, Fatalities</td>
+                            <td>Impact and outcomes</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Crash Characteristics</strong></td>
+                            <td>Crash Type, Weather, Road Surface</td>
+                            <td>Conditions and type of crash</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Vehicles & Units</strong></td>
+                            <td>Vehicle Type, Heavy Vehicle, Unit Count</td>
+                            <td>Vehicles involved in crash</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Casualties</strong></td>
+                            <td>Road User Type, Age, Sex, Injury Extent</td>
+                            <td>People affected by crash</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Contributing Factors</strong></td>
+                            <td>DUI, Drugs, Speed, Seat Belt</td>
+                            <td>Factors related to crash occurrence</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="info-modal-section">
+                <h2>Visualization Processing</h2>
+
+                <h3>Marker Clustering</h3>
+                <ul>
+                    <li>Individual crash points clustered using Leaflet MarkerCluster library</li>
+                    <li>Clustering performed client-side for responsive interaction</li>
+                    <li>Cluster size indicates number of crashes in geographic proximity</li>
+                </ul>
+
+                <h3>Heatmap Generation</h3>
+                <ul>
+                    <li>Heatmap layer generated using Leaflet.heat library</li>
+                    <li>Intensity based on crash density in geographic areas</li>
+                    <li>Gradient adjusted for optimal visual contrast</li>
+                </ul>
+
+                <h3>Choropleth Mapping</h3>
+                <ul>
+                    <li>LGA (Local Government Area) boundaries used for choropleth visualization</li>
+                    <li>Crash counts aggregated by geographic region</li>
+                    <li>Color intensity proportional to crash frequency</li>
+                </ul>
+            </div>
+
+            <div class="info-modal-section">
+                <h2>Filtering & Aggregation</h2>
+                <p>The website provides extensive filtering capabilities. All filters are applied client-side:</p>
+                <ul>
+                    <li><strong>Temporal Filters:</strong> Year range, date range, time of day</li>
+                    <li><strong>Severity Filters:</strong> Crash severity levels, injury extent</li>
+                    <li><strong>Geographic Filters:</strong> LGA/area, location search with radius</li>
+                    <li><strong>Condition Filters:</strong> Weather, road surface, day/night</li>
+                    <li><strong>Vehicle Filters:</strong> Vehicle type, heavy vehicle involvement</li>
+                    <li><strong>Casualty Filters:</strong> Age group, road user type, safety equipment usage</li>
+                </ul>
+                <p>Statistics are recalculated dynamically based on active filters to show relevant totals and counts.</p>
+            </div>
+
+            <div class="info-modal-section">
+                <h2>Data Integrity & Quality Assurance</h2>
+
+                <h3>Validation Checks</h3>
+                <ul>
+                    <li>Record count verification against source datasets</li>
+                    <li>Coordinate validity checks (within South Australia bounds)</li>
+                    <li>Date and time range validation</li>
+                    <li>Categorical value consistency checks</li>
+                </ul>
+
+                <h3>Known Limitations</h3>
+                <ul>
+                    <li>Some records may have incomplete data fields</li>
+                    <li>Geographic coordinates are approximate and may not reflect exact crash locations</li>
+                    <li>Data is dependent on reporting accuracy and completeness in source datasets</li>
+                    <li>Historical data may have different collection or reporting standards than recent data</li>
+                    <li>Not all crashes may be represented in the dataset</li>
+                </ul>
+            </div>
+
+            <div class="info-modal-section">
+                <h2>Tools & Technologies</h2>
+                <p>The following tools and libraries were used in data processing and visualization:</p>
+                <ul>
+                    <li><strong>Python:</strong> Data cleaning and consolidation (pandas, csv libraries)</li>
+                    <li><strong>Leaflet.js:</strong> Interactive mapping library</li>
+                    <li><strong>Proj4js:</strong> Coordinate system transformation</li>
+                    <li><strong>PapaParse:</strong> CSV parsing in browser</li>
+                    <li><strong>Turf.js:</strong> Geospatial analysis and calculations</li>
+                    <li><strong>noUiSlider:</strong> Range filter controls</li>
+                </ul>
+            </div>
+
+            <div class="info-modal-section">
+                <h2>Updates & Versioning</h2>
+                <p>As new data becomes available from Data SA, the dataset may be updated. Major updates will be documented here with version information and change notes.</p>
+                <p><strong>Current Version:</strong> 2012-2024 Dataset (February 2026)</p>
+            </div>
+
+            <div class="info-modal-section">
+                <h2>Reproducibility & Transparency</h2>
+                <p>This project aims to maintain transparency in data processing. Users who wish to verify the processing methodology or reproduce the dataset can:</p>
+                <ul>
+                    <li>Access the original source data from Data SA</li>
+                    <li>Review the processing scripts (available in project repository if open-sourced)</li>
+                    <li>Contact the project maintainer with questions or concerns</li>
+                </ul>
+                <p style="font-style: italic; color: var(--text-secondary); margin-top: 15px;">Last Updated: February 2026</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="page-footer">
+        <div class="footer-links">
+            <a href="#" onclick="openInfoModal('disclaimerModal'); return false;">Disclaimer</a>
+            <a href="#" onclick="openInfoModal('methodologyModal'); return false;">Data Methodology</a>
+            <a href="LICENSE" target="_blank">MIT License</a>
+        </div>
+        <div class="footer-attribution">
+            Data: <a href="https://data.sa.gov.au" target="_blank" rel="noopener noreferrer">Data SA</a> |
+            &copy; 2026 SA Crash Data Map
+        </div>
+    </footer>
+
+    <script>
+        // Info modal functions
+        function openInfoModal(modalId) {
+            document.getElementById(modalId).classList.add('show');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeInfoModal(modalId) {
+            document.getElementById(modalId).classList.remove('show');
+            document.body.style.overflow = 'auto';
+        }
+
+        // Close modal when clicking outside
+        window.addEventListener('click', function(event) {
+            if (event.target.classList.contains('info-modal')) {
+                closeInfoModal(event.target.id);
+            }
+        });
+
+        // Close modal with Escape key
+        window.addEventListener('keydown', function(event) {
+            if (event.key === 'Escape') {
+                document.querySelectorAll('.info-modal.show').forEach(modal => {
+                    closeInfoModal(modal.id);
+                });
+            }
+        });
+    </script>
 </body>
 </html>

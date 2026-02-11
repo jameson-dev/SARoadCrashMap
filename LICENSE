@@ -1,0 +1,50 @@
+MIT License
+
+Copyright (c) 2026 SA Crash Data Map Project
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+================================================================================
+
+DATA LICENSE & ATTRIBUTION
+
+The crash data visualized by this software is sourced from Data SA (Government
+of South Australia) and remains subject to the original licensing terms under
+which it was published.
+
+Data Source: Data SA (data.sa.gov.au)
+Dataset: Road Crash Data (2012-2024)
+Data License: As specified by Data SA
+
+Users of this software must comply with both:
+1. The MIT License for the software code and visualization tools
+2. The data licensing terms specified by Data SA for the underlying crash data
+
+The software code is provided under the MIT License, but the data itself
+remains the property of the Government of South Australia and is used in
+accordance with their open data policies.
+
+================================================================================
+
+DISCLAIMER
+
+This software is provided for informational and visualization purposes only.
+It must not be relied upon for legal, insurance, regulatory, enforcement,
+property, safety, or emergency decision-making. See the full disclaimer at
+disclaimer.html for complete terms.

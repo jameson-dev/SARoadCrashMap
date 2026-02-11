@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Data Processing Methodology - SA Crash Data Map</title>
+    <style>
+        :root {
+            --bg-primary: #ffffff;
+            --bg-secondary: #f5f5f5;
+            --text-primary: #2a2a2a;
+            --text-secondary: #666666;
+            --accent: #4a90e2;
+            --accent-hover: #3a7bc8;
+            --border: rgba(0, 0, 0, 0.1);
+            --shadow: rgba(0, 0, 0, 0.1);
+            --code-bg: #2a2a2a;
+            --code-text: #e0e0e0;
+        }
+
+        [data-theme="dark"] {
+            --bg-primary: #1a1a1a;
+            --bg-secondary: #2a2a2a;
+            --text-primary: #e0e0e0;
+            --text-secondary: #a0a0a0;
+            --accent: #4a90e2;
+            --accent-hover: #5a9ff0;
+            --border: rgba(255, 255, 255, 0.1);
+            --shadow: rgba(0, 0, 0, 0.4);
+            --code-bg: #1a1a1a;
+            --code-text: #e0e0e0;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+            transition: background 0.3s ease, color 0.3s ease;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
+
+        header {
+            background: var(--bg-secondary);
+            border-bottom: 3px solid var(--accent);
+            padding: 30px 0;
+            margin-bottom: 40px;
+        }
+
+        header .container {
+            padding: 0 20px;
+        }
+
+        h1 {
+            color: var(--accent);
+            font-size: 32px;
+            margin-bottom: 10px;
+        }
+
+        .subtitle {
+            color: var(--text-secondary);
+            font-size: 16px;
+        }
+
+        .back-link {
+            display: inline-block;
+            color: var(--accent);
+            text-decoration: none;
+            margin-bottom: 30px;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+
+        .back-link:hover {
+            color: var(--accent-hover);
+            transform: translateX(-5px);
+        }
+
+        .methodology-section {
+            background: var(--bg-secondary);
+            border-left: 4px solid var(--accent);
+            padding: 25px;
+            margin-bottom: 30px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px var(--shadow);
+        }
+
+        h2 {
+            color: var(--accent);
+            font-size: 22px;
+            margin-bottom: 15px;
+        }
+
+        h3 {
+            color: var(--accent);
+            font-size: 18px;
+            margin: 20px 0 10px 0;
+        }
+
+        p {
+            margin-bottom: 15px;
+            color: var(--text-primary);
+        }
+
+        ul, ol {
+            margin-left: 30px;
+            margin-bottom: 15px;
+        }
+
+        li {
+            margin-bottom: 8px;
+        }
+
+        code {
+            background: var(--code-bg);
+            color: var(--code-text);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+        }
+
+        .info-box {
+            background: rgba(74, 144, 226, 0.1);
+            border-left: 4px solid var(--accent);
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 8px;
+        }
+
+        .info-box strong {
+            color: var(--accent);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            background: var(--bg-primary);
+            box-shadow: 0 2px 8px var(--shadow);
+        }
+
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+        }
+
+        th {
+            background: var(--accent);
+            color: white;
+            font-weight: 600;
+        }
+
+        tr:hover {
+            background: var(--bg-secondary);
+        }
+
+        footer {
+            margin-top: 60px;
+            padding-top: 30px;
+            border-top: 2px solid var(--border);
+            text-align: center;
+            color: var(--text-secondary);
+            font-size: 14px;
+        }
+
+        footer a {
+            color: var(--accent);
+            text-decoration: none;
+        }
+
+        footer a:hover {
+            text-decoration: underline;
+        }
+
+        @media (max-width: 768px) {
+            h1 {
+                font-size: 26px;
+            }
+
+            h2 {
+                font-size: 20px;
+            }
+
+            .container {
+                padding: 20px 15px;
+            }
+
+            .methodology-section {
+                padding: 20px;
+            }
+
+            table {
+                font-size: 14px;
+            }
+
+            th, td {
+                padding: 8px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="container">
+            <h1>Data Processing Methodology</h1>
+            <p class="subtitle">SA Crash Data Map 2012-2024</p>
+        </div>
+    </header>
+
+    <div class="container">
+        <a href="index.html" class="back-link">← Back to Map</a>
+
+        <div class="methodology-section">
+            <h2>Overview</h2>
+            <p>This page documents the data processing methodology used to prepare the South Australian crash data for visualization on this website. The goal is to provide transparency about how the raw data has been transformed and to help users understand any limitations or considerations when interpreting the visualizations.</p>
+        </div>
+
+        <div class="methodology-section">
+            <h2>Data Sources</h2>
+            <p>All data is sourced from publicly available datasets published by <strong>Data SA</strong> (Government of South Australia):</p>
+            <ul>
+                <li><strong>Primary Dataset:</strong> Road Crash Data (2012-2024)</li>
+                <li><strong>Source URL:</strong> <a href="https://data.sa.gov.au" target="_blank" rel="noopener noreferrer" style="color: var(--accent);">data.sa.gov.au</a></li>
+                <li><strong>Data Format:</strong> CSV (Comma-Separated Values)</li>
+                <li><strong>Update Frequency:</strong> Periodically updated by Data SA</li>
+                <li><strong>Coverage Period:</strong> January 1, 2012 to December 31, 2024</li>
+            </ul>
+
+            <div class="info-box">
+                <strong>Note:</strong> The datasets are published by the South Australian Government under open data licensing terms. Please refer to Data SA for the most current and official data.
+            </div>
+        </div>
+
+        <div class="methodology-section">
+            <h2>Data Processing Steps</h2>
+
+            <h3>1. Data Collection & Consolidation</h3>
+            <p>Yearly crash data files (2012-2024) were collected from Data SA and consolidated into a single unified dataset. This process involved:</p>
+            <ul>
+                <li>Downloading individual yearly CSV files from Data SA</li>
+                <li>Merging multiple datasets while preserving all original records</li>
+                <li>Creating a combined dataset for efficient querying and visualization</li>
+            </ul>
+
+            <h3>2. Data Cleaning & Standardization</h3>
+            <p>To ensure consistency across different yearly releases, the following standardization procedures were applied:</p>
+
+            <h4>Column Name Standardization</h4>
+            <ul>
+                <li>Inconsistent column names across years were normalized to a common schema</li>
+                <li>Whitespace and special characters in column headers were standardized</li>
+                <li>Column names were made case-consistent for reliable programmatic access</li>
+            </ul>
+
+            <h4>Data Type Validation</h4>
+            <ul>
+                <li>Numeric fields (e.g., year, casualty counts) validated and converted to appropriate types</li>
+                <li>Date and time fields parsed and standardized to ISO 8601 format where applicable</li>
+                <li>Text fields trimmed of leading/trailing whitespace</li>
+            </ul>
+
+            <h4>Missing Data Handling</h4>
+            <ul>
+                <li>Empty fields preserved as empty strings (not converted to null/undefined arbitrarily)</li>
+                <li>No imputation or artificial data generation performed</li>
+                <li>Missing geographic coordinates excluded from mapping visualizations</li>
+            </ul>
+
+            <h3>3. Geographic Coordinate Processing</h3>
+            <p>The crash data includes geographic coordinates that enable map-based visualization:</p>
+            <ul>
+                <li><strong>Coordinate System:</strong> Original data uses GDA2020 / MGA Zone 54 (EPSG:7854)</li>
+                <li><strong>Conversion:</strong> Coordinates converted to WGS84 (latitude/longitude) using Proj4js library for web mapping compatibility</li>
+                <li><strong>Validation:</strong> Records with missing or invalid coordinates excluded from map layers</li>
+                <li><strong>Precision:</strong> Coordinates displayed with standard precision; exact crash locations may be approximate</li>
+            </ul>
+
+            <div class="info-box">
+                <strong>Important:</strong> Geographic coordinates should be considered approximate. They are suitable for visualization and general analysis but not for precise location-based decisions.
+            </div>
+
+            <h3>4. Categorical Data Harmonization</h3>
+            <p>Categorical fields (e.g., crash severity, weather conditions, crash type) were standardized:</p>
+            <ul>
+                <li>Consistent encoding of categories across years</li>
+                <li>Removal of redundant or duplicate category labels</li>
+                <li>Preservation of original category meanings without reclassification</li>
+            </ul>
+
+            <h3>5. Temporal Data Processing</h3>
+            <ul>
+                <li>Crash dates and times preserved in original form where available</li>
+                <li>Year extracted and validated for filtering purposes</li>
+                <li>Time-of-day filters support 24-hour format</li>
+            </ul>
+        </div>
+
+        <div class="methodology-section">
+            <h2>Data Schema</h2>
+            <p>The consolidated dataset includes the following key fields:</p>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>Field Category</th>
+                        <th>Example Fields</th>
+                        <th>Description</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>Temporal</strong></td>
+                        <td>Year, Date, Time, Day/Night</td>
+                        <td>When the crash occurred</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Geographic</strong></td>
+                        <td>Latitude, Longitude, Area/LGA, Suburb</td>
+                        <td>Where the crash occurred</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Severity</strong></td>
+                        <td>Crash Severity, Casualties, Fatalities</td>
+                        <td>Impact and outcomes</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Crash Characteristics</strong></td>
+                        <td>Crash Type, Weather, Road Surface</td>
+                        <td>Conditions and type of crash</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Vehicles & Units</strong></td>
+                        <td>Vehicle Type, Heavy Vehicle, Unit Count</td>
+                        <td>Vehicles involved in crash</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Casualties</strong></td>
+                        <td>Road User Type, Age, Sex, Injury Extent</td>
+                        <td>People affected by crash</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Contributing Factors</strong></td>
+                        <td>DUI, Drugs, Speed, Seat Belt</td>
+                        <td>Factors related to crash occurrence</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="methodology-section">
+            <h2>Visualization Processing</h2>
+
+            <h3>Marker Clustering</h3>
+            <ul>
+                <li>Individual crash points clustered using Leaflet MarkerCluster library</li>
+                <li>Clustering performed client-side for responsive interaction</li>
+                <li>Cluster size indicates number of crashes in geographic proximity</li>
+            </ul>
+
+            <h3>Heatmap Generation</h3>
+            <ul>
+                <li>Heatmap layer generated using Leaflet.heat library</li>
+                <li>Intensity based on crash density in geographic areas</li>
+                <li>Gradient adjusted for optimal visual contrast</li>
+            </ul>
+
+            <h3>Choropleth Mapping</h3>
+            <ul>
+                <li>LGA (Local Government Area) boundaries used for choropleth visualization</li>
+                <li>Crash counts aggregated by geographic region</li>
+                <li>Color intensity proportional to crash frequency</li>
+            </ul>
+        </div>
+
+        <div class="methodology-section">
+            <h2>Filtering & Aggregation</h2>
+            <p>The website provides extensive filtering capabilities. All filters are applied client-side:</p>
+            <ul>
+                <li><strong>Temporal Filters:</strong> Year range, date range, time of day</li>
+                <li><strong>Severity Filters:</strong> Crash severity levels, injury extent</li>
+                <li><strong>Geographic Filters:</strong> LGA/area, location search with radius</li>
+                <li><strong>Condition Filters:</strong> Weather, road surface, day/night</li>
+                <li><strong>Vehicle Filters:</strong> Vehicle type, heavy vehicle involvement</li>
+                <li><strong>Casualty Filters:</strong> Age group, road user type, safety equipment usage</li>
+            </ul>
+
+            <p>Statistics are recalculated dynamically based on active filters to show relevant totals and counts.</p>
+        </div>
+
+        <div class="methodology-section">
+            <h2>Data Integrity & Quality Assurance</h2>
+
+            <h3>Validation Checks</h3>
+            <ul>
+                <li>Record count verification against source datasets</li>
+                <li>Coordinate validity checks (within South Australia bounds)</li>
+                <li>Date and time range validation</li>
+                <li>Categorical value consistency checks</li>
+            </ul>
+
+            <h3>Known Limitations</h3>
+            <ul>
+                <li>Some records may have incomplete data fields</li>
+                <li>Geographic coordinates are approximate and may not reflect exact crash locations</li>
+                <li>Data is dependent on reporting accuracy and completeness in source datasets</li>
+                <li>Historical data may have different collection or reporting standards than recent data</li>
+                <li>Not all crashes may be represented in the dataset</li>
+            </ul>
+        </div>
+
+        <div class="methodology-section">
+            <h2>Tools & Technologies</h2>
+            <p>The following tools and libraries were used in data processing and visualization:</p>
+            <ul>
+                <li><strong>Python:</strong> Data cleaning and consolidation (pandas, csv libraries)</li>
+                <li><strong>Leaflet.js:</strong> Interactive mapping library</li>
+                <li><strong>Proj4js:</strong> Coordinate system transformation</li>
+                <li><strong>PapaParse:</strong> CSV parsing in browser</li>
+                <li><strong>Turf.js:</strong> Geospatial analysis and calculations</li>
+                <li><strong>noUiSlider:</strong> Range filter controls</li>
+            </ul>
+        </div>
+
+        <div class="methodology-section">
+            <h2>Updates & Versioning</h2>
+            <p>As new data becomes available from Data SA, the dataset may be updated. Major updates will be documented here with version information and change notes.</p>
+            <p><strong>Current Version:</strong> 2012-2024 Dataset (February 2026)</p>
+        </div>
+
+        <div class="methodology-section">
+            <h2>Reproducibility & Transparency</h2>
+            <p>This project aims to maintain transparency in data processing. Users who wish to verify the processing methodology or reproduce the dataset can:</p>
+            <ul>
+                <li>Access the original source data from Data SA</li>
+                <li>Review the processing scripts (available in project repository if open-sourced)</li>
+                <li>Contact the project maintainer with questions or concerns</li>
+            </ul>
+        </div>
+
+        <footer>
+            <p><a href="index.html">Back to Map</a> | <a href="disclaimer.html">Disclaimer</a></p>
+            <p style="margin-top: 15px;">SA Crash Data Map &copy; 2026 | <a href="LICENSE">MIT License</a></p>
+            <p style="margin-top: 10px; font-size: 12px;">Last Updated: February 2026</p>
+        </footer>
+    </div>
+</body>
+</html>
