@@ -14,6 +14,15 @@ let activeLayers = {
     choropleth: false
 };
 
+// Heavy vehicle types definition
+const HEAVY_VEHICLE_TYPES = [
+    'BDOUBLE - ROAD TRAIN',
+    'SEMI TRAILER',
+    'RIGID TRUCK LGE GE 4.5T',
+    'OMNIBUS',
+    'Light Truck LT 4.5T'
+];
+
 // Loading indicator helpers
 function showLoading(message = 'Loading...') {
     const loadingEl = document.getElementById('loading');
@@ -828,6 +837,7 @@ function getFilterValues() {
         selectedHelmets: getSelectedValues('helmet'),
 
         // Vehicle/Units filters
+        heavyVehicle: getValue('heavyVehicle'),
         selectedVehicles: getSelectedValues('vehicleType'),
         selectedVehicleYears: getSelectedValues('vehicleYear'),
         selectedOccupants: getSelectedValues('occupants'),
@@ -1013,6 +1023,14 @@ function matchesCasualtyFilters(row, filters) {
 // Helper: Check if crash matches units/vehicle-related filters
 function matchesUnitsFilters(row, filters) {
     const units = row._units || [];
+
+    // Heavy Vehicle filter
+    if (filters.heavyVehicle !== 'all') {
+        if (units.length === 0) return filters.heavyVehicle !== 'yes';
+        const hasHeavyVehicle = units.some(u => HEAVY_VEHICLE_TYPES.includes(u['Unit Type']));
+        if (filters.heavyVehicle === 'yes' && !hasHeavyVehicle) return false;
+        if (filters.heavyVehicle === 'no' && hasHeavyVehicle) return false;
+    }
 
     // Vehicle Type filter
     if (!filters.selectedVehicles.includes('all')) {
@@ -1234,6 +1252,13 @@ function updateMapLayers(changedLayer = null) {
     }
 }
 
+// Helper function to parse numeric values and remove leading zeros
+function parseNumeric(value) {
+    if (!value) return value;
+    const parsed = parseInt(value, 10);
+    return isNaN(parsed) ? value : parsed.toString();
+}
+
 // Generate rich popup content with casualty and vehicle information
 function generatePopupContent(crash) {
     try {
@@ -1255,7 +1280,7 @@ function generatePopupContent(crash) {
                 <p style="margin: 3px 0; font-size: 12px;"><strong>Type:</strong> ${crash['Crash Type'] || 'N/A'}</p>
                 <p style="margin: 3px 0; font-size: 12px;"><strong>Weather:</strong> ${crash['Weather Cond'] || 'N/A'} | ${crash.DayNight || 'N/A'}</p>
                 <p style="margin: 3px 0; font-size: 12px;"><strong>Road:</strong> ${crash['Road Surface'] || 'N/A'} | ${crash['Moisture Cond'] || 'N/A'}</p>
-                <p style="margin: 3px 0; font-size: 12px;"><strong>Speed Limit:</strong> ${crash['Area Speed'] || 'N/A'} km/h</p>
+                <p style="margin: 3px 0; font-size: 12px;"><strong>Speed Limit:</strong> ${parseNumeric(crash['Area Speed']) || 'N/A'} km/h</p>
                 ${crash['DUI Involved'] && crash['DUI Involved'].trim() ? '<p style="margin: 3px 0; font-size: 12px; color: red; font-weight: bold;">⚠ DUI Involved</p>' : ''}
                 ${crash['Drugs Involved'] && crash['Drugs Involved'].trim() ? '<p style="margin: 3px 0; font-size: 12px; color: red; font-weight: bold;">⚠ Drugs Involved</p>' : ''}
             </div>`;
@@ -1288,7 +1313,7 @@ function generatePopupContent(crash) {
         if (detailedCasualties.length > 0) {
             html += `<div style="margin-top: 5px; font-size: 10px; color: #666;">`;
             detailedCasualties.forEach((c, idx) => {
-                const age = c.AGE || '?';
+                const age = parseNumeric(c.AGE) || '?';
                 const sex = c.Sex || '?';
                 const type = c['Casualty Type'] || 'Unknown';
                 const injury = c['Injury Extent'] || 'Unknown';
@@ -1335,8 +1360,8 @@ function generatePopupContent(crash) {
             html += `<div style="margin-top: 5px; font-size: 10px; color: #666;">`;
             detailedUnits.forEach((u, idx) => {
                 const type = u['Unit Type'] || 'Unknown';
-                const year = u['Veh Year'] ? ` (${u['Veh Year']})` : '';
-                const occupants = u['Number Occupants'] ? `, ${u['Number Occupants']} occupants` : '';
+                const year = u['Veh Year'] ? ` (${parseNumeric(u['Veh Year'])})` : '';
+                const occupants = u['Number Occupants'] ? `, ${parseNumeric(u['Number Occupants'])} occupants` : '';
                 const regState = u['Veh Reg State'] ? `, Reg: ${u['Veh Reg State']}` : '';
                 const direction = u['Direction Of Travel'] ? `, ${u['Direction Of Travel']}` : '';
                 const movement = u['Unit Movement'] ? `, ${u['Unit Movement']}` : '';
@@ -2276,6 +2301,636 @@ function clearLocationSearch() {
     applyFilters();
 }
 
+// Toggle location search collapse/expand
+function toggleLocationSearch() {
+    const content = document.getElementById('locationSearchContent');
+    const header = document.querySelector('.location-search-header');
+
+    if (content.classList.contains('expanded')) {
+        content.classList.remove('expanded');
+        header.classList.remove('expanded');
+    } else {
+        content.classList.add('expanded');
+        header.classList.add('expanded');
+    }
+}
+
+// ============================================================================
+// LOCATION SEARCH AUTOCOMPLETE
+// ============================================================================
+
+// Pre-computed list of South Australian locations
+const SA_LOCATIONS = [
+    // Major Cities & Regions
+    { name: 'Adelaide', category: 'Major Cities' },
+    { name: 'Adelaide CBD', category: 'Major Cities' },
+    { name: 'Port Adelaide', category: 'Major Cities' },
+    { name: 'Mount Gambier', category: 'Major Cities' },
+    { name: 'Whyalla', category: 'Major Cities' },
+    { name: 'Murray Bridge', category: 'Major Cities' },
+    { name: 'Port Lincoln', category: 'Major Cities' },
+    { name: 'Port Augusta', category: 'Major Cities' },
+    { name: 'Port Pirie', category: 'Major Cities' },
+
+    // Popular Suburbs - North
+    { name: 'Gawler', category: 'Northern Suburbs' },
+    { name: 'Elizabeth', category: 'Northern Suburbs' },
+    { name: 'Salisbury', category: 'Northern Suburbs' },
+    { name: 'Munno Para', category: 'Northern Suburbs' },
+    { name: 'Parafield', category: 'Northern Suburbs' },
+    { name: 'Modbury', category: 'Northern Suburbs' },
+    { name: 'Tea Tree Gully', category: 'Northern Suburbs' },
+
+    // Popular Suburbs - South
+    { name: 'Morphett Vale', category: 'Southern Suburbs' },
+    { name: 'Noarlunga', category: 'Southern Suburbs' },
+    { name: 'Hallett Cove', category: 'Southern Suburbs' },
+    { name: 'Aberfoyle Park', category: 'Southern Suburbs' },
+    { name: 'Seaford', category: 'Southern Suburbs' },
+    { name: 'Christies Beach', category: 'Southern Suburbs' },
+    { name: 'McLaren Vale', category: 'Southern Suburbs' },
+    { name: 'Victor Harbor', category: 'Southern Suburbs' },
+
+    // Popular Suburbs - East
+    { name: 'Mount Barker', category: 'Hills & East' },
+    { name: 'Blackwood', category: 'Hills & East' },
+    { name: 'Stirling', category: 'Hills & East' },
+    { name: 'Crafers', category: 'Hills & East' },
+    { name: 'Hahndorf', category: 'Hills & East' },
+    { name: 'Burnside', category: 'Eastern Suburbs' },
+    { name: 'Norwood', category: 'Eastern Suburbs' },
+    { name: 'Magill', category: 'Eastern Suburbs' },
+
+    // Popular Suburbs - West
+    { name: 'Glenelg', category: 'Western Suburbs' },
+    { name: 'Henley Beach', category: 'Western Suburbs' },
+    { name: 'West Beach', category: 'Western Suburbs' },
+    { name: 'Grange', category: 'Western Suburbs' },
+    { name: 'Semaphore', category: 'Western Suburbs' },
+
+    // Inner Suburbs
+    { name: 'Unley', category: 'Inner Suburbs' },
+    { name: 'Prospect', category: 'Inner Suburbs' },
+    { name: 'Parkside', category: 'Inner Suburbs' },
+    { name: 'Wayville', category: 'Inner Suburbs' },
+    { name: 'Goodwood', category: 'Inner Suburbs' },
+    { name: 'Hindmarsh', category: 'Inner Suburbs' },
+    { name: 'Thebarton', category: 'Inner Suburbs' },
+
+    // Major Roads/Landmarks
+    { name: 'North Terrace', category: 'Major Roads' },
+    { name: 'King William Street', category: 'Major Roads' },
+    { name: 'South Road', category: 'Major Roads' },
+    { name: 'Port Road', category: 'Major Roads' },
+    { name: 'Main North Road', category: 'Major Roads' },
+    { name: 'Anzac Highway', category: 'Major Roads' },
+    { name: 'Brighton Road', category: 'Major Roads' },
+
+    // Regional
+    { name: 'Barossa Valley', category: 'Regional' },
+    { name: 'Clare Valley', category: 'Regional' },
+    { name: 'Fleurieu Peninsula', category: 'Regional' },
+    { name: 'Kangaroo Island', category: 'Regional' },
+    { name: 'Riverland', category: 'Regional' },
+    { name: 'Eyre Peninsula', category: 'Regional' }
+];
+
+let selectedSuggestionIndex = -1;
+let currentSuggestions = [];
+
+// Expand common abbreviations in search terms
+function expandAbbreviations(searchTerm) {
+    const terms = [searchTerm]; // Always include original term
+
+    // Common abbreviations map
+    const abbreviations = {
+        'mt': 'mount',
+        'mt.': 'mount',
+        'st': 'saint',
+        'st.': 'saint',
+        'pt': 'port',
+        'pt.': 'port'
+    };
+
+    // Check if search term starts with an abbreviation
+    for (const [abbr, full] of Object.entries(abbreviations)) {
+        if (searchTerm.startsWith(abbr + ' ') || searchTerm.startsWith(abbr + '.')) {
+            // Replace abbreviation with full word
+            const expanded = searchTerm.replace(new RegExp(`^${abbr}\\.?\\s*`, 'i'), full + ' ');
+            terms.push(expanded);
+        }
+        // Also check if searching for the full word to match abbreviations
+        if (searchTerm.startsWith(full)) {
+            const abbreviated = searchTerm.replace(new RegExp(`^${full}\\s*`, 'i'), abbr + ' ');
+            terms.push(abbreviated);
+        }
+    }
+
+    // Handle standalone abbreviations (e.g., just "mt" or "st")
+    if (abbreviations[searchTerm]) {
+        terms.push(abbreviations[searchTerm]);
+    }
+
+    // Reverse: if someone types "mount", also search for "mt"
+    for (const [abbr, full] of Object.entries(abbreviations)) {
+        if (searchTerm === full) {
+            terms.push(abbr);
+        }
+    }
+
+    return terms;
+}
+
+// Handle location input and show suggestions
+function handleLocationInput(value) {
+    const suggestionsDiv = document.getElementById('locationSuggestions');
+
+    if (!value || value.trim() === '') {
+        suggestionsDiv.classList.remove('show');
+        currentSuggestions = [];
+        selectedSuggestionIndex = -1;
+        return;
+    }
+
+    // Filter locations - shows suggestions from the first character typed
+    const searchTerm = value.toLowerCase();
+
+    // Handle common abbreviations
+    const expandedTerms = expandAbbreviations(searchTerm);
+
+    currentSuggestions = SA_LOCATIONS.filter(loc => {
+        const locName = loc.name.toLowerCase();
+        // Match if location contains the search term OR any expanded abbreviations
+        return expandedTerms.some(term => locName.includes(term));
+    });
+
+    if (currentSuggestions.length === 0) {
+        suggestionsDiv.classList.remove('show');
+        return;
+    }
+
+    // Group by category
+    const grouped = {};
+    currentSuggestions.forEach(loc => {
+        if (!grouped[loc.category]) {
+            grouped[loc.category] = [];
+        }
+        grouped[loc.category].push(loc);
+    });
+
+    // Build HTML
+    let html = '';
+    let itemIndex = 0;
+    Object.keys(grouped).forEach(category => {
+        if (grouped[category].length > 0) {
+            html += `<div class="suggestion-category">${category}</div>`;
+            grouped[category].forEach(loc => {
+                const highlightedName = highlightMatch(loc.name, value);
+                html += `<div class="suggestion-item" data-index="${itemIndex}" onclick="selectSuggestion('${loc.name.replace(/'/g, "\\'")}')">
+                    ${highlightedName}
+                </div>`;
+                itemIndex++;
+            });
+        }
+    });
+
+    suggestionsDiv.innerHTML = html;
+    suggestionsDiv.classList.add('show');
+    selectedSuggestionIndex = -1;
+}
+
+// Highlight matching text
+function highlightMatch(text, search) {
+    const regex = new RegExp(`(${search})`, 'gi');
+    return text.replace(regex, '<span class="match">$1</span>');
+}
+
+// Handle keyboard navigation
+function handleLocationKeydown(event) {
+    const suggestionsDiv = document.getElementById('locationSuggestions');
+
+    if (!suggestionsDiv.classList.contains('show')) {
+        return;
+    }
+
+    const items = suggestionsDiv.querySelectorAll('.suggestion-item');
+
+    if (event.key === 'ArrowDown') {
+        event.preventDefault();
+        selectedSuggestionIndex = Math.min(selectedSuggestionIndex + 1, items.length - 1);
+        updateSelectedSuggestion(items);
+    } else if (event.key === 'ArrowUp') {
+        event.preventDefault();
+        selectedSuggestionIndex = Math.max(selectedSuggestionIndex - 1, -1);
+        updateSelectedSuggestion(items);
+    } else if (event.key === 'Enter') {
+        event.preventDefault();
+        if (selectedSuggestionIndex >= 0 && items[selectedSuggestionIndex]) {
+            const locationName = currentSuggestions[selectedSuggestionIndex].name;
+            selectSuggestion(locationName);
+        } else {
+            // Just trigger search with current input
+            searchByLocation();
+        }
+    } else if (event.key === 'Escape') {
+        suggestionsDiv.classList.remove('show');
+        selectedSuggestionIndex = -1;
+    }
+}
+
+// Update visual selection
+function updateSelectedSuggestion(items) {
+    items.forEach((item, index) => {
+        if (index === selectedSuggestionIndex) {
+            item.classList.add('selected');
+            item.scrollIntoView({ block: 'nearest' });
+        } else {
+            item.classList.remove('selected');
+        }
+    });
+}
+
+// Select a suggestion
+function selectSuggestion(locationName) {
+    const input = document.getElementById('locationSearch');
+    const suggestionsDiv = document.getElementById('locationSuggestions');
+
+    input.value = locationName;
+    suggestionsDiv.classList.remove('show');
+    currentSuggestions = [];
+    selectedSuggestionIndex = -1;
+
+    // Optionally auto-search
+    // searchByLocation();
+}
+
+// Close suggestions when clicking outside
+document.addEventListener('click', function(event) {
+    const suggestionsDiv = document.getElementById('locationSuggestions');
+    const input = document.getElementById('locationSearch');
+
+    if (suggestionsDiv && input &&
+        !suggestionsDiv.contains(event.target) &&
+        event.target !== input) {
+        suggestionsDiv.classList.remove('show');
+        selectedSuggestionIndex = -1;
+    }
+});
+
+// ============================================================================
+// MULTI-SELECT ENHANCEMENTS
+// ============================================================================
+
+// Track original option visibility for search filtering
+const originalOptionVisibility = new Map();
+
+// Enhance a multi-select element with controls and chips
+function enhanceMultiSelect(selectId, showChips = true) {
+    const selectElement = document.getElementById(selectId);
+    if (!selectElement || !selectElement.multiple) return;
+
+    const filterGroup = selectElement.closest('.filter-group');
+    if (!filterGroup) return;
+
+    // Create controls container
+    const controlsDiv = document.createElement('div');
+    controlsDiv.className = 'multi-select-controls';
+    controlsDiv.innerHTML = `
+        <span class="multi-select-count" id="${selectId}-count">0 selected</span>
+        <div class="multi-select-buttons">
+            <button class="select-all-btn" onclick="selectAllOptions('${selectId}')">All</button>
+            <button class="clear-selection-btn" onclick="clearAllOptions('${selectId}')">Clear</button>
+        </div>
+    `;
+
+    // Insert controls before the select element
+    selectElement.parentNode.insertBefore(controlsDiv, selectElement);
+
+    // Create chips container if requested
+    if (showChips) {
+        const chipsDiv = document.createElement('div');
+        chipsDiv.className = 'selected-chips';
+        chipsDiv.id = `${selectId}-chips`;
+        selectElement.parentNode.insertBefore(chipsDiv, selectElement.nextSibling);
+    }
+
+    // Add change listener to update count and chips
+    selectElement.addEventListener('change', () => {
+        updateMultiSelectDisplay(selectId, showChips);
+        markFilterAsChanged();
+    });
+
+    // Initial update
+    updateMultiSelectDisplay(selectId, showChips);
+}
+
+// Update the count and chips display for a multi-select
+function updateMultiSelectDisplay(selectId, showChips = true) {
+    const selectElement = document.getElementById(selectId);
+    if (!selectElement) return;
+
+    const selectedOptions = Array.from(selectElement.selectedOptions);
+    const countElement = document.getElementById(`${selectId}-count`);
+    const chipsContainer = document.getElementById(`${selectId}-chips`);
+
+    // Filter out "all" option from count
+    const nonAllSelected = selectedOptions.filter(opt => opt.value !== 'all');
+    const count = nonAllSelected.length;
+    const total = Array.from(selectElement.options).filter(opt => opt.value !== 'all').length;
+
+    // Update count
+    if (countElement) {
+        if (count === 0 || selectedOptions.some(opt => opt.value === 'all')) {
+            countElement.textContent = 'All selected';
+        } else {
+            countElement.textContent = `${count} of ${total} selected`;
+        }
+    }
+
+    // Update chips
+    if (showChips && chipsContainer) {
+        chipsContainer.innerHTML = '';
+
+        if (count > 0 && count <= 5 && !selectedOptions.some(opt => opt.value === 'all')) {
+            nonAllSelected.forEach(option => {
+                const chip = document.createElement('span');
+                chip.className = 'chip';
+                chip.innerHTML = `
+                    ${option.text}
+                    <span class="chip-remove" onclick="removeChip('${selectId}', '${option.value.replace(/'/g, "\\'")}')">×</span>
+                `;
+                chipsContainer.appendChild(chip);
+            });
+        } else if (count > 5) {
+            const chip = document.createElement('span');
+            chip.className = 'chip';
+            chip.textContent = `${count} items selected`;
+            chipsContainer.appendChild(chip);
+        }
+    }
+}
+
+// Select all options in a multi-select
+function selectAllOptions(selectId) {
+    const selectElement = document.getElementById(selectId);
+    if (!selectElement) return;
+
+    Array.from(selectElement.options).forEach(option => {
+        if (option.value === 'all') {
+            option.selected = true;
+        } else {
+            option.selected = false;
+        }
+    });
+
+    selectElement.dispatchEvent(new Event('change'));
+}
+
+// Clear all selections in a multi-select
+function clearAllOptions(selectId) {
+    const selectElement = document.getElementById(selectId);
+    if (!selectElement) return;
+
+    Array.from(selectElement.options).forEach(option => {
+        option.selected = false;
+    });
+
+    // Select "all" by default
+    const allOption = Array.from(selectElement.options).find(opt => opt.value === 'all');
+    if (allOption) allOption.selected = true;
+
+    selectElement.dispatchEvent(new Event('change'));
+}
+
+// Remove a chip (deselect an option)
+function removeChip(selectId, value) {
+    const selectElement = document.getElementById(selectId);
+    if (!selectElement) return;
+
+    Array.from(selectElement.options).forEach(option => {
+        if (option.value === value) {
+            option.selected = false;
+        }
+    });
+
+    // If nothing selected, select "all"
+    const hasSelection = Array.from(selectElement.selectedOptions).some(opt => opt.value !== 'all');
+    if (!hasSelection) {
+        const allOption = Array.from(selectElement.options).find(opt => opt.value === 'all');
+        if (allOption) allOption.selected = true;
+    }
+
+    selectElement.dispatchEvent(new Event('change'));
+}
+
+// Add search functionality for the area select
+function addAreaSearch() {
+    const areaSelect = document.getElementById('area');
+    if (!areaSelect) return;
+
+    const filterGroup = areaSelect.closest('.filter-group');
+    if (!filterGroup) return;
+
+    // Create search box
+    const searchBox = document.createElement('div');
+    searchBox.className = 'area-search-box';
+    searchBox.innerHTML = `
+        <input type="text"
+               class="area-search-input"
+               id="area-search"
+               placeholder="🔍 Search areas..."
+               oninput="filterAreaOptions(this.value)">
+    `;
+
+    // Insert before the select element
+    areaSelect.parentNode.insertBefore(searchBox, areaSelect);
+
+    // Store original options
+    const options = Array.from(areaSelect.options);
+    originalOptionVisibility.set('area', options.map(opt => ({
+        element: opt,
+        text: opt.text,
+        value: opt.value
+    })));
+}
+
+// Filter area options based on search
+function filterAreaOptions(searchText) {
+    const areaSelect = document.getElementById('area');
+    if (!areaSelect) return;
+
+    const originalOptions = originalOptionVisibility.get('area');
+    if (!originalOptions) return;
+
+    const search = searchText.toLowerCase().trim();
+
+    originalOptions.forEach(optData => {
+        const matches = search === '' ||
+                       optData.value === 'all' ||
+                       optData.text.toLowerCase().includes(search);
+        optData.element.style.display = matches ? '' : 'none';
+    });
+}
+
+// ============================================================================
+// AUTO-APPLY FILTERS
+// ============================================================================
+
+let autoApplyEnabled = false;
+let autoApplyTimeout = null;
+let filtersChanged = false;
+let isCtrlKeyHeld = false; // Track if Ctrl/Cmd is being held for multi-select
+
+// Initialize auto-apply functionality
+function initAutoApply() {
+    // Load saved preference
+    const saved = localStorage.getItem('autoApplyFilters');
+    autoApplyEnabled = saved === 'true';
+
+    const checkbox = document.getElementById('autoApplyCheckbox');
+    if (checkbox) {
+        checkbox.checked = autoApplyEnabled;
+    }
+
+    // Add change listeners to all filter inputs
+    addFilterChangeListeners();
+
+    // Track Ctrl/Cmd key state to prevent auto-apply during multi-select
+    document.addEventListener('keydown', function(e) {
+        if (e.ctrlKey || e.metaKey) {
+            isCtrlKeyHeld = true;
+        }
+    });
+
+    document.addEventListener('keyup', function(e) {
+        if (!e.ctrlKey && !e.metaKey) {
+            const wasHeld = isCtrlKeyHeld;
+            isCtrlKeyHeld = false;
+
+            // If Ctrl was released and filters changed during multi-select, auto-apply now
+            if (wasHeld && filtersChanged && autoApplyEnabled) {
+                scheduleAutoApply();
+            }
+        }
+    });
+}
+
+// Toggle auto-apply on/off
+function toggleAutoApply(enabled) {
+    autoApplyEnabled = enabled;
+    localStorage.setItem('autoApplyFilters', enabled);
+
+    if (enabled && filtersChanged) {
+        // Apply any pending changes
+        scheduleAutoApply();
+    }
+}
+
+// Mark filters as changed
+function markFilterAsChanged() {
+    filtersChanged = true;
+
+    const applyBtn = document.getElementById('applyFilters');
+    if (applyBtn && !autoApplyEnabled) {
+        applyBtn.classList.add('filter-changed');
+    }
+
+    // Only schedule auto-apply if Ctrl/Cmd is not being held (prevents spam during multi-select)
+    if (autoApplyEnabled && !isCtrlKeyHeld) {
+        scheduleAutoApply();
+    }
+}
+
+// Schedule auto-apply with debouncing
+function scheduleAutoApply() {
+    if (autoApplyTimeout) {
+        clearTimeout(autoApplyTimeout);
+    }
+
+    autoApplyTimeout = setTimeout(() => {
+        applyFilters();
+    }, 500); // 500ms debounce
+}
+
+// Add change listeners to all filter inputs
+function addFilterChangeListeners() {
+    // Get all filter inputs (selects, inputs, checkboxes)
+    const filterInputs = document.querySelectorAll(
+        '.filter-group select:not([multiple]), ' +
+        '.filter-group input[type="date"], ' +
+        '.filter-group input[type="time"], ' +
+        '.filter-group input[type="number"], ' +
+        '.layer-toggle input[type="checkbox"]'
+    );
+
+    filterInputs.forEach(input => {
+        input.addEventListener('change', markFilterAsChanged);
+    });
+
+    // Note: Multi-selects already have listeners added in enhanceMultiSelect
+}
+
+// Override the existing applyFilters to clear changed state
+const originalApplyFilters = applyFilters;
+window.applyFilters = function() {
+    const applyBtn = document.getElementById('applyFilters');
+
+    // Add applying animation
+    if (applyBtn) {
+        applyBtn.classList.add('applying');
+        applyBtn.classList.remove('filter-changed');
+    }
+
+    filtersChanged = false;
+
+    // Call original function
+    originalApplyFilters();
+
+    // Remove animation after a delay
+    setTimeout(() => {
+        if (applyBtn) {
+            applyBtn.classList.remove('applying');
+        }
+    }, 1000);
+};
+
+// ============================================================================
+// INITIALIZATION
+// ============================================================================
+
+function initMultiSelectEnhancements() {
+    // Enhance all multi-selects
+    const multiSelects = [
+        { id: 'severity', chips: true },
+        { id: 'area', chips: false }, // Too many to show chips
+        { id: 'roadSurface', chips: true },
+        { id: 'moistureCond', chips: true },
+        { id: 'roadUserType', chips: true },
+        { id: 'ageGroup', chips: true },
+        { id: 'casualtySex', chips: true },
+        { id: 'injuryExtent', chips: true },
+        { id: 'seatBelt', chips: true },
+        { id: 'helmet', chips: true },
+        { id: 'vehicleType', chips: true },
+        { id: 'vehicleYear', chips: true },
+        { id: 'occupants', chips: true },
+        { id: 'licenseType', chips: true },
+        { id: 'vehRegState', chips: true },
+        { id: 'directionTravel', chips: true },
+        { id: 'unitMovement', chips: true }
+    ];
+
+    multiSelects.forEach(({ id, chips }) => {
+        enhanceMultiSelect(id, chips);
+    });
+
+    // Add area search
+    addAreaSearch();
+
+    // Initialize auto-apply
+    initAutoApply();
+}
+
 // Close modal when clicking outside of it
 window.onclick = function(event) {
     const modal = document.getElementById('advancedFiltersModal');
@@ -2292,6 +2947,11 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Initialize dual-handle year range slider
     initYearRangeSlider();
+
+    // Initialize multi-select enhancements after a short delay
+    setTimeout(() => {
+        initMultiSelectEnhancements();
+    }, 100);
 
     // Load filters from URL if present (after data loads)
     setTimeout(() => {

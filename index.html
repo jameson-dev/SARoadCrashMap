@@ -303,12 +303,231 @@
             color: #fff;
         }
 
-        /* Helper text for multi-select */
+        /* Helper text for multi-select - hidden now that we have controls */
         .multi-select-hint {
+            display: none;
+        }
+
+        /* Multi-select enhancements */
+        .multi-select-controls {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 4px;
+            gap: 6px;
+        }
+
+        .multi-select-count {
+            font-size: 10px;
+            color: var(--accent);
+            font-weight: 600;
+        }
+
+        .multi-select-buttons {
+            display: flex;
+            gap: 4px;
+        }
+
+        .select-all-btn, .clear-selection-btn {
+            font-size: 9px;
+            padding: 2px 6px;
+            border: 1px solid var(--border);
+            background: var(--border-light);
+            color: var(--text-secondary);
+            border-radius: 3px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .select-all-btn:hover {
+            background: var(--accent);
+            color: white;
+            border-color: var(--accent);
+        }
+
+        .clear-selection-btn:hover {
+            background: rgba(255, 68, 68, 0.2);
+            color: #ff4444;
+            border-color: #ff4444;
+        }
+
+        .selected-chips {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+            margin-top: 4px;
+            min-height: 20px;
+        }
+
+        .chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 2px 6px;
+            background: var(--accent);
+            color: white;
+            border-radius: 12px;
+            font-size: 9px;
+            font-weight: 600;
+            animation: chipAppear 0.2s ease;
+        }
+
+        @keyframes chipAppear {
+            from {
+                opacity: 0;
+                transform: scale(0.8);
+            }
+            to {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+
+        .chip .chip-remove {
+            cursor: pointer;
+            padding: 0 2px;
+            opacity: 0.8;
+            transition: opacity 0.2s;
+        }
+
+        .chip .chip-remove:hover {
+            opacity: 1;
+        }
+
+        /* Area search box */
+        .area-search-box {
+            margin-bottom: 4px;
+        }
+
+        .area-search-input {
+            width: 100%;
+            padding: 4px 6px;
+            border: 1px solid var(--input-border);
+            background: var(--input-bg);
+            color: var(--text-primary);
+            border-radius: 4px;
+            font-size: 10px;
+            transition: all 0.3s;
+        }
+
+        .area-search-input:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 2px var(--border);
+        }
+
+        .area-search-input::placeholder {
+            color: var(--text-secondary);
+            font-style: italic;
+        }
+
+        /* Collapsible Location Search */
+        .location-search-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px;
+            background: var(--border-light);
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+            user-select: none;
+        }
+
+        .location-search-header:hover {
+            background: var(--border);
+        }
+
+        .location-search-header .header-text {
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--accent);
+        }
+
+        .location-search-header .toggle-icon {
+            font-size: 12px;
+            color: var(--text-secondary);
+            transition: transform 0.3s;
+        }
+
+        .location-search-header.expanded .toggle-icon {
+            transform: rotate(180deg);
+        }
+
+        .location-search-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease-out;
+        }
+
+        .location-search-content.expanded {
+            max-height: 500px;
+            overflow: visible;
+        }
+
+        .location-search-inner {
+            padding-top: 8px;
+            position: relative;
+        }
+
+        /* Location autocomplete suggestions */
+        .location-suggestions {
+            position: absolute;
+            top: 28px;
+            left: 0;
+            right: 0;
+            background: var(--bg-panel);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            max-height: 200px;
+            overflow-y: auto;
+            z-index: 10000;
+            box-shadow: 0 4px 12px var(--shadow);
+            display: none;
+            margin-top: 2px;
+        }
+
+        .location-suggestions.show {
+            display: block !important;
+        }
+
+        .suggestion-item {
+            padding: 6px 8px;
+            font-size: 11px;
+            color: var(--text-primary);
+            cursor: pointer;
+            transition: all 0.2s;
+            border-bottom: 1px solid var(--border-light);
+        }
+
+        .suggestion-item:last-child {
+            border-bottom: none;
+        }
+
+        .suggestion-item:hover,
+        .suggestion-item.selected {
+            background: var(--accent);
+            color: white;
+        }
+
+        .suggestion-item .match {
+            font-weight: 600;
+            color: var(--accent);
+        }
+
+        .suggestion-item:hover .match,
+        .suggestion-item.selected .match {
+            color: white;
+        }
+
+        .suggestion-category {
             font-size: 9px;
             color: var(--text-secondary);
-            margin-top: 2px;
-            font-style: italic;
+            padding: 4px 8px;
+            background: var(--border-light);
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
         }
 
         .checkbox-group {
@@ -480,6 +699,76 @@
 
         .clear-filters-btn:active {
             transform: translateY(0);
+        }
+
+        /* Auto-apply toggle */
+        .auto-apply-container {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px;
+            margin: 8px 0;
+            background: var(--border-light);
+            border-radius: 6px;
+            border: 1px solid var(--border);
+        }
+
+        .auto-apply-container input[type="checkbox"] {
+            width: 16px;
+            height: 16px;
+            cursor: pointer;
+            accent-color: var(--accent);
+        }
+
+        .auto-apply-container label {
+            font-size: 11px;
+            color: var(--text-primary);
+            cursor: pointer;
+            user-select: none;
+        }
+
+        /* Applying state animation */
+        .apply-filters-btn.applying {
+            position: relative;
+            color: transparent;
+        }
+
+        .apply-filters-btn.applying::after {
+            content: 'Applying...';
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            color: white;
+            animation: pulse 1s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        /* Changed filters indicator */
+        .filter-changed {
+            position: relative;
+        }
+
+        .filter-changed::before {
+            content: '';
+            position: absolute;
+            left: -8px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 4px;
+            height: 4px;
+            background: var(--accent);
+            border-radius: 50%;
+            animation: blip 2s infinite;
+        }
+
+        @keyframes blip {
+            0%, 100% { opacity: 1; transform: translateY(-50%) scale(1); }
+            50% { opacity: 0.5; transform: translateY(-50%) scale(1.3); }
         }
 
         .toggle-panel-btn {
@@ -858,49 +1147,54 @@
         </div>
 
         <div class="panel-content">
-        <!-- Location Search -->
+        <!-- Location Search - Collapsible -->
         <div class="filter-group" style="border-bottom: 2px solid var(--border); padding-bottom: 12px; margin-bottom: 12px;">
-            <label class="filter-label">🔍 Search by Location</label>
-            <input type="text" id="locationSearch" placeholder="Enter suburb, street, or landmark..."
-                style="width: 100%; padding: 6px; margin-top: 5px; border-radius: 4px; border: 1px solid var(--input-border); background: var(--input-bg); color: var(--text-primary); font-size: 12px;">
-
-            <div style="display: flex; gap: 8px; margin-top: 8px; align-items: center;">
-                <label style="font-size: 11px; color: var(--text-secondary);">Radius:</label>
-                <select id="searchRadius" style="flex: 1; padding: 4px; font-size: 11px; border-radius: 4px; border: 1px solid var(--input-border); background: var(--input-bg); color: var(--text-primary);">
-                    <option value="1">1 km</option>
-                    <option value="2" selected>2 km</option>
-                    <option value="5">5 km</option>
-                    <option value="10">10 km</option>
-                    <option value="20">20 km</option>
-                </select>
+            <div class="location-search-header" onclick="toggleLocationSearch()">
+                <span class="header-text">🔍 Search by Location</span>
+                <span class="toggle-icon">▼</span>
             </div>
 
-            <div style="display: flex; gap: 8px; margin-top: 8px;">
-                <button onclick="searchByLocation()" class="apply-filters-btn" style="flex: 1;">Search</button>
-                <button onclick="clearLocationSearch()" class="clear-filters-btn" style="flex: 1;">Clear</button>
-            </div>
+            <div class="location-search-content" id="locationSearchContent">
+                <div class="location-search-inner">
+                    <input type="text" id="locationSearch" placeholder="Enter suburb, street, or landmark..."
+                        autocomplete="off"
+                        oninput="handleLocationInput(this.value)"
+                        onkeydown="handleLocationKeydown(event)"
+                        style="width: 100%; padding: 5px; border-radius: 4px; border: 1px solid var(--input-border); background: var(--input-bg); color: var(--text-primary); font-size: 11px;">
 
-            <div id="searchResults" style="display: none; margin-top: 8px; padding: 8px; background: var(--border-light); border-radius: 4px; font-size: 11px; color: var(--accent);"></div>
+                    <!-- Suggestions dropdown -->
+                    <div class="location-suggestions" id="locationSuggestions"></div>
+
+                    <div style="display: flex; gap: 4px; margin-top: 6px; align-items: center;">
+                        <label style="font-size: 10px; color: var(--text-secondary); white-space: nowrap;">Radius:</label>
+                        <select id="searchRadius" style="flex: 1; padding: 3px; font-size: 10px; border-radius: 4px; border: 1px solid var(--input-border); background: var(--input-bg); color: var(--text-primary);">
+                            <option value="0.5">0.5 km</option>
+                            <option value="1">1 km</option>
+                            <option value="2" selected>2 km</option>
+                            <option value="3">3 km</option>
+                            <option value="5">5 km</option>
+                            <option value="7">7 km</option>
+                            <option value="10">10 km</option>
+                            <option value="15">15 km</option>
+                            <option value="20">20 km</option>
+                            <option value="25">25 km</option>
+                            <option value="50">50 km</option>
+                        </select>
+                    </div>
+
+                    <div style="display: flex; gap: 4px; margin-top: 6px;">
+                        <button onclick="searchByLocation()" class="apply-filters-btn" style="flex: 1; padding: 5px; font-size: 11px;">Search</button>
+                        <button onclick="clearLocationSearch()" class="clear-filters-btn" style="flex: 1; padding: 5px; font-size: 11px;">Clear</button>
+                    </div>
+
+                    <div id="searchResults" style="display: none; margin-top: 6px; padding: 6px; background: var(--border-light); border-radius: 4px; font-size: 10px; color: var(--accent);"></div>
+                </div>
+            </div>
         </div>
 
         <div class="filter-group">
             <label class="filter-label">Year Range: <span id="yearRangeDisplay">2012 - 2024</span></label>
             <div id="yearRangeSlider" style="margin: 8px 5px 12px 5px;"></div>
-        </div>
-
-        <div class="filter-group">
-            <label class="filter-label">Date Range (Optional)</label>
-            <div style="display: flex; gap: 8px; align-items: center; margin-top: 5px;">
-                <div style="flex: 1;">
-                    <label style="font-size: 10px; color: var(--accent);">From:</label>
-                    <input type="date" id="dateFrom">
-                </div>
-                <div style="flex: 1;">
-                    <label style="font-size: 10px; color: var(--accent);">To:</label>
-                    <input type="date" id="dateTo">
-                </div>
-            </div>
-            <div style="font-size: 9px; color: var(--text-secondary); margin-top: 3px;">Leave empty to use year range only</div>
         </div>
 
         <div class="filter-group">
@@ -930,22 +1224,19 @@
             <div class="multi-select-hint">Hold Ctrl (or Cmd) to select multiple</div>
         </div>
 
-        <div class="filter-group">
-            <label class="filter-label">DUI Involved</label>
-            <select id="duiInvolved">
-                <option value="all" selected>All</option>
-                <option value="Yes">Yes</option>
-                <option value="No">No</option>
-            </select>
-        </div>
-
         <button class="advanced-filters-btn" onclick="openAdvancedFilters()">
             🔍 Advanced Filters
             <span id="advancedFilterBadge" class="filter-badge" style="display: none;">0</span>
         </button>
 
+        <!-- Auto-apply toggle -->
+        <div class="auto-apply-container">
+            <input type="checkbox" id="autoApplyCheckbox" onchange="toggleAutoApply(this.checked)">
+            <label for="autoApplyCheckbox">⚡ Auto-apply filters (500ms delay)</label>
+        </div>
+
         <div style="display: flex; gap: 8px;">
-            <button class="apply-filters-btn" onclick="applyFilters()" style="flex: 1;">Apply Filters</button>
+            <button class="apply-filters-btn" id="applyFilters" onclick="applyFilters()" style="flex: 1;">Apply Filters</button>
             <button class="clear-filters-btn" onclick="clearFilters()" style="flex: 1;">Clear Filters</button>
         </div>
 
@@ -1037,6 +1328,30 @@
                             </div>
                         </div>
                         <div style="font-size: 9px; color: var(--text-secondary); margin-top: 3px;">Leave empty for all times</div>
+                    </div>
+
+                    <div class="filter-group">
+                        <label class="filter-label">Date Range (Optional)</label>
+                        <div style="display: flex; gap: 8px; align-items: center; margin-top: 5px;">
+                            <div style="flex: 1;">
+                                <label style="font-size: 10px; color: var(--accent);">From:</label>
+                                <input type="date" id="dateFrom">
+                            </div>
+                            <div style="flex: 1;">
+                                <label style="font-size: 10px; color: var(--accent);">To:</label>
+                                <input type="date" id="dateTo">
+                            </div>
+                        </div>
+                        <div style="font-size: 9px; color: var(--text-secondary); margin-top: 3px;">Leave empty to use year range only</div>
+                    </div>
+
+                    <div class="filter-group">
+                        <label class="filter-label">DUI Involved</label>
+                        <select id="duiInvolved">
+                            <option value="all" selected>All</option>
+                            <option value="Yes">Yes</option>
+                            <option value="No">No</option>
+                        </select>
                     </div>
 
                     <div class="filter-group">
@@ -1134,6 +1449,18 @@
 
                 <!-- Vehicles & Units Tab -->
                 <div id="vehiclesTab" class="tab-content">
+                    <div class="filter-group">
+                        <label class="filter-label">Heavy Vehicle Involved</label>
+                        <select id="heavyVehicle">
+                            <option value="all" selected>All Vehicles</option>
+                            <option value="yes">Heavy Vehicles Only</option>
+                            <option value="no">No Heavy Vehicles</option>
+                        </select>
+                        <div style="font-size: 9px; color: var(--text-secondary); margin-top: 3px;">
+                            Heavy vehicles: Trucks (≥4.5T), Semi-trailers, B-doubles, Road trains, Buses
+                        </div>
+                    </div>
+
                     <div class="filter-group">
                         <label class="filter-label">Involved Entities</label>
                         <select id="vehicleType" multiple size="4">
