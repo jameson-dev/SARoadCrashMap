@@ -33,6 +33,14 @@ function showLoading(message = 'Loading...') {
     }
 }
 
+function updateLoadingMessage(message) {
+    const loadingEl = document.getElementById('loading');
+    if (loadingEl) {
+        const textEl = loadingEl.querySelector('.loading-content div:last-child');
+        if (textEl) textEl.textContent = message;
+    }
+}
+
 function hideLoading() {
     const loadingEl = document.getElementById('loading');
     if (loadingEl) {
@@ -266,10 +274,8 @@ function loadUnitsData() {
             // Populate filter dropdowns
             populateFilterOptions();
 
-            // Initial data load (this will show its own loading indicator)
-            applyFilters();
-
-            // Load LGA boundaries for choropleth
+            // Load LGA boundaries first, then apply filters
+            // This ensures LGA assignments are complete before map is displayed
             loadLGABoundaries();
         },
         error: function(error) {
@@ -431,6 +437,8 @@ function getLGAName(properties) {
 
 // Load LGA boundaries GeoJSON
 function loadLGABoundaries() {
+    // Update message (loading overlay already visible from initial load)
+    updateLoadingMessage('Loading LGA boundaries...');
     fetch('sa_lga_boundaries.geojson')
         .then(response => response.json())
         .then(data => {
@@ -442,6 +450,8 @@ function loadLGABoundaries() {
         })
         .catch(error => {
             console.warn('Could not load LGA boundaries:', error);
+            // Even if LGA loading fails, still apply filters and show the map
+            applyFilters(false);
         });
 }
 
@@ -453,7 +463,8 @@ function precomputeLGAAssignments() {
         return;
     }
 
-    showLoading('Pre-computing LGA assignments...');
+    // Update message (loading overlay already visible)
+    updateLoadingMessage('Pre-computing LGA assignments...');
 
     let naCount = 0;
     let assignedCount = 0;
@@ -496,7 +507,10 @@ function precomputeLGAAssignments() {
             });
 
             console.log(`Pre-computed LGA assignments: ${assignedCount}/${naCount} N/A crashes assigned to LGAs`);
-            hideLoading();
+
+            // Now that LGA processing is complete, apply filters and show the map
+            // Pass false so loading gets hidden after map is ready
+            applyFilters(false);
         }, 0);
     });
 }
@@ -677,15 +691,37 @@ function getFullLGAName(abbreviatedName) {
 
 // Populate filter dropdown options
 function populateFilterOptions() {
-    // Crash types
+    // Crash types - populate checkbox dropdown
     const crashTypes = [...new Set(crashData.map(row => row['Crash Type']).filter(v => v))];
-    const crashTypeSelect = document.getElementById('crashType');
-    crashTypes.sort().forEach(type => {
-        const option = document.createElement('option');
-        option.value = type;
-        option.textContent = type;
-        crashTypeSelect.appendChild(option);
+    const crashTypeMenu = document.getElementById('crashTypeMenu');
+    crashTypes.sort().forEach((type, index) => {
+        const item = document.createElement('div');
+        item.className = 'checkbox-dropdown-item';
+
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.id = `crashType-${index}`;
+        checkbox.value = type;
+        checkbox.checked = true; // All selected by default
+        checkbox.onchange = () => updateCheckboxDropdownDisplay('crashType');
+
+        const label = document.createElement('label');
+        label.htmlFor = `crashType-${index}`;
+        label.textContent = type;
+
+        item.appendChild(checkbox);
+        item.appendChild(label);
+        crashTypeMenu.appendChild(item);
     });
+
+    // Add select/clear controls
+    const controls = document.createElement('div');
+    controls.className = 'checkbox-dropdown-controls';
+    controls.innerHTML = `
+        <button class="checkbox-select-all" onclick="selectAllDropdownItems('crashType')">Select All</button>
+        <button class="checkbox-clear-all" onclick="clearAllDropdownItems('crashType')">Clear All</button>
+    `;
+    crashTypeMenu.appendChild(controls);
 
     // Weather conditions
     const weatherConditions = [...new Set(crashData.map(row => row['Weather Cond']).filter(v => v))];
@@ -697,21 +733,43 @@ function populateFilterOptions() {
         weatherSelect.appendChild(option);
     });
 
-    // Areas (LGA) - display full names but use abbreviated names as values
+    // Areas (LGA) - populate checkbox dropdown with full names
     const areas = [...new Set(crashData.map(row => row['LGA Name']).filter(v => v))];
-    const areaSelect = document.getElementById('area');
+    const areaMenu = document.getElementById('areaMenu');
 
     // Sort by display name instead of abbreviated name
     areas.sort((a, b) => {
         const nameA = getFullLGAName(a);
         const nameB = getFullLGAName(b);
         return nameA.localeCompare(nameB);
-    }).forEach(area => {
-        const option = document.createElement('option');
-        option.value = area; // Keep abbreviated name as value for filtering
-        option.textContent = getFullLGAName(area); // Display full name
-        areaSelect.appendChild(option);
+    }).forEach((area, index) => {
+        const item = document.createElement('div');
+        item.className = 'checkbox-dropdown-item';
+
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.id = `area-${index}`;
+        checkbox.value = area; // Keep abbreviated name as value for filtering
+        checkbox.checked = true; // All selected by default
+        checkbox.onchange = () => updateCheckboxDropdownDisplay('area');
+
+        const label = document.createElement('label');
+        label.htmlFor = `area-${index}`;
+        label.textContent = getFullLGAName(area); // Display full name
+
+        item.appendChild(checkbox);
+        item.appendChild(label);
+        areaMenu.appendChild(item);
     });
+
+    // Add select/clear controls
+    const areaControls = document.createElement('div');
+    areaControls.className = 'checkbox-dropdown-controls';
+    areaControls.innerHTML = `
+        <button class="checkbox-select-all" onclick="selectAllDropdownItems('area')">Select All</button>
+        <button class="checkbox-clear-all" onclick="clearAllDropdownItems('area')">Clear All</button>
+    `;
+    areaMenu.appendChild(areaControls);
 
     // Road User Types (from casualty data)
     const roadUserTypes = [...new Set(casualtyData.map(row => row['Casualty Type']).filter(v => v))];
@@ -794,15 +852,45 @@ function populateFilterOptions() {
     });
 }
 
-// Helper: Get selected values from a multi-select element
+// Helper: Get selected values from a multi-select element or checkbox dropdown
 function getSelectedValues(elementId) {
+    // Check if it's a checkbox dropdown (area)
+    const menu = document.getElementById(`${elementId}Menu`);
+    if (menu) {
+        const checkboxes = menu.querySelectorAll('input[type="checkbox"]:checked');
+        if (checkboxes.length === 0 || checkboxes.length === menu.querySelectorAll('input[type="checkbox"]').length) {
+            return ['all'];
+        }
+        return Array.from(checkboxes).map(cb => cb.value);
+    }
+
+    // Fall back to regular multi-select element
     const element = document.getElementById(elementId);
     if (!element) return ['all'];
     return Array.from(element.selectedOptions).map(opt => opt.value);
 }
 
-// Helper: Get value from a single-select element
+// Helper: Get value from a single-select element or checkbox dropdown
 function getValue(elementId, defaultValue = 'all') {
+    // Check if it's a checkbox dropdown (crashType)
+    const menu = document.getElementById(`${elementId}Menu`);
+    if (menu) {
+        const checkboxes = menu.querySelectorAll('input[type="checkbox"]:checked');
+        const allCheckboxes = menu.querySelectorAll('input[type="checkbox"]');
+
+        // If all are selected or none are selected, return 'all'
+        if (checkboxes.length === 0 || checkboxes.length === allCheckboxes.length) {
+            return 'all';
+        }
+        // If only one is selected, return that value
+        if (checkboxes.length === 1) {
+            return checkboxes[0].value;
+        }
+        // If multiple are selected, return 'multiple' for special handling
+        return 'multiple';
+    }
+
+    // Fall back to regular select element
     const element = document.getElementById(elementId);
     return element ? element.value : defaultValue;
 }
@@ -817,6 +905,7 @@ function getFilterValues() {
         // Basic filters
         selectedSeverities: getSelectedValues('severity'),
         crashType: getValue('crashType'),
+        selectedCrashTypes: getSelectedValues('crashType'), // For multiple crash type selections
         weather: getValue('weather'),
         dayNight: getValue('dayNight'),
         duiInvolved: getValue('duiInvolved'),
@@ -869,8 +958,10 @@ function matchesBasicFilters(row, filters) {
         return false;
     }
 
-    // Crash type filter
-    if (filters.crashType !== 'all' && row['Crash Type'] !== filters.crashType) return false;
+    // Crash type filter - handle both single and multiple selections
+    if (!filters.selectedCrashTypes.includes('all') && !filters.selectedCrashTypes.includes(row['Crash Type'])) {
+        return false;
+    }
 
     // Weather filter
     if (filters.weather !== 'all' && row['Weather Cond'] !== filters.weather) return false;
@@ -1086,7 +1177,7 @@ function matchesUnitsFilters(row, filters) {
 }
 
 // Apply filters and update map
-function applyFilters() {
+function applyFilters(isInitialLoad = false) {
     // Show loading indicator
     showLoading('Filtering crash data...');
 
@@ -1106,8 +1197,13 @@ function applyFilters() {
             // Update statistics
             updateStatistics();
 
-            // Update map layers
-            updateMapLayers();
+            // Update analytics charts
+            if (typeof updateChartsWithData === 'function') {
+                updateChartsWithData(filteredData);
+            }
+
+            // Update map layers (pass isInitialLoad flag)
+            updateMapLayers(null, isInitialLoad);
 
             // Update advanced filter badge
             if (typeof updateAdvancedFilterBadge === 'function') {
@@ -1143,7 +1239,7 @@ function updateStatistics() {
 }
 
 // Update map layers based on active selections
-function updateMapLayers(changedLayer = null) {
+function updateMapLayers(changedLayer = null, isInitialLoad = false) {
     try {
         // If a specific layer changed, only update that layer
         if (changedLayer) {
@@ -1237,17 +1333,21 @@ function updateMapLayers(changedLayer = null) {
                 addChoropleth();
             }
 
-            // Hide loading indicator after rendering completes
-            requestAnimationFrame(() => {
-                setTimeout(() => {
-                    hideLoading();
-                }, 100);
-            });
+            // Hide loading indicator after rendering completes (unless it's initial load)
+            if (!isInitialLoad) {
+                requestAnimationFrame(() => {
+                    setTimeout(() => {
+                        hideLoading();
+                    }, 100);
+                });
+            }
         }, 0);
     });
     } catch (error) {
         console.error('Error updating map layers:', error);
-        hideLoading();
+        if (!isInitialLoad) {
+            hideLoading();
+        }
         alert('Error updating map display. Please refresh the page.');
     }
 }
@@ -1755,23 +1855,29 @@ function clearFilters() {
     document.getElementById('timeFrom').value = '';
     document.getElementById('timeTo').value = '';
 
-    // Reset all dropdowns
-    document.getElementById('severity').value = 'all';
-    // Reset multi-select by selecting all options
-    const severitySelect = document.getElementById('severity');
-    for (let option of severitySelect.options) {
-        option.selected = (option.value === 'all');
+    // Reset severity checkbox dropdown
+    const severityMenu = document.getElementById('severityMenu');
+    if (severityMenu) {
+        severityMenu.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = true);
+        updateCheckboxDropdownDisplay('severity');
     }
 
-    document.getElementById('crashType').value = 'all';
+    // Reset crash type checkbox dropdown
+    const crashTypeMenu = document.getElementById('crashTypeMenu');
+    if (crashTypeMenu) {
+        crashTypeMenu.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = true);
+        updateCheckboxDropdownDisplay('crashType');
+    }
+
     document.getElementById('weather').value = 'all';
     document.getElementById('dayNight').value = 'all';
     document.getElementById('duiInvolved').value = 'all';
 
-    // Reset area multi-select by selecting "All Areas" option
-    const areaSelect = document.getElementById('area');
-    for (let option of areaSelect.options) {
-        option.selected = (option.value === 'all');
+    // Reset area checkbox dropdown
+    const areaMenu = document.getElementById('areaMenu');
+    if (areaMenu) {
+        areaMenu.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = true);
+        updateCheckboxDropdownDisplay('area');
     }
 
     // Reset road user type multi-select
@@ -2063,7 +2169,9 @@ function encodeFiltersToURL() {
         // Trim all values to remove padding spaces
         params.set('severity', filters.selectedSeverities.map(s => s.trim()).join(','));
     }
-    if (filters.crashType !== 'all') params.set('crashType', filters.crashType.trim());
+    if (!filters.selectedCrashTypes.includes('all')) {
+        params.set('crashType', filters.selectedCrashTypes.map(s => s.trim()).join(','));
+    }
     if (filters.weather !== 'all') params.set('weather', filters.weather.trim());
     if (filters.dayNight !== 'all') params.set('dayNight', filters.dayNight.trim());
     if (filters.duiInvolved !== 'all') params.set('dui', filters.duiInvolved.trim());
@@ -2101,22 +2209,28 @@ function loadFiltersFromURL() {
             }
         }
 
-        // Severity
+        // Severity - handle checkbox dropdown
         if (params.has('severity')) {
             const severities = params.get('severity').split(',').map(s => s.trim());
-            const select = document.getElementById('severity');
-            Array.from(select.options).forEach(opt => {
-                opt.selected = severities.includes(opt.value.trim());
-            });
+            const menu = document.getElementById('severityMenu');
+            if (menu) {
+                menu.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+                    cb.checked = severities.includes(cb.value.trim());
+                });
+                updateCheckboxDropdownDisplay('severity');
+            }
         }
 
-        // Simple filters - need to match by trimmed value
+        // Crash type filter - handle checkbox dropdown
         if (params.has('crashType')) {
-            const crashType = params.get('crashType');
-            const select = document.getElementById('crashType');
-            Array.from(select.options).forEach(opt => {
-                if (opt.value.trim() === crashType) select.value = opt.value;
-            });
+            const crashTypes = params.get('crashType').split(',').map(s => s.trim());
+            const menu = document.getElementById('crashTypeMenu');
+            if (menu) {
+                menu.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+                    cb.checked = crashTypes.includes(cb.value.trim());
+                });
+                updateCheckboxDropdownDisplay('crashType');
+            }
         }
         if (params.has('weather')) {
             const weather = params.get('weather');
@@ -2147,13 +2261,16 @@ function loadFiltersFromURL() {
             });
         }
 
-        // Areas - match by trimmed values
+        // Areas - handle checkbox dropdown
         if (params.has('areas')) {
             const areas = params.get('areas').split(',').map(a => a.trim());
-            const select = document.getElementById('area');
-            Array.from(select.options).forEach(opt => {
-                opt.selected = areas.includes(opt.value.trim());
-            });
+            const menu = document.getElementById('areaMenu');
+            if (menu) {
+                menu.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+                    cb.checked = areas.includes(cb.value.trim());
+                });
+                updateCheckboxDropdownDisplay('area');
+            }
         }
 
         // Date/time
