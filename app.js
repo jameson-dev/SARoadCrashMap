@@ -130,6 +130,36 @@ function initMap() {
         maxClusterRadius: 50,
         iconCreateFunction: function(cluster) {
             const childCount = cluster.getChildCount();
+
+            // Format large numbers with K/M suffixes (no decimals)
+            let displayCount;
+            if (childCount >= 1000000) {
+                displayCount = Math.round(childCount / 1000000) + 'M';
+            } else if (childCount >= 1000) {
+                displayCount = Math.round(childCount / 1000) + 'K';
+            } else {
+                displayCount = childCount;
+            }
+
+            // Determine font size based on display length
+            const displayLength = displayCount.toString().length;
+            let fontSize;
+            if (displayLength <= 2) {
+                fontSize = '12px';
+            } else if (displayLength === 3) {
+                fontSize = '11px';
+            } else if (displayLength === 4) {
+                fontSize = '10px';
+            } else {
+                fontSize = '9px';  // Minimum readable size
+            }
+
+            // Increase icon size for very large numbers (5+ characters)
+            let iconSize = 40;
+            if (displayLength >= 5) {
+                iconSize = 50;
+            }
+
             let c = ' marker-cluster-';
             if (childCount < 10) {
                 c += 'small';
@@ -138,10 +168,11 @@ function initMap() {
             } else {
                 c += 'large';
             }
+
             return new L.DivIcon({
-                html: '<div><span>' + childCount + '</span></div>',
+                html: '<div><span style="font-size: ' + fontSize + ';">' + displayCount + '</span></div>',
                 className: 'marker-cluster' + c,
-                iconSize: new L.Point(40, 40)
+                iconSize: new L.Point(iconSize, iconSize)
             });
         }
     });
@@ -1056,22 +1087,41 @@ function matchesDateTimeFilters(row, filters) {
 }
 
 // Helper: Check if crash matches casualty-related filters
+// COMBINED MATCHING: At least ONE casualty must match ALL active filters simultaneously
 function matchesCasualtyFilters(row, filters) {
     const casualties = row._casualties || [];
 
-    // Road User Type filter
-    if (!filters.selectedRoadUsers.includes('all')) {
-        if (casualties.length === 0) return false;
-        if (!casualties.some(c => filters.selectedRoadUsers.includes(c['Casualty Type']))) return false;
-    }
+    // Determine which casualty filters are active
+    const hasRoadUserFilter = !filters.selectedRoadUsers.includes('all');
+    const hasAgeFilter = !filters.selectedAgeGroups.includes('all');
+    const hasSexFilter = !filters.selectedSexes.includes('all');
+    const hasInjuryFilter = !filters.selectedInjuries.includes('all');
+    const hasSeatBeltFilter = !filters.selectedSeatBelts.includes('all');
+    const hasHelmetFilter = !filters.selectedHelmets.includes('all');
 
-    // Age Group filter
-    if (!filters.selectedAgeGroups.includes('all')) {
-        if (casualties.length === 0) return false;
-        const hasMatchingAge = casualties.some(c => {
-            const age = parseInt(c.AGE);
+    const hasAnyCasualtyFilter = hasRoadUserFilter || hasAgeFilter || hasSexFilter ||
+                                 hasInjuryFilter || hasSeatBeltFilter || hasHelmetFilter;
+
+    // If no casualty filters are active, pass
+    if (!hasAnyCasualtyFilter) return true;
+
+    // If filters are active but no casualties exist, fail
+    if (casualties.length === 0) return false;
+
+    // Check if ANY casualty matches ALL active filters
+    return casualties.some(casualty => {
+        // Road User Type filter
+        if (hasRoadUserFilter) {
+            if (!filters.selectedRoadUsers.includes(casualty['Casualty Type'])) {
+                return false;
+            }
+        }
+
+        // Age Group filter
+        if (hasAgeFilter) {
+            const age = parseInt(casualty.AGE);
             if (isNaN(age)) return false;
-            return filters.selectedAgeGroups.some(group => {
+            const matchesAnyAgeGroup = filters.selectedAgeGroups.some(group => {
                 if (group === '0-17') return age >= 0 && age <= 17;
                 if (group === '18-25') return age >= 18 && age <= 25;
                 if (group === '26-35') return age >= 26 && age <= 35;
@@ -1080,42 +1130,61 @@ function matchesCasualtyFilters(row, filters) {
                 if (group === '66+') return age >= 66;
                 return false;
             });
-        });
-        if (!hasMatchingAge) return false;
-    }
+            if (!matchesAnyAgeGroup) return false;
+        }
 
-    // Casualty Sex filter
-    if (!filters.selectedSexes.includes('all')) {
-        if (casualties.length === 0) return false;
-        if (!casualties.some(c => filters.selectedSexes.includes(c.Sex))) return false;
-    }
+        // Casualty Sex filter
+        if (hasSexFilter) {
+            if (!filters.selectedSexes.includes(casualty.Sex)) {
+                return false;
+            }
+        }
 
-    // Injury Extent filter
-    if (!filters.selectedInjuries.includes('all')) {
-        if (casualties.length === 0) return false;
-        if (!casualties.some(c => filters.selectedInjuries.includes(c['Injury Extent']))) return false;
-    }
+        // Injury Extent filter
+        if (hasInjuryFilter) {
+            if (!filters.selectedInjuries.includes(casualty['Injury Extent'])) {
+                return false;
+            }
+        }
 
-    // Seat Belt filter
-    if (!filters.selectedSeatBelts.includes('all')) {
-        if (casualties.length === 0) return false;
-        if (!casualties.some(c => filters.selectedSeatBelts.includes(c['Seat Belt']))) return false;
-    }
+        // Seat Belt filter
+        if (hasSeatBeltFilter) {
+            if (!filters.selectedSeatBelts.includes(casualty['Seat Belt'])) {
+                return false;
+            }
+        }
 
-    // Helmet filter
-    if (!filters.selectedHelmets.includes('all')) {
-        if (casualties.length === 0) return false;
-        if (!casualties.some(c => filters.selectedHelmets.includes(c.HELMET))) return false;
-    }
+        // Helmet filter
+        if (hasHelmetFilter) {
+            if (!filters.selectedHelmets.includes(casualty.HELMET)) {
+                return false;
+            }
+        }
 
-    return true;
+        // This casualty matches all active filters
+        return true;
+    });
 }
 
 // Helper: Check if crash matches units/vehicle-related filters
+// COMBINED MATCHING: At least ONE unit must match ALL active filters simultaneously
 function matchesUnitsFilters(row, filters) {
     const units = row._units || [];
 
-    // Heavy Vehicle filter
+    // Determine which unit filters are active
+    const hasVehicleTypeFilter = !filters.selectedVehicles.includes('all');
+    const hasVehicleYearFilter = !filters.selectedVehicleYears.includes('all');
+    const hasOccupantsFilter = !filters.selectedOccupants.includes('all');
+    const hasLicenseTypeFilter = !filters.selectedLicenseTypes.includes('all');
+    const hasRegStateFilter = !filters.selectedRegStates.includes('all');
+    const hasDirectionFilter = !filters.selectedDirections.includes('all');
+    const hasMovementFilter = !filters.selectedMovements.includes('all');
+
+    const hasAnyMultiSelectUnitFilter = hasVehicleTypeFilter || hasVehicleYearFilter ||
+                                        hasOccupantsFilter || hasLicenseTypeFilter ||
+                                        hasRegStateFilter || hasDirectionFilter || hasMovementFilter;
+
+    // Handle Heavy Vehicle filter (yes/no filter - not combined with others)
     if (filters.heavyVehicle !== 'all') {
         if (units.length === 0) return filters.heavyVehicle !== 'yes';
         const hasHeavyVehicle = units.some(u => HEAVY_VEHICLE_TYPES.includes(u['Unit Type']));
@@ -1123,25 +1192,7 @@ function matchesUnitsFilters(row, filters) {
         if (filters.heavyVehicle === 'no' && hasHeavyVehicle) return false;
     }
 
-    // Vehicle Type filter
-    if (!filters.selectedVehicles.includes('all')) {
-        if (units.length === 0) return false;
-        if (!units.some(u => filters.selectedVehicles.includes(u['Unit Type']))) return false;
-    }
-
-    // Vehicle Year filter
-    if (!filters.selectedVehicleYears.includes('all')) {
-        if (units.length === 0) return false;
-        if (!units.some(u => filters.selectedVehicleYears.includes(u['Veh Build Year']))) return false;
-    }
-
-    // Occupants filter
-    if (!filters.selectedOccupants.includes('all')) {
-        if (units.length === 0) return false;
-        if (!units.some(u => filters.selectedOccupants.includes(u.TOTAL_OCCS))) return false;
-    }
-
-    // Towing filter
+    // Handle Towing filter (yes/no filter - not combined with others)
     if (filters.towing !== 'all') {
         if (units.length === 0) return filters.towing !== 'Yes';
         const hasTowing = units.some(u => u.TOWING && u.TOWING.trim() !== '');
@@ -1149,31 +1200,66 @@ function matchesUnitsFilters(row, filters) {
         if (filters.towing === 'No' && hasTowing) return false;
     }
 
-    // License Type filter
-    if (!filters.selectedLicenseTypes.includes('all')) {
-        if (units.length === 0) return false;
-        if (!units.some(u => filters.selectedLicenseTypes.includes(u['License Type']))) return false;
-    }
+    // If no multi-select unit filters are active, pass
+    if (!hasAnyMultiSelectUnitFilter) return true;
 
-    // Vehicle Reg State filter
-    if (!filters.selectedRegStates.includes('all')) {
-        if (units.length === 0) return false;
-        if (!units.some(u => filters.selectedRegStates.includes(u['Veh Reg State']))) return false;
-    }
+    // If filters are active but no units exist, fail
+    if (units.length === 0) return false;
 
-    // Direction of Travel filter
-    if (!filters.selectedDirections.includes('all')) {
-        if (units.length === 0) return false;
-        if (!units.some(u => filters.selectedDirections.includes(u['Direction Of Travel']))) return false;
-    }
+    // Check if ANY unit matches ALL active multi-select filters
+    return units.some(unit => {
+        // Vehicle Type filter
+        if (hasVehicleTypeFilter) {
+            if (!filters.selectedVehicles.includes(unit['Unit Type'])) {
+                return false;
+            }
+        }
 
-    // Unit Movement filter
-    if (!filters.selectedMovements.includes('all')) {
-        if (units.length === 0) return false;
-        if (!units.some(u => filters.selectedMovements.includes(u['Unit Movement']))) return false;
-    }
+        // Vehicle Year filter
+        if (hasVehicleYearFilter) {
+            if (!filters.selectedVehicleYears.includes(unit['Veh Build Year'])) {
+                return false;
+            }
+        }
 
-    return true;
+        // Occupants filter
+        if (hasOccupantsFilter) {
+            if (!filters.selectedOccupants.includes(unit.TOTAL_OCCS)) {
+                return false;
+            }
+        }
+
+        // License Type filter
+        if (hasLicenseTypeFilter) {
+            if (!filters.selectedLicenseTypes.includes(unit['License Type'])) {
+                return false;
+            }
+        }
+
+        // Vehicle Reg State filter
+        if (hasRegStateFilter) {
+            if (!filters.selectedRegStates.includes(unit['Veh Reg State'])) {
+                return false;
+            }
+        }
+
+        // Direction of Travel filter
+        if (hasDirectionFilter) {
+            if (!filters.selectedDirections.includes(unit['Direction Of Travel'])) {
+                return false;
+            }
+        }
+
+        // Unit Movement filter
+        if (hasMovementFilter) {
+            if (!filters.selectedMovements.includes(unit['Unit Movement'])) {
+                return false;
+            }
+        }
+
+        // This unit matches all active multi-select filters
+        return true;
+    });
 }
 
 // Apply filters and update map
@@ -1948,6 +2034,9 @@ function clearFilters() {
 
     // Reset fire
     document.getElementById('fire').value = 'all';
+
+    // Reset heavy vehicle
+    document.getElementById('heavyVehicle').value = 'all';
 
     // Reset vehicle year multi-select
     const vehicleYearSelect = document.getElementById('vehicleYear');
