@@ -799,6 +799,67 @@
             display: none;
         }
 
+        /* Layer info icon and tooltip */
+        .layer-label-container {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .layer-info-icon {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: var(--accent);
+            color: white;
+            font-size: 11px;
+            font-weight: bold;
+            cursor: help;
+            transition: all 0.2s;
+            position: relative;
+        }
+
+        .layer-info-icon:hover {
+            background: var(--accent-hover);
+            transform: scale(1.1);
+        }
+
+        .layer-info-tooltip {
+            position: absolute;
+            left: 100%;
+            top: 50%;
+            transform: translateY(-50%);
+            margin-left: 12px;
+            background: var(--bg-panel);
+            border: 2px solid var(--accent);
+            border-radius: 8px;
+            padding: 12px;
+            width: 220px;
+            font-size: 11px;
+            line-height: 1.5;
+            color: var(--text-primary);
+            box-shadow: 0 4px 16px var(--shadow);
+            z-index: 10000;
+            pointer-events: none;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s;
+        }
+
+        .layer-info-icon:hover .layer-info-tooltip {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .layer-info-tooltip strong {
+            color: var(--accent);
+            display: block;
+            margin-bottom: 6px;
+        }
+
         @media (max-width: 768px) {
             .controls-panel {
                 right: -100%;
@@ -1895,9 +1956,18 @@
                 <span>🎯 Clustered Markers</span>
                 <span id="markersStatus">ON</span>
             </div>
-            <div class="layer-toggle" id="heatmapToggle" onclick="toggleLayer('heatmap')">
-                <span>🔥 Heatmap</span>
-                <span id="heatmapStatus">OFF</span>
+            <div class="layer-toggle" id="densityToggle" onclick="toggleLayer('density')">
+                <div class="layer-label-container">
+                    <span>💠 Point Density Map</span>
+                    <div class="layer-info-icon" onclick="event.stopPropagation()">
+                        ⓘ
+                        <div class="layer-info-tooltip">
+                            <strong>💡 Viewing Tip</strong>
+                            For best visibility, view this layer on the <strong>Dark</strong> basemap style. The colored density points have higher contrast against the dark background.
+                        </div>
+                    </div>
+                </div>
+                <span id="densityStatus">OFF</span>
             </div>
             <div class="layer-toggle" id="choroplethToggle" onclick="toggleLayer('choropleth')">
                 <span>🗺️ Choropleth (by LGA)</span>
@@ -2219,7 +2289,7 @@
     <!-- Leaflet MarkerCluster -->
     <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
 
-    <!-- Leaflet Heatmap -->
+    <!-- Leaflet Heat (for Density Map) -->
     <script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
 
     <!-- noUiSlider JS -->
@@ -2508,11 +2578,14 @@
                     <li>Cluster size indicates number of crashes in geographic proximity</li>
                 </ul>
 
-                <h3>Heatmap Generation</h3>
+                <h3>Density Map Visualization</h3>
                 <ul>
-                    <li>Heatmap layer generated using Leaflet.heat library</li>
-                    <li>Intensity based on crash density in geographic areas</li>
-                    <li>Gradient adjusted for optimal visual contrast</li>
+                    <li>Point density layer generated using Leaflet.heat library with tight radius settings</li>
+                    <li>Individual crashes rendered with minimal blur for precise location visualization</li>
+                    <li>Color intensity represents both crash density and severity weighting</li>
+                    <li>Severity-weighted: Fatal (4x), Serious Injury (3x), Minor Injury (2x), PDO (1x)</li>
+                    <li>Radius and blur scale with zoom level for optimal viewing at all scales</li>
+                    <li>Follows road patterns naturally, creating linear density corridors</li>
                 </ul>
 
                 <h3>Choropleth Mapping</h3>

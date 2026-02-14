@@ -370,11 +370,14 @@
                 <li>Cluster size indicates number of crashes in geographic proximity</li>
             </ul>
 
-            <h3>Heatmap Generation</h3>
+            <h3>Density Map Visualization</h3>
             <ul>
-                <li>Heatmap layer generated using Leaflet.heat library</li>
-                <li>Intensity based on crash density in geographic areas</li>
-                <li>Gradient adjusted for optimal visual contrast</li>
+                <li>Point density layer generated using Leaflet.heat library with tight radius settings</li>
+                <li>Individual crashes rendered with minimal blur for precise location visualization</li>
+                <li>Color intensity represents both crash density and severity weighting</li>
+                <li>Severity-weighted: Fatal (4x), Serious Injury (3x), Minor Injury (2x), PDO (1x)</li>
+                <li>Radius and blur scale with zoom level for optimal viewing at all scales</li>
+                <li>Follows road patterns naturally, creating linear density corridors</li>
             </ul>
 
             <h3>Choropleth Mapping</h3>

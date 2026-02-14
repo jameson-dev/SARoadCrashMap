@@ -6,11 +6,11 @@ let unitsData = [];
 let filteredData = [];
 let lgaBoundaries = null;
 let markersLayer;
-let heatmapLayer;
+let densityLayer;
 let choroplethLayer;
 let activeLayers = {
     markers: true,
-    heatmap: false,
+    density: false,
     choropleth: false
 };
 
@@ -1266,19 +1266,19 @@ function updateMapLayers(changedLayer = null, isInitialLoad = false) {
                     }
                 }
             }
-        } else if (changedLayer === 'heatmap') {
-            if (activeLayers.heatmap) {
-                showLoading('Generating heatmap...');
+        } else if (changedLayer === 'density') {
+            if (activeLayers.density) {
+                showLoading('Generating density map...');
                 requestAnimationFrame(() => {
                     setTimeout(() => {
-                        addHeatmap();
+                        addDensityMap();
                         hideLoading();
                     }, 0);
                 });
             } else {
-                if (heatmapLayer && map.hasLayer(heatmapLayer)) {
-                    map.removeLayer(heatmapLayer);
-                    heatmapLayer = null;
+                if (densityLayer && map.hasLayer(densityLayer)) {
+                    map.removeLayer(densityLayer);
+                    densityLayer = null;
                 }
             }
         } else if (changedLayer === 'choropleth') {
@@ -1307,9 +1307,9 @@ function updateMapLayers(changedLayer = null, isInitialLoad = false) {
             map.removeLayer(markersLayer);
         }
     }
-    if (heatmapLayer && map.hasLayer(heatmapLayer)) {
-        map.removeLayer(heatmapLayer);
-        heatmapLayer = null;
+    if (densityLayer && map.hasLayer(densityLayer)) {
+        map.removeLayer(densityLayer);
+        densityLayer = null;
     }
     if (choroplethLayer && map.hasLayer(choroplethLayer)) {
         map.removeLayer(choroplethLayer);
@@ -1324,9 +1324,9 @@ function updateMapLayers(changedLayer = null, isInitialLoad = false) {
                 showLoading('Adding markers to map...');
                 addMarkers();
             }
-            if (activeLayers.heatmap) {
-                showLoading('Generating heatmap...');
-                addHeatmap();
+            if (activeLayers.density) {
+                showLoading('Generating density map...');
+                addDensityMap();
             }
             if (activeLayers.choropleth) {
                 showLoading('Rendering choropleth layer...');
@@ -1516,9 +1516,9 @@ function addMarkers() {
     map.addLayer(markersLayer);
 }
 
-// Add heatmap layer
-function addHeatmap() {
-    const heatmapData = [];
+// Add density map layer
+function addDensityMap() {
+    const densityData = [];
 
     filteredData.forEach(row => {
         const coords = convertCoordinates(row.ACCLOC_X, row.ACCLOC_Y);
@@ -1531,34 +1531,55 @@ function addHeatmap() {
         else if (severity === '3: SI') weight = 3;
         else if (severity === '2: MI') weight = 2;
 
-        heatmapData.push([coords[0], coords[1], weight]);
+        densityData.push([coords[0], coords[1], weight]);
     });
 
-    heatmapLayer = L.heatLayer(heatmapData, {
-        radius: 10,
-        blur: 5,
+    densityLayer = L.heatLayer(densityData, {
+        radius: 2,
+        blur: 1,
         maxZoom: 17,
-        max: 3,
-        minOpacity: 0.5,      // Minimum opacity for visibility
+        max: 1.75,  // Higher max = individual crashes show different colors by severity
+        minOpacity: 0.5, 
         gradient: {
-            0.0: '#0000ff',
-            0.3: '#00ffff',
-            0.5: '#00ff00',
-            0.7: '#ffff00',
-            0.9: '#ff0000',
-            1.0: '#8B0000'
+            0.0: 'rgba(0, 0, 255, 0)',
+            0.2: 'rgba(0, 100, 255, 0.7)',
+            0.4: 'rgba(0, 200, 200, 0.85)',
+            0.6: 'rgba(0, 255, 100, 1)',
+            0.75: 'rgba(255, 255, 0, 1)',
+            0.85: 'rgba(255, 150, 0, 1)',
+            0.9: 'rgb(255, 100, 75)',
+            1.0: 'rgb(255, 170, 175)'
         }
     }).addTo(map);
 
-    // Update heatmap radius based on zoom level for better visibility at all scales
+    // Update line density - scale radius gradually with zoom
     map.on('zoomend', function() {
-        if (heatmapLayer && map.hasLayer(heatmapLayer)) {
+        if (densityLayer && map.hasLayer(densityLayer)) {
             const zoom = map.getZoom();
-            // Scale radius: larger when zoomed out, smaller when zoomed in
-            const radius = Math.max(15, 35 - (zoom * 1.5));
-            const blur = Math.max(10, 25 - (zoom * 1.0));
 
-            heatmapLayer.setOptions({
+            // Step-wise radius and blur increase based on zoom level
+            // Higher blur at zoomed-in levels to blend white spots smoothly
+            // Default (zoom 7-12): radius 2, blur 1
+            // +6 zooms (zoom 13-15): radius 3, blur 3
+            // +9 zooms (zoom 16): radius 4, blur 5
+            // +10 zooms (zoom 17+): radius 6, blur 6
+            let radius = 2;
+            let blur = 1;
+
+            if (zoom >= 13) {
+                radius = 3;
+                blur = 2;
+            }
+            if (zoom >= 16) {
+                radius = 4;
+                blur = 4;
+            }
+            if (zoom >= 17) {
+                radius = 6;
+                blur = 4;
+            }
+
+            densityLayer.setOptions({
                 radius: radius,
                 blur: blur
             });
