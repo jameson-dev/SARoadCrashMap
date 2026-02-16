@@ -78,14 +78,16 @@ Click on any marker to see comprehensive crash information:
 ## Technical Details
 
 ### Data Files
-The application uses crash data from:
-- `2012-2024_DATA_SA_Crash.csv` - Main crash data with locations (190,910+ records)
+The application uses crash data from the `data/` folder:
+- `data/2012-2024_DATA_SA_Crash.csv` - Main crash data with locations (190,910+ records)
   - Merged from individual yearly datasets (2012-2019) and combined dataset (2020-2024)
-- `2012-2024_DATA_SA_Casualty.csv` - Detailed casualty information (77,147 records)
+- `data/2012-2024_DATA_SA_Casualty.csv` - Detailed casualty information (77,147 records)
   - Includes casualty type, age, sex, injury extent, safety equipment usage
-- `2012-2024_DATA_SA_Units.csv` - Crash unit information (407,571 records)
+- `data/2012-2024_DATA_SA_Units.csv` - Crash unit information (407,571 records)
   - Includes all units involved in crashes: vehicles, pedestrians, fixed objects struck (trees, poles, barriers), animals, etc.
   - Also includes vehicle details like type, year, occupants, and driver information
+- `data/sa_lga_boundaries.geojson` - LGA boundary polygons for choropleth visualization
+- `data/sa_suburbs.geojson` - Suburb boundary polygons for choropleth visualization
 
 ### Libraries Used
 - **Leaflet.js** - Interactive mapping

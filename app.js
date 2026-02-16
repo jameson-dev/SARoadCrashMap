@@ -240,7 +240,7 @@ function loadData() {
     showLoading('Loading crash data (190,000+ records)...');
 
     // Load crash data first
-    Papa.parse('2012-2024_DATA_SA_Crash.csv', {
+    Papa.parse('data/2012-2024_DATA_SA_Crash.csv', {
         download: true,
         header: true,
         skipEmptyLines: true,
@@ -270,7 +270,7 @@ function loadData() {
 function loadCasualtyData() {
     showLoading('Loading casualty data (77,000+ records)...');
 
-    Papa.parse('2012-2024_DATA_SA_Casualty.csv', {
+    Papa.parse('data/2012-2024_DATA_SA_Casualty.csv', {
         download: true,
         header: true,
         skipEmptyLines: true,
@@ -293,7 +293,7 @@ function loadCasualtyData() {
 function loadUnitsData() {
     showLoading('Loading units data (407,000+ records)...');
 
-    Papa.parse('2012-2024_DATA_SA_Units.csv', {
+    Papa.parse('data/2012-2024_DATA_SA_Units.csv', {
         download: true,
         header: true,
         skipEmptyLines: true,
@@ -476,7 +476,7 @@ function getLGAName(properties) {
 function loadLGABoundaries() {
     // Update message (loading overlay already visible from initial load)
     updateLoadingMessage('Loading LGA boundaries...');
-    fetch('sa_lga_boundaries.geojson')
+    fetch('data/sa_lga_boundaries.geojson')
         .then(response => response.json())
         .then(data => {
             lgaBoundaries = data;
@@ -493,7 +493,7 @@ function loadLGABoundaries() {
 }
 
 // Load suburb boundaries (GeoJSON)
-function loadSuburbBoundaries(filePath = 'sa_suburbs.geojson') {
+function loadSuburbBoundaries(filePath = 'data/sa_suburbs.geojson') {
     fetch(filePath)
         .then(response => {
             if (!response.ok) {
