@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Map pin -->
+  <path d="M256 32c-97 0-176 79-176 176 0 132 176 272 176 272s176-140 176-272c0-97-79-176-176-176z" fill="#6b7280"/>
+  
+  <!-- Stat bars -->
+  <rect x="152" y="240" width="40" height="60" rx="6" fill="#f3f4f6"/>
+  <rect x="212" y="180" width="40" height="120" rx="6" fill="#f3f4f6"/>
+  <rect x="272" y="120" width="40" height="180" rx="6" fill="#f3f4f6"/>
+  <rect x="332" y="160" width="40" height="140" rx="6" fill="#f3f4f6"/>
+</svg>

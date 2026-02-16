@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="saroadcrashmap-logo.svg" alt="SA Road Crash Map" width="400">
+</p>
+
 # SA Crash Data Interactive Map (2012-2024)
 
 An interactive web-based map visualization tool for exploring South Australian crash data from 2012-2024.

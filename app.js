@@ -255,7 +255,7 @@ function loadData() {
 
             console.log('Filtered crash data:', crashData.length, 'records with coordinates');
 
-            // Now load casualty data
+            // Load casualty data
             loadCasualtyData();
         },
         error: function(error) {
@@ -278,7 +278,7 @@ function loadCasualtyData() {
             casualtyData = results.data;
             console.log('Casualty data loaded:', casualtyData.length, 'records');
 
-            // Now load units data
+            // Load units data
             loadUnitsData();
         },
         error: function(error) {
@@ -346,14 +346,14 @@ function linkCrashData() {
         unitsMap[reportId].push(unit);
     });
 
-    // Link to crash data and PERFORMANCE: cache converted coordinates
+    // Link to crash data and cache converted coordinates
     let linkedCount = 0;
     crashData.forEach(crash => {
         const reportId = crash.REPORT_ID;  // Use REPORT_ID (all caps, underscore) not 'Report ID'
         crash._casualties = casualtyMap[reportId] || [];
         crash._units = unitsMap[reportId] || [];
 
-        // PERFORMANCE: Pre-convert and cache coordinates to avoid repeated conversions
+        // Pre-convert and cache coordinates to avoid repeated conversions
         crash._coords = convertCoordinates(crash.ACCLOC_X, crash.ACCLOC_Y);
 
         if (crash._casualties.length > 0 || crash._units.length > 0) {
@@ -1181,7 +1181,6 @@ function matchesDateTimeFilters(row, filters) {
 
 // Helper: Check if crash matches casualty-related filters
 // COMBINED MATCHING: At least ONE casualty must match ALL active filters simultaneously
-// PERFORMANCE OPTIMIZED: Uses Sets for O(1) lookups instead of array.includes()
 function matchesCasualtyFilters(row, filters) {
     const casualties = row._casualties;
     if (!casualties || casualties.length === 0) {
@@ -1208,7 +1207,7 @@ function matchesCasualtyFilters(row, filters) {
     // If no casualty filters are active, pass
     if (!hasAnyCasualtyFilter) return true;
 
-    // PERFORMANCE: Create Sets for O(1) lookups (only if filters are active)
+    // Create Sets for O(1) lookups (only if filters are active)
     const roadUserSet = hasRoadUserFilter ? new Set(filters.selectedRoadUsers) : null;
     const sexSet = hasSexFilter ? new Set(filters.selectedSexes) : null;
     const injurySet = hasInjuryFilter ? new Set(filters.selectedInjuries) : null;
@@ -1313,7 +1312,7 @@ function matchesUnitsFilters(row, filters) {
     // If filters are active but no units exist, fail
     if (units.length === 0) return false;
 
-    // PERFORMANCE: Create Sets for O(1) lookups (only if filters are active)
+    // Create Sets for O(1) lookups (only if filters are active)
     const vehicleTypeSet = hasVehicleTypeFilter ? new Set(filters.selectedVehicles) : null;
     const vehicleYearSet = hasVehicleYearFilter ? new Set(filters.selectedVehicleYears) : null;
     const occupantsSet = hasOccupantsFilter ? new Set(filters.selectedOccupants) : null;
@@ -1734,7 +1733,7 @@ function addMarkers() {
     markersLayer.clearLayers();
 
     filteredData.forEach((row, index) => {
-        // PERFORMANCE: Use cached coordinates instead of converting each time
+        // Use cached coordinates instead of converting each time
         const coords = row._coords;
         if (!coords) return;
 
@@ -1750,7 +1749,7 @@ function addMarkers() {
 
         const marker = L.marker(coords, { icon: markerIcon });
 
-        // PERFORMANCE: Lazy load popup content on click instead of generating for all markers
+        // Lazy load popup content on click instead of generating for all markers
         // Lazy popup generation - create content only when popup is first opened
         let popupGenerated = false;
         marker.bindPopup(function() {
@@ -1772,7 +1771,7 @@ function addDensityMap() {
     const densityData = [];
 
     filteredData.forEach(row => {
-        // PERFORMANCE: Use cached coordinates instead of converting each time
+        // Use cached coordinates instead of converting each time
         const coords = row._coords;
         if (!coords) return;
 
@@ -2996,7 +2995,7 @@ async function searchByLocation() {
 
         if (results.length === 0) {
             hideLoading();
-            alert('Location not found. Try searching for a suburb, street, or landmark in South Australia.');
+            alert('Location not found. Try searching for a suburb in South Australia.');
             return;
         }
 

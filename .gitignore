@@ -180,6 +180,6 @@ cython_debug/
 .cursorignore
 .cursorindexingignore
 /.claude
-/sa crash data 2012-2019
 *.py
 start_server.bat
+/scripts
