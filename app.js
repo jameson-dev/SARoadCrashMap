@@ -5,6 +5,8 @@ let casualtyData = [];
 let unitsData = [];
 let filteredData = [];
 let lgaBoundaries = null;
+let suburbBoundaries = null;  // GeoJSON with suburb boundary polygons
+let choroplethMode = 'lga';  // 'lga' or 'suburb'
 let markersLayer;
 let densityLayer;
 let choroplethLayer;
@@ -490,6 +492,31 @@ function loadLGABoundaries() {
         });
 }
 
+// Load suburb boundaries (GeoJSON)
+function loadSuburbBoundaries(filePath = 'sa_suburbs.geojson') {
+    fetch(filePath)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            suburbBoundaries = data;
+            console.log('Suburb boundaries loaded:', data.features.length, 'suburbs');
+
+            // Enable the suburb option in the choropleth mode pill toggle
+            const suburbBtn = document.getElementById('choroplethModeSuburb');
+            if (suburbBtn) {
+                suburbBtn.disabled = false;
+                suburbBtn.title = 'Switch to suburb view';
+            }
+        })
+        .catch(error => {
+            console.warn('Could not load suburb boundaries:', error);
+        });
+}
+
 // Pre-compute LGA assignments for crashes with missing/N/A LGA names
 // This runs once at startup to avoid expensive point-in-polygon during rendering
 function precomputeLGAAssignments() {
@@ -806,6 +833,41 @@ function populateFilterOptions() {
     `;
     areaMenu.appendChild(areaControls);
 
+    // Suburbs - populate checkbox dropdown
+    const suburbs = [...new Set(crashData.map(row => row.Suburb).filter(v => v))];
+    const suburbMenu = document.getElementById('suburbMenu');
+
+    if (suburbMenu) {
+        suburbs.sort().forEach((suburb, index) => {
+            const item = document.createElement('div');
+            item.className = 'checkbox-dropdown-item';
+
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.id = `suburb-${index}`;
+            checkbox.value = suburb;
+            checkbox.checked = true; // All selected by default
+            checkbox.onchange = () => updateCheckboxDropdownDisplay('suburb');
+
+            const label = document.createElement('label');
+            label.htmlFor = `suburb-${index}`;
+            label.textContent = suburb;
+
+            item.appendChild(checkbox);
+            item.appendChild(label);
+            suburbMenu.appendChild(item);
+        });
+
+        // Add select/clear controls
+        const suburbControls = document.createElement('div');
+        suburbControls.className = 'checkbox-dropdown-controls';
+        suburbControls.innerHTML = `
+            <button class="checkbox-select-all" onclick="selectAllDropdownItems('suburb')">Select All</button>
+            <button class="checkbox-clear-all" onclick="clearAllDropdownItems('suburb')">Clear All</button>
+        `;
+        suburbMenu.appendChild(suburbControls);
+    }
+
     // Road User Types (from casualty data)
     const roadUserTypes = [...new Set(casualtyData.map(row => row['Casualty Type']).filter(v => v))];
     const roadUserSelect = document.getElementById('roadUserType');
@@ -902,7 +964,17 @@ function getSelectedValues(elementId) {
     // Fall back to regular multi-select element
     const element = document.getElementById(elementId);
     if (!element) return ['all'];
-    return Array.from(element.selectedOptions).map(opt => opt.value);
+    const selected = Array.from(element.selectedOptions).map(opt => opt.value);
+
+    // If nothing selected, treat as 'all' (prevents 0 results when user deselects everything)
+    if (selected.length === 0) return ['all'];
+
+    // If 'all' is selected along with other values, ignore 'all' (user wants specific values)
+    if (selected.includes('all') && selected.length > 1) {
+        return selected.filter(v => v !== 'all');
+    }
+
+    return selected;
 }
 
 // Helper: Get value from a single-select element or checkbox dropdown
@@ -945,6 +1017,7 @@ function getFilterValues() {
         dayNight: getValue('dayNight'),
         duiInvolved: getValue('duiInvolved'),
         selectedAreas: getSelectedValues('area'),
+        selectedSuburbs: getSelectedValues('suburb'),
 
         // Date and time
         dateFrom: getValue('dateFrom', ''),
@@ -1023,6 +1096,11 @@ function matchesBasicFilters(row, filters) {
         return false;
     }
 
+    // Suburb filter
+    if (!filters.selectedSuburbs.includes('all') && !filters.selectedSuburbs.includes(row.Suburb)) {
+        return false;
+    }
+
     // Road Surface filter
     if (!filters.selectedRoadSurfaces.includes('all')) {
         if (!filters.selectedRoadSurfaces.includes(row['Road Surface'])) return false;
@@ -1065,7 +1143,13 @@ function matchesDateTimeFilters(row, filters) {
                 const crashDate = `${dateParts[2]}-${dateParts[1].padStart(2, '0')}-${dateParts[0].padStart(2, '0')}`;
                 if (filters.dateFrom && crashDate < filters.dateFrom) return false;
                 if (filters.dateTo && crashDate > filters.dateTo) return false;
+            } else {
+                // Malformed date when date filter is active - exclude crash
+                return false;
             }
+        } else {
+            // Missing date when date filter is active - exclude crash
+            return false;
         }
     }
 
@@ -1075,8 +1159,10 @@ function matchesDateTimeFilters(row, filters) {
             const crashTime = parts[1];
             if (filters.timeFrom && filters.timeTo) {
                 if (filters.timeFrom <= filters.timeTo) {
+                    // Normal range (e.g., 08:00 to 17:00)
                     if (crashTime < filters.timeFrom || crashTime > filters.timeTo) return false;
                 } else {
+                    // Crosses midnight (e.g., 22:00 to 02:00) - must be >= timeFrom OR <= timeTo
                     if (crashTime < filters.timeFrom && crashTime > filters.timeTo) return false;
                 }
             } else if (filters.timeFrom) {
@@ -1084,6 +1170,9 @@ function matchesDateTimeFilters(row, filters) {
             } else if (filters.timeTo) {
                 if (crashTime > filters.timeTo) return false;
             }
+        } else {
+            // Missing time when time filter is active - exclude crash
+            return false;
         }
     }
 
@@ -1242,23 +1331,55 @@ function matchesUnitsFilters(row, filters) {
             }
         }
 
-        // Vehicle Year filter
+        // Vehicle Year filter (uses ranges: pre-2000, 2000-2010, 2011-2020, 2021+)
         if (hasVehicleYearFilter) {
-            if (!vehicleYearSet.has(unit['Veh Build Year'])) {
+            const year = parseInt(unit['Veh Year']);
+            if (!isNaN(year)) {
+                const matchesAnyYear = filters.selectedVehicleYears.some(range => {
+                    if (range === 'pre-2000') return year < 2000;
+                    if (range === '2000-2010') return year >= 2000 && year <= 2010;
+                    if (range === '2011-2020') return year >= 2011 && year <= 2020;
+                    if (range === '2021+') return year >= 2021;
+                    return false;
+                });
+                if (!matchesAnyYear) return false;
+            } else {
+                // No valid year data - exclude if year filter is active
                 return false;
             }
         }
 
-        // Occupants filter
+        // Occupants filter (uses values: 1, 2, 3, 4, 5+)
         if (hasOccupantsFilter) {
-            if (!occupantsSet.has(unit.TOTAL_OCCS)) {
+            const occupantsStr = unit['Number Occupants'];
+            if (occupantsStr !== undefined && occupantsStr !== null) {
+                const occupants = parseInt(occupantsStr);
+                if (!isNaN(occupants)) {
+                    // Skip units with 0 occupants when occupants filter is active
+                    if (occupants === 0) return false;
+
+                    const matchesAnyValue = filters.selectedOccupants.some(value => {
+                        if (value === '1') return occupants === 1;
+                        if (value === '2') return occupants === 2;
+                        if (value === '3') return occupants === 3;
+                        if (value === '4') return occupants === 4;
+                        if (value === '5+') return occupants >= 5;
+                        return false;
+                    });
+                    if (!matchesAnyValue) return false;
+                } else {
+                    // Invalid/unparseable occupants value - exclude
+                    return false;
+                }
+            } else {
+                // Missing occupants data - exclude
                 return false;
             }
         }
 
-        // License Type filter
+        // License Type filter (NOTE: Field is 'Licence Type' with British spelling)
         if (hasLicenseTypeFilter) {
-            if (!licenseTypeSet.has(unit['License Type'])) {
+            if (!licenseTypeSet.has(unit['Licence Type'])) {
                 return false;
             }
         }
@@ -1309,6 +1430,9 @@ function applyFilters(isInitialLoad = false) {
 
             // Update statistics
             updateStatistics();
+
+            // Update active filters display
+            updateActiveFiltersDisplay();
 
             // Update analytics charts
             if (typeof updateChartsWithData === 'function') {
@@ -1396,6 +1520,12 @@ function updateMapLayers(changedLayer = null, isInitialLoad = false) {
             }
         } else if (changedLayer === 'choropleth') {
             if (activeLayers.choropleth) {
+                // Clear existing choropleth layer first
+                if (choroplethLayer && map.hasLayer(choroplethLayer)) {
+                    map.removeLayer(choroplethLayer);
+                    choroplethLayer = null;
+                }
+
                 showLoading('Rendering choropleth layer...');
                 requestAnimationFrame(() => {
                     setTimeout(() => {
@@ -1621,13 +1751,15 @@ function addMarkers() {
         const marker = L.marker(coords, { icon: markerIcon });
 
         // PERFORMANCE: Lazy load popup content on click instead of generating for all markers
-        marker.on('click', function() {
-            if (!this.getPopup()) {
-                const popupContent = generatePopupContent(row);
-                this.bindPopup(popupContent, { maxWidth: 450 });
+        // Lazy popup generation - create content only when popup is first opened
+        let popupGenerated = false;
+        marker.bindPopup(function() {
+            if (!popupGenerated) {
+                popupGenerated = true;
+                return generatePopupContent(row);
             }
-            this.openPopup();
-        });
+            return this.getPopup().getContent();
+        }, { maxWidth: 450 });
 
         markersLayer.addLayer(marker);
     });
@@ -1709,6 +1841,13 @@ function addDensityMap() {
 
 // Add choropleth layer (by LGA)
 function addChoropleth() {
+    // Check mode and delegate to appropriate function
+    if (choroplethMode === 'suburb') {
+        addChoroplethBySuburb();
+        return;
+    }
+
+    // LGA mode (default)
     // Count crashes by LGA with normalized names
     const lgaCounts = {};
     const lgaCountsNormalized = {};
@@ -1898,6 +2037,100 @@ function addChoropleth() {
     }
 }
 
+// Add choropleth layer (by Suburb)
+function addChoroplethBySuburb() {
+    // Check if suburb boundaries are available
+    if (!suburbBoundaries || !suburbBoundaries.features) {
+        console.warn('Suburb boundaries not loaded. Cannot display suburb choropleth.');
+        alert('Suburb boundaries (GeoJSON) not loaded. Please upload suburb GeoJSON file to use suburb view.');
+        return;
+    }
+
+    // Count crashes by suburb
+    const suburbCounts = {};
+
+    filteredData.forEach(row => {
+        const suburb = row.Suburb;
+        if (suburb && suburb.trim() !== '') {
+            suburbCounts[suburb] = (suburbCounts[suburb] || 0) + 1;
+        }
+    });
+
+    // Find max count for color scaling
+    const maxCount = Math.max(...Object.values(suburbCounts));
+
+    // Helper function to get color based on crash count (reuse same scale as LGA)
+    function getColorForCount(count, max) {
+        if (count === 0) return '#0a0a0a';
+
+        const logCount = Math.log(count + 1);
+        const logMax = Math.log(max + 1);
+        const intensity = logCount / logMax;
+
+        // Same color scale as LGA choropleth
+        if (intensity > 0.96) return '#FF00FF';
+        if (intensity > 0.92) return '#FF1AFF';
+        if (intensity > 0.88) return '#FF33FF';
+        if (intensity > 0.84) return '#FF4DCC';
+        if (intensity > 0.80) return '#FF66B3';
+        if (intensity > 0.76) return '#FF0066';
+        if (intensity > 0.72) return '#FF0033';
+        if (intensity > 0.70) return '#FF0000';
+        if (intensity > 0.60) return '#FF6600';
+        if (intensity > 0.52) return '#FFB300';
+        if (intensity > 0.40) return '#FFB700';
+        if (intensity > 0.28) return '#FFFF00';
+        if (intensity > 0.16) return '#32CD32';
+        if (intensity > 0.08) return '#00BFFF';
+        if (intensity > 0.04) return '#4169E1';
+        return '#4B0082';
+    }
+
+    // Render suburb boundaries
+    choroplethLayer = L.geoJSON(suburbBoundaries, {
+        style: function(feature) {
+            // Get suburb name from GeoJSON properties (adjust property name as needed)
+            const suburbName = feature.properties.suburb || feature.properties.SUBURB || feature.properties.name;
+            const count = suburbCounts[suburbName] || 0;
+            const fillColor = getColorForCount(count, maxCount);
+
+            return {
+                fillColor: fillColor,
+                fillOpacity: 0.65,
+                color: '#ffffff',
+                weight: 1,
+                opacity: 0.8
+            };
+        },
+        onEachFeature: function(feature, layer) {
+            const suburbName = feature.properties.suburb || feature.properties.SUBURB || feature.properties.name;
+            const count = suburbCounts[suburbName] || 0;
+
+            layer.bindPopup(`
+                <div style="color: #333; font-family: 'Segoe UI', sans-serif;">
+                    <h3 style="margin: 0 0 10px 0; color: #00d4ff;">${suburbName}</h3>
+                    <p style="margin: 5px 0;"><strong>Total Crashes:</strong> ${count.toLocaleString()}</p>
+                </div>
+            `);
+
+            // Hover effects
+            layer.on('mouseover', function(e) {
+                this.setStyle({
+                    weight: 2,
+                    opacity: 1,
+                    fillOpacity: 0.8
+                });
+            });
+
+            layer.on('mouseout', function(e) {
+                choroplethLayer.resetStyle(this);
+            });
+        }
+    });
+
+    map.addLayer(choroplethLayer);
+}
+
 // Toggle layer visibility
 function toggleLayer(layerName) {
     activeLayers[layerName] = !activeLayers[layerName];
@@ -1917,6 +2150,28 @@ function toggleLayer(layerName) {
     updateMapLayers(layerName);
 }
 
+// Switch choropleth mode between LGA and Suburb
+window.switchChoroplethMode = function(mode) {
+    choroplethMode = mode;
+
+    // Update pill toggle active state
+    const lgaBtn = document.getElementById('choroplethModeLGA');
+    const suburbBtn = document.getElementById('choroplethModeSuburb');
+
+    if (mode === 'lga') {
+        lgaBtn?.classList.add('active');
+        suburbBtn?.classList.remove('active');
+    } else {
+        lgaBtn?.classList.remove('active');
+        suburbBtn?.classList.add('active');
+    }
+
+    // If choropleth is currently active, refresh it
+    if (activeLayers.choropleth) {
+        updateMapLayers('choropleth');
+    }
+};
+
 // Toggle control panel (for mobile)
 function togglePanel() {
     const panel = document.getElementById('controlsPanel');
@@ -1935,6 +2190,260 @@ function togglePanelCollapse() {
         icon.textContent = '▼'; // Down arrow when collapsed
     } else {
         icon.textContent = '▲'; // Up arrow when expanded
+    }
+}
+
+// Toggle active filters bar collapse/expand
+function toggleActiveFilters() {
+    const bar = document.getElementById('activeFiltersBar');
+    bar.classList.toggle('collapsed');
+}
+
+// Helper: Create smart display value for multi-select filters
+function getSmartFilterDisplay(elementId, selectedValues) {
+    // Get all available options
+    const menu = document.getElementById(`${elementId}Menu`);
+    const element = document.getElementById(elementId);
+
+    let allOptions = [];
+
+    if (menu) {
+        // Checkbox dropdown
+        const checkboxes = menu.querySelectorAll('input[type="checkbox"]');
+        allOptions = Array.from(checkboxes).map(cb => cb.value);
+    } else if (element) {
+        // Regular multi-select
+        allOptions = Array.from(element.options).map(opt => opt.value);
+    }
+
+    // Filter out 'all' from options
+    allOptions = allOptions.filter(v => v !== 'all');
+
+    const totalCount = allOptions.length;
+    const selectedCount = selectedValues.length;
+
+    // If nothing or everything selected, shouldn't show in active filters anyway
+    if (selectedCount === 0 || selectedCount === totalCount) {
+        return null;
+    }
+
+    // If most items are selected (>70%), show what's excluded instead
+    if (selectedCount > totalCount * 0.7) {
+        const excluded = allOptions.filter(opt => !selectedValues.includes(opt));
+        if (excluded.length <= 2) {
+            return `All except: ${excluded.join(', ')}`;
+        } else {
+            return `All except ${excluded.length} items`;
+        }
+    }
+
+    // If few items selected (<=3), show them
+    if (selectedCount <= 3) {
+        return selectedValues.join(', ');
+    }
+
+    // Otherwise show count
+    return `${selectedCount} selected`;
+}
+
+// Update active filters display
+function updateActiveFiltersDisplay() {
+    const content = document.getElementById('activeFiltersContent');
+    if (!content) return;
+
+    const filters = getFilterValues();
+    const activeFilters = [];
+
+    // Year range (only if not full range)
+    if (filters.yearFrom !== 2012 || filters.yearTo !== 2024) {
+        activeFilters.push({ name: 'Year', value: `${filters.yearFrom}-${filters.yearTo}` });
+    }
+
+    // Date range
+    if (filters.dateFrom || filters.dateTo) {
+        const from = filters.dateFrom || 'Start';
+        const to = filters.dateTo || 'End';
+        activeFilters.push({ name: 'Date', value: `${from} to ${to}` });
+    }
+
+    // Time range
+    if (filters.timeFrom || filters.timeTo) {
+        activeFilters.push({ name: 'Time', value: `${filters.timeFrom || '00:00'}-${filters.timeTo || '23:59'}` });
+    }
+
+    // Severity
+    if (filters.selectedSeverities && !filters.selectedSeverities.includes('all')) {
+        const display = getSmartFilterDisplay('severity', filters.selectedSeverities);
+        if (display) activeFilters.push({ name: 'Severity', value: display });
+    }
+
+    // Crash Type
+    if (filters.crashType && filters.crashType !== 'all' && filters.crashType !== 'multiple') {
+        activeFilters.push({ name: 'Crash Type', value: filters.crashType });
+    } else if (filters.crashType === 'multiple' && filters.selectedCrashTypes && !filters.selectedCrashTypes.includes('all')) {
+        const display = getSmartFilterDisplay('crashType', filters.selectedCrashTypes);
+        if (display) activeFilters.push({ name: 'Crash Type', value: display });
+    }
+
+    // Weather
+    if (filters.weather && filters.weather !== 'all') {
+        activeFilters.push({ name: 'Weather', value: filters.weather });
+    }
+
+    // Day of Week
+    if (filters.selectedDays && !filters.selectedDays.includes('all')) {
+        const display = getSmartFilterDisplay('dayOfWeek', filters.selectedDays);
+        if (display) activeFilters.push({ name: 'Day', value: display });
+    }
+
+    // LGA
+    if (filters.selectedAreas && !filters.selectedAreas.includes('all')) {
+        const display = getSmartFilterDisplay('area', filters.selectedAreas);
+        if (display) activeFilters.push({ name: 'LGA', value: display });
+    }
+
+    // Suburb
+    if (filters.selectedSuburbs && !filters.selectedSuburbs.includes('all')) {
+        const display = getSmartFilterDisplay('suburb', filters.selectedSuburbs);
+        if (display) activeFilters.push({ name: 'Suburb', value: display });
+    }
+
+    // Road User Type
+    if (filters.selectedRoadUsers && !filters.selectedRoadUsers.includes('all')) {
+        const display = getSmartFilterDisplay('roadUserType', filters.selectedRoadUsers);
+        if (display) activeFilters.push({ name: 'Road User', value: display });
+    }
+
+    // Age Group
+    if (filters.selectedAgeGroups && !filters.selectedAgeGroups.includes('all')) {
+        const display = getSmartFilterDisplay('ageGroup', filters.selectedAgeGroups);
+        if (display) activeFilters.push({ name: 'Age', value: display });
+    }
+
+    // Sex
+    if (filters.selectedSexes && !filters.selectedSexes.includes('all')) {
+        const display = getSmartFilterDisplay('casualtySex', filters.selectedSexes);
+        if (display) activeFilters.push({ name: 'Sex', value: display });
+    }
+
+    // Injury
+    if (filters.selectedInjuries && !filters.selectedInjuries.includes('all')) {
+        const display = getSmartFilterDisplay('injuryExtent', filters.selectedInjuries);
+        if (display) activeFilters.push({ name: 'Injury', value: display });
+    }
+
+    // Seat Belt
+    if (filters.selectedSeatBelts && !filters.selectedSeatBelts.includes('all')) {
+        const display = getSmartFilterDisplay('seatBelt', filters.selectedSeatBelts);
+        if (display) activeFilters.push({ name: 'Seat Belt', value: display });
+    }
+
+    // Helmet
+    if (filters.selectedHelmets && !filters.selectedHelmets.includes('all')) {
+        const display = getSmartFilterDisplay('helmet', filters.selectedHelmets);
+        if (display) activeFilters.push({ name: 'Helmet', value: display });
+    }
+
+    // Heavy Vehicle
+    if (filters.heavyVehicle && filters.heavyVehicle !== 'all') {
+        activeFilters.push({ name: 'Heavy Vehicle', value: filters.heavyVehicle });
+    }
+
+    // Vehicle Type
+    if (filters.selectedVehicles && !filters.selectedVehicles.includes('all')) {
+        const display = getSmartFilterDisplay('vehicleType', filters.selectedVehicles);
+        if (display) activeFilters.push({ name: 'Vehicle Type', value: display });
+    }
+
+    // Vehicle Year
+    if (filters.selectedVehicleYears && !filters.selectedVehicleYears.includes('all')) {
+        const display = getSmartFilterDisplay('vehicleYear', filters.selectedVehicleYears);
+        if (display) activeFilters.push({ name: 'Vehicle Year', value: display });
+    }
+
+    // Occupants
+    if (filters.selectedOccupants && !filters.selectedOccupants.includes('all')) {
+        const display = getSmartFilterDisplay('occupants', filters.selectedOccupants);
+        if (display) activeFilters.push({ name: 'Occupants', value: display });
+    }
+
+    // Towing
+    if (filters.towing && filters.towing !== 'all') {
+        activeFilters.push({ name: 'Towing', value: filters.towing });
+    }
+
+    // Rollover
+    if (filters.rollover && filters.rollover !== 'all') {
+        activeFilters.push({ name: 'Rollover', value: filters.rollover });
+    }
+
+    // Fire
+    if (filters.fire && filters.fire !== 'all') {
+        activeFilters.push({ name: 'Fire', value: filters.fire });
+    }
+
+    // License Type
+    if (filters.selectedLicenseTypes && !filters.selectedLicenseTypes.includes('all')) {
+        const display = getSmartFilterDisplay('licenseType', filters.selectedLicenseTypes);
+        if (display) activeFilters.push({ name: 'License', value: display });
+    }
+
+    // Reg State
+    if (filters.selectedRegStates && !filters.selectedRegStates.includes('all')) {
+        const display = getSmartFilterDisplay('vehRegState', filters.selectedRegStates);
+        if (display) activeFilters.push({ name: 'Reg State', value: display });
+    }
+
+    // Direction
+    if (filters.selectedDirections && !filters.selectedDirections.includes('all')) {
+        const display = getSmartFilterDisplay('directionTravel', filters.selectedDirections);
+        if (display) activeFilters.push({ name: 'Direction', value: display });
+    }
+
+    // Movement
+    if (filters.selectedMovements && !filters.selectedMovements.includes('all')) {
+        const display = getSmartFilterDisplay('unitMovement', filters.selectedMovements);
+        if (display) activeFilters.push({ name: 'Movement', value: display });
+    }
+
+    // Road Surface
+    if (filters.selectedRoadSurfaces && !filters.selectedRoadSurfaces.includes('all')) {
+        const display = getSmartFilterDisplay('roadSurface', filters.selectedRoadSurfaces);
+        if (display) activeFilters.push({ name: 'Road Surface', value: display });
+    }
+
+    // Moisture Condition
+    if (filters.selectedMoistureConds && !filters.selectedMoistureConds.includes('all')) {
+        const display = getSmartFilterDisplay('moistureCond', filters.selectedMoistureConds);
+        if (display) activeFilters.push({ name: 'Moisture', value: display });
+    }
+
+    // Drugs Involved
+    if (filters.drugsInvolved && filters.drugsInvolved !== 'all') {
+        activeFilters.push({ name: 'Drugs', value: filters.drugsInvolved });
+    }
+
+    // Update display
+    const titleElement = document.querySelector('.active-filters-bar-title');
+
+    if (activeFilters.length === 0) {
+        content.innerHTML = '<div class="no-active-filters">No filters applied</div>';
+        if (titleElement) {
+            titleElement.textContent = '🔍 No filters';
+        }
+    } else {
+        content.innerHTML = activeFilters.map(f =>
+            `<span class="active-filter-tag">
+                <span class="filter-name">${f.name}:</span>
+                <span class="filter-value">${f.value}</span>
+            </span>`
+        ).join('');
+
+        // Update title with count
+        if (titleElement) {
+            const count = activeFilters.length;
+            titleElement.textContent = `🔍 ${count} filter${count !== 1 ? 's' : ''} active`;
+        }
     }
 }
 
@@ -2019,6 +2528,13 @@ function clearFilters() {
     if (areaMenu) {
         areaMenu.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = true);
         updateCheckboxDropdownDisplay('area');
+    }
+
+    // Reset suburb checkbox dropdown
+    const suburbMenu = document.getElementById('suburbMenu');
+    if (suburbMenu) {
+        suburbMenu.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = true);
+        updateCheckboxDropdownDisplay('suburb');
     }
 
     // Reset road user type multi-select
@@ -3034,128 +3550,6 @@ function filterAreaOptions(searchText) {
 }
 
 // ============================================================================
-// AUTO-APPLY FILTERS
-// ============================================================================
-
-let autoApplyEnabled = false;
-let autoApplyTimeout = null;
-let filtersChanged = false;
-let isCtrlKeyHeld = false; // Track if Ctrl/Cmd is being held for multi-select
-
-// Initialize auto-apply functionality
-function initAutoApply() {
-    // Load saved preference
-    const saved = localStorage.getItem('autoApplyFilters');
-    autoApplyEnabled = saved === 'true';
-
-    const checkbox = document.getElementById('autoApplyCheckbox');
-    if (checkbox) {
-        checkbox.checked = autoApplyEnabled;
-    }
-
-    // Add change listeners to all filter inputs
-    addFilterChangeListeners();
-
-    // Track Ctrl/Cmd key state to prevent auto-apply during multi-select
-    document.addEventListener('keydown', function(e) {
-        if (e.ctrlKey || e.metaKey) {
-            isCtrlKeyHeld = true;
-        }
-    });
-
-    document.addEventListener('keyup', function(e) {
-        if (!e.ctrlKey && !e.metaKey) {
-            const wasHeld = isCtrlKeyHeld;
-            isCtrlKeyHeld = false;
-
-            // If Ctrl was released and filters changed during multi-select, auto-apply now
-            if (wasHeld && filtersChanged && autoApplyEnabled) {
-                scheduleAutoApply();
-            }
-        }
-    });
-}
-
-// Toggle auto-apply on/off
-function toggleAutoApply(enabled) {
-    autoApplyEnabled = enabled;
-    localStorage.setItem('autoApplyFilters', enabled);
-
-    if (enabled && filtersChanged) {
-        // Apply any pending changes
-        scheduleAutoApply();
-    }
-}
-
-// Mark filters as changed
-function markFilterAsChanged() {
-    filtersChanged = true;
-
-    const applyBtn = document.getElementById('applyFilters');
-    if (applyBtn && !autoApplyEnabled) {
-        applyBtn.classList.add('filter-changed');
-    }
-
-    // Only schedule auto-apply if Ctrl/Cmd is not being held (prevents spam during multi-select)
-    if (autoApplyEnabled && !isCtrlKeyHeld) {
-        scheduleAutoApply();
-    }
-}
-
-// Schedule auto-apply with debouncing
-function scheduleAutoApply() {
-    if (autoApplyTimeout) {
-        clearTimeout(autoApplyTimeout);
-    }
-
-    autoApplyTimeout = setTimeout(() => {
-        applyFilters();
-    }, 500); // 500ms debounce
-}
-
-// Add change listeners to all filter inputs
-function addFilterChangeListeners() {
-    // Get all filter inputs (selects, inputs, checkboxes)
-    const filterInputs = document.querySelectorAll(
-        '.filter-group select:not([multiple]), ' +
-        '.filter-group input[type="date"], ' +
-        '.filter-group input[type="time"], ' +
-        '.filter-group input[type="number"], ' +
-        '.layer-toggle input[type="checkbox"]'
-    );
-
-    filterInputs.forEach(input => {
-        input.addEventListener('change', markFilterAsChanged);
-    });
-
-    // Note: Multi-selects already have listeners added in enhanceMultiSelect
-}
-
-// Override the existing applyFilters to clear changed state
-const originalApplyFilters = applyFilters;
-window.applyFilters = function() {
-    const applyBtn = document.getElementById('applyFilters');
-
-    // Add applying animation
-    if (applyBtn) {
-        applyBtn.classList.add('applying');
-        applyBtn.classList.remove('filter-changed');
-    }
-
-    filtersChanged = false;
-
-    // Call original function
-    originalApplyFilters();
-
-    // Remove animation after a delay
-    setTimeout(() => {
-        if (applyBtn) {
-            applyBtn.classList.remove('applying');
-        }
-    }, 1000);
-};
-
-// ============================================================================
 // INITIALIZATION
 // ============================================================================
 
@@ -3164,6 +3558,7 @@ function initMultiSelectEnhancements() {
     const multiSelects = [
         { id: 'severity', chips: true },
         { id: 'area', chips: false }, // Too many to show chips
+        { id: 'suburb', chips: false }, // Too many to show chips
         { id: 'roadSurface', chips: true },
         { id: 'moistureCond', chips: true },
         { id: 'roadUserType', chips: true },
@@ -3187,9 +3582,6 @@ function initMultiSelectEnhancements() {
 
     // Add area search
     addAreaSearch();
-
-    // Initialize auto-apply
-    initAutoApply();
 }
 
 // Close modal when clicking outside of it
@@ -3205,6 +3597,9 @@ document.addEventListener('DOMContentLoaded', function() {
     initTheme();
     initMap();
     loadData();
+
+    // Try to load suburb boundaries (optional - enables suburb choropleth if available)
+    loadSuburbBoundaries();
 
     // Initialize dual-handle year range slider
     initYearRangeSlider();
