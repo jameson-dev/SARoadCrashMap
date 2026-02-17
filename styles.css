@@ -1864,9 +1864,9 @@
             backdrop-filter: blur(10px);
             border-radius: 12px;
             padding: 0;
-            max-width: 600px;
+            max-width: 200px;
             width: calc(100% - 40px);
-            max-height: 400px;
+            max-height: 45px;
             z-index: 1000;
             box-shadow: 0 8px 32px var(--shadow);
             border: 1px solid var(--border);
@@ -1877,6 +1877,20 @@
         .analytics-panel.collapsed {
             max-height: 45px;
             max-width: 200px;
+        }
+
+        .analytics-panel.fullscreen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            width: 100%;
+            height: 100%;
+            max-width: 100%;
+            max-height: 100%;
+            border-radius: 0;
+            z-index: 10000;
         }
 
         .analytics-header {
@@ -1890,8 +1904,17 @@
             user-select: none;
         }
 
+        .analytics-panel.fullscreen .analytics-header {
+            padding: 14px 20px;
+            cursor: default;
+        }
+
         .analytics-header:hover {
             background: var(--border-light);
+        }
+
+        .analytics-panel.fullscreen .analytics-header:hover {
+            background: var(--bg-secondary);
         }
 
         .analytics-header h3 {
@@ -1899,6 +1922,10 @@
             font-size: 13px;
             color: var(--accent);
             font-weight: 700;
+        }
+
+        .analytics-panel.fullscreen .analytics-header h3 {
+            font-size: 16px;
         }
 
         .analytics-toggle {
@@ -1911,10 +1938,49 @@
             transform: rotate(180deg);
         }
 
+        .analytics-close-btn {
+            display: none;
+            background: var(--border);
+            border: none;
+            color: var(--text-primary);
+            font-size: 18px;
+            line-height: 1;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            cursor: pointer;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.2s;
+        }
+
+        .analytics-close-btn:hover {
+            background: var(--accent);
+            color: white;
+        }
+
+        .analytics-panel.fullscreen .analytics-close-btn {
+            display: flex;
+        }
+
+        .analytics-panel.fullscreen .analytics-toggle {
+            display: none;
+        }
+
         .analytics-content {
             padding: 15px;
-            max-height: 340px;
+            max-height: calc(100% - 50px);
             overflow-y: auto;
+        }
+
+        .analytics-panel.fullscreen .analytics-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            padding: 20px;
+            max-height: calc(100vh - 55px);
+            overflow-y: auto;
+            align-content: start;
         }
 
         .analytics-content::-webkit-scrollbar {
@@ -1939,6 +2005,10 @@
             border: 1px solid var(--border);
         }
 
+        .analytics-panel.fullscreen .chart-container {
+            margin-bottom: 0;
+        }
+
         .chart-container h4 {
             margin: 0 0 10px 0;
             font-size: 12px;
@@ -1946,9 +2016,18 @@
             font-weight: 600;
         }
 
+        .analytics-panel.fullscreen .chart-container h4 {
+            font-size: 14px;
+        }
+
         .chart-wrapper {
             position: relative;
             height: 200px;
+        }
+
+        .analytics-panel.fullscreen .chart-wrapper {
+            height: calc((100vh - 55px - 40px - 80px) / 2 - 30px);
+            min-height: 220px;
         }
 
         @media (max-width: 768px) {
@@ -1956,6 +2035,14 @@
                 left: 10px;
                 width: calc(100% - 20px);
                 bottom: 80px;
+            }
+
+            .analytics-panel.fullscreen .analytics-content {
+                grid-template-columns: 1fr;
+            }
+
+            .analytics-panel.fullscreen .chart-wrapper {
+                height: 220px;
             }
         }
 
