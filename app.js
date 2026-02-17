@@ -2892,8 +2892,8 @@ function loadFiltersFromURL() {
             const yearFrom = parseInt(params.get('yearFrom')) || 2012;
             const yearTo = parseInt(params.get('yearTo')) || 2024;
             currentYearRange = [yearFrom, yearTo];
-            if (window.yearRangeSlider) {
-                window.yearRangeSlider.set([yearFrom, yearTo]);
+            if (yearRangeSlider) {
+                yearRangeSlider.set([yearFrom, yearTo]);
             }
         }
 
