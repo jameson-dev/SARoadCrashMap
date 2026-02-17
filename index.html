@@ -128,21 +128,26 @@
                         <span class="dropdown-arrow">▼</span>
                     </div>
                     <div class="checkbox-dropdown-menu" id="severityMenu">
-                        <div class="checkbox-dropdown-item">
-                            <input type="checkbox" id="severity-pdo" value="1: PDO" checked onchange="updateCheckboxDropdownDisplay('severity')">
-                            <label for="severity-pdo">PDO (Property Damage Only)</label>
+                        <div class="dropdown-search-wrap">
+                            <input type="text" class="dropdown-search" placeholder="Search..." oninput="filterDropdownItems('severity', this.value)">
                         </div>
-                        <div class="checkbox-dropdown-item">
-                            <input type="checkbox" id="severity-mi" value="2: MI" checked onchange="updateCheckboxDropdownDisplay('severity')">
-                            <label for="severity-mi">Minor Injury</label>
-                        </div>
-                        <div class="checkbox-dropdown-item">
-                            <input type="checkbox" id="severity-si" value="3: SI" checked onchange="updateCheckboxDropdownDisplay('severity')">
-                            <label for="severity-si">Serious Injury</label>
-                        </div>
-                        <div class="checkbox-dropdown-item">
-                            <input type="checkbox" id="severity-fatal" value="4: Fatal" checked onchange="updateCheckboxDropdownDisplay('severity')">
-                            <label for="severity-fatal">Fatal</label>
+                        <div class="dropdown-items-list" id="severityItemsList">
+                            <div class="checkbox-dropdown-item">
+                                <input type="checkbox" id="severity-pdo" value="1: PDO" checked onchange="updateCheckboxDropdownDisplay('severity')">
+                                <label for="severity-pdo">PDO (Property Damage Only)</label>
+                            </div>
+                            <div class="checkbox-dropdown-item">
+                                <input type="checkbox" id="severity-mi" value="2: MI" checked onchange="updateCheckboxDropdownDisplay('severity')">
+                                <label for="severity-mi">Minor Injury</label>
+                            </div>
+                            <div class="checkbox-dropdown-item">
+                                <input type="checkbox" id="severity-si" value="3: SI" checked onchange="updateCheckboxDropdownDisplay('severity')">
+                                <label for="severity-si">Serious Injury</label>
+                            </div>
+                            <div class="checkbox-dropdown-item">
+                                <input type="checkbox" id="severity-fatal" value="4: Fatal" checked onchange="updateCheckboxDropdownDisplay('severity')">
+                                <label for="severity-fatal">Fatal</label>
+                            </div>
                         </div>
                         <div class="checkbox-dropdown-controls">
                             <button class="checkbox-select-all" onclick="selectAllDropdownItems('severity')">Select All</button>
@@ -1025,23 +1030,49 @@
             const trigger = menu.previousElementSibling;
             const arrow = trigger.querySelector('.dropdown-arrow');
 
-            // Close all other dropdowns
+            // Close all other dropdowns and clear their searches
             document.querySelectorAll('.checkbox-dropdown-menu').forEach(m => {
-                if (m !== menu && m.style.display === 'block') {
-                    m.style.display = 'none';
+                if (m !== menu && m.classList.contains('show')) {
+                    m.classList.remove('show');
                     const otherArrow = m.previousElementSibling.querySelector('.dropdown-arrow');
                     if (otherArrow) otherArrow.style.transform = 'rotate(0deg)';
+                    // Clear search in the closed dropdown
+                    const otherSearch = m.querySelector('.dropdown-search');
+                    if (otherSearch && otherSearch.value) {
+                        otherSearch.value = '';
+                        m.querySelectorAll('.checkbox-dropdown-item').forEach(item => item.style.display = '');
+                    }
                 }
             });
 
             // Toggle current dropdown
-            if (menu.style.display === 'block') {
-                menu.style.display = 'none';
+            if (menu.classList.contains('show')) {
+                menu.classList.remove('show');
                 arrow.style.transform = 'rotate(0deg)';
+                // Clear search when closing
+                const search = menu.querySelector('.dropdown-search');
+                if (search && search.value) {
+                    search.value = '';
+                    menu.querySelectorAll('.checkbox-dropdown-item').forEach(item => item.style.display = '');
+                }
             } else {
-                menu.style.display = 'block';
+                menu.classList.add('show');
                 arrow.style.transform = 'rotate(180deg)';
+                // Focus search input when opening
+                const search = menu.querySelector('.dropdown-search');
+                if (search) setTimeout(() => search.focus(), 50);
             }
+        }
+
+        function filterDropdownItems(dropdownId, query) {
+            const menu = document.getElementById(`${dropdownId}Menu`);
+            if (!menu) return;
+            const q = query.trim().toLowerCase();
+            menu.querySelectorAll('.checkbox-dropdown-item').forEach(function(item) {
+                const label = item.querySelector('label');
+                const text = label ? label.textContent.toLowerCase() : '';
+                item.style.display = (q === '' || text.includes(q)) ? '' : 'none';
+            });
         }
 
         function updateCheckboxDropdownDisplay(dropdownId) {
@@ -1086,10 +1117,16 @@
         document.addEventListener('click', function(event) {
             if (!event.target.closest('.checkbox-dropdown')) {
                 document.querySelectorAll('.checkbox-dropdown-menu').forEach(menu => {
-                    if (menu.style.display === 'block') {
-                        menu.style.display = 'none';
+                    if (menu.classList.contains('show')) {
+                        menu.classList.remove('show');
                         const arrow = menu.previousElementSibling.querySelector('.dropdown-arrow');
                         if (arrow) arrow.style.transform = 'rotate(0deg)';
+                        // Clear search on close
+                        const search = menu.querySelector('.dropdown-search');
+                        if (search && search.value) {
+                            search.value = '';
+                            menu.querySelectorAll('.checkbox-dropdown-item').forEach(item => item.style.display = '');
+                        }
                     }
                 });
             }

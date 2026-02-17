@@ -1770,26 +1770,58 @@
             border-radius: 6px;
             box-shadow: 0 4px 12px var(--shadow);
             z-index: 1000;
-            max-height: 250px;
-            overflow-y: auto;
+            max-height: 280px;
             display: none;
-            padding: 4px;
+            flex-direction: column;
+            padding: 0;
+            overflow: hidden;
         }
 
         .checkbox-dropdown-menu.show {
-            display: block;
+            display: flex;
         }
 
-        .checkbox-dropdown-menu::-webkit-scrollbar {
+        /* Search bar pinned at top */
+        .dropdown-search-wrap {
+            padding: 6px 6px 4px;
+            border-bottom: 1px solid var(--border);
+            flex-shrink: 0;
+        }
+
+        .dropdown-search {
+            width: 100%;
+            padding: 4px 8px;
+            border: 1px solid var(--input-border);
+            border-radius: 4px;
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            font-size: 12px;
+            box-sizing: border-box;
+            outline: none;
+        }
+
+        .dropdown-search:focus {
+            border-color: var(--accent);
+        }
+
+        /* Scrollable items area */
+        .dropdown-items-list {
+            overflow-y: auto;
+            flex: 1;
+            padding: 4px;
+            min-height: 0;
+        }
+
+        .dropdown-items-list::-webkit-scrollbar {
             width: 6px;
         }
 
-        .checkbox-dropdown-menu::-webkit-scrollbar-track {
+        .dropdown-items-list::-webkit-scrollbar-track {
             background: var(--scrollbar-track);
             border-radius: 3px;
         }
 
-        .checkbox-dropdown-menu::-webkit-scrollbar-thumb {
+        .dropdown-items-list::-webkit-scrollbar-thumb {
             background: var(--scrollbar-thumb);
             border-radius: 3px;
         }
@@ -1826,9 +1858,12 @@
         .checkbox-dropdown-controls {
             display: flex;
             gap: 4px;
-            padding: 4px;
+            padding: 4px 6px;
             border-top: 1px solid var(--border);
-            margin-top: 4px;
+            margin-top: 0;
+            flex-shrink: 0;
+            background: var(--input-bg);
+            border-radius: 0 0 6px 6px;
         }
 
         .checkbox-dropdown-controls button {
@@ -2068,7 +2103,7 @@
             font-size: 12px;
             font-weight: 500;
             gap: 8px;
-            max-width: 300px;
+            max-width: 210px;
             margin-left: 50px;
         }
 

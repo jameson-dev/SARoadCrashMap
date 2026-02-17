@@ -735,6 +735,17 @@ function populateFilterOptions() {
     // Crash types - populate checkbox dropdown
     const crashTypes = [...new Set(crashData.map(row => row['Crash Type']).filter(v => v))];
     const crashTypeMenu = document.getElementById('crashTypeMenu');
+
+    // Search bar
+    const crashTypeSearchWrap = document.createElement('div');
+    crashTypeSearchWrap.className = 'dropdown-search-wrap';
+    crashTypeSearchWrap.innerHTML = '<input type="text" class="dropdown-search" placeholder="Search..." oninput="filterDropdownItems(\'crashType\', this.value)">';
+    crashTypeMenu.appendChild(crashTypeSearchWrap);
+
+    // Scrollable items list
+    const crashTypeList = document.createElement('div');
+    crashTypeList.className = 'dropdown-items-list';
+    crashTypeList.id = 'crashTypeItemsList';
     crashTypes.sort().forEach((type, index) => {
         const item = document.createElement('div');
         item.className = 'checkbox-dropdown-item';
@@ -752,8 +763,9 @@ function populateFilterOptions() {
 
         item.appendChild(checkbox);
         item.appendChild(label);
-        crashTypeMenu.appendChild(item);
+        crashTypeList.appendChild(item);
     });
+    crashTypeMenu.appendChild(crashTypeList);
 
     // Add select/clear controls
     const controls = document.createElement('div');
@@ -778,6 +790,17 @@ function populateFilterOptions() {
     const areas = [...new Set(crashData.map(row => row['LGA']).filter(v => v))];
     const areaMenu = document.getElementById('areaMenu');
 
+    // Search bar
+    const areaSearchWrap = document.createElement('div');
+    areaSearchWrap.className = 'dropdown-search-wrap';
+    areaSearchWrap.innerHTML = '<input type="text" class="dropdown-search" placeholder="Search..." oninput="filterDropdownItems(\'area\', this.value)">';
+    areaMenu.appendChild(areaSearchWrap);
+
+    // Scrollable items list
+    const areaList = document.createElement('div');
+    areaList.className = 'dropdown-items-list';
+    areaList.id = 'areaItemsList';
+
     // Sort LGA names alphabetically (already full names from pre-computed column)
     areas.sort((a, b) => a.localeCompare(b)).forEach((area, index) => {
         const item = document.createElement('div');
@@ -796,8 +819,9 @@ function populateFilterOptions() {
 
         item.appendChild(checkbox);
         item.appendChild(label);
-        areaMenu.appendChild(item);
+        areaList.appendChild(item);
     });
+    areaMenu.appendChild(areaList);
 
     // Add select/clear controls
     const areaControls = document.createElement('div');
@@ -813,6 +837,16 @@ function populateFilterOptions() {
     const suburbMenu = document.getElementById('suburbMenu');
 
     if (suburbMenu) {
+        // Search bar
+        const suburbSearchWrap = document.createElement('div');
+        suburbSearchWrap.className = 'dropdown-search-wrap';
+        suburbSearchWrap.innerHTML = '<input type="text" class="dropdown-search" placeholder="Search..." oninput="filterDropdownItems(\'suburb\', this.value)">';
+        suburbMenu.appendChild(suburbSearchWrap);
+
+        // Scrollable items list
+        const suburbList = document.createElement('div');
+        suburbList.className = 'dropdown-items-list';
+        suburbList.id = 'suburbItemsList';
         suburbs.sort().forEach((suburb, index) => {
             const item = document.createElement('div');
             item.className = 'checkbox-dropdown-item';
@@ -830,8 +864,9 @@ function populateFilterOptions() {
 
             item.appendChild(checkbox);
             item.appendChild(label);
-            suburbMenu.appendChild(item);
+            suburbList.appendChild(item);
         });
+        suburbMenu.appendChild(suburbList);
 
         // Add select/clear controls
         const suburbControls = document.createElement('div');
