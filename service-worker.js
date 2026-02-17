@@ -1,7 +1,7 @@
 // Service Worker for SA Crash Data Map
 // Implements caching strategies for offline support and performance
 
-const VERSION = '1.0.7';
+const VERSION = '1.0.8';
 const CACHE_NAME = `crash-map-static-v${VERSION}`;
 const DATA_CACHE_NAME = `crash-map-data-v${VERSION}`;
 const RUNTIME_CACHE_NAME = `crash-map-runtime-v${VERSION}`;
@@ -184,8 +184,10 @@ async function networkFirstStrategy(request, cacheName) {
         // Try network first
         const networkResponse = await fetch(request);
 
-        // If successful, cache it
-        if (networkResponse && networkResponse.status === 200) {
+        // Only cache GET requests with successful responses
+        if (networkResponse &&
+            networkResponse.status === 200 &&
+            request.method === 'GET') {
             const cache = await caches.open(cacheName);
             cache.put(request, networkResponse.clone());
         }
@@ -220,9 +222,10 @@ async function fetchAndCache(request, cacheName) {
     try {
         const networkResponse = await fetch(request);
 
-        // Only cache successful HTTP/HTTPS responses
+        // Only cache successful HTTP/HTTPS GET requests
         if (networkResponse &&
             networkResponse.status === 200 &&
+            request.method === 'GET' &&
             request.url.startsWith('http')) {
             const cache = await caches.open(cacheName);
             // Clone the response because it can only be consumed once
