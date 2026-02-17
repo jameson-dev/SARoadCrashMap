@@ -1617,6 +1617,16 @@ function parseNumeric(value) {
     return isNaN(parsed) ? value : parsed.toString();
 }
 
+// Toggle expanded section in a popup ("Show X more" / "Show less")
+function togglePopupExpand(sectionId, linkId) {
+    const section = document.getElementById(sectionId);
+    const link = document.getElementById(linkId);
+    if (!section || !link) return;
+    const isHidden = section.style.display === 'none';
+    section.style.display = isHidden ? 'block' : 'none';
+    link.textContent = isHidden ? 'Show less ▲' : link.dataset.expandLabel;
+}
+
 // Generate rich popup content with casualty and vehicle information
 function generatePopupContent(crash) {
     try {
@@ -1666,11 +1676,14 @@ function generatePopupContent(crash) {
             html += `<p style="margin: 2px 0 2px 10px; font-size: 11px;">• ${key}: ${count}</p>`;
         });
 
-        // Show first 3 casualties in detail
-        const detailedCasualties = casualties.slice(0, 3);
-        if (detailedCasualties.length > 0) {
+        // Show all casualties in detail, with overflow collapsible
+        if (casualties.length > 0) {
+            const rid = crash.REPORT_ID || Math.random().toString(36).slice(2);
+            const casExtraId = `cas-extra-${rid}`;
+            const casLinkId = `cas-link-${rid}`;
+            const extraCount = casualties.length - 3;
             html += `<div style="margin-top: 5px; font-size: 10px; color: #666;">`;
-            detailedCasualties.forEach((c, idx) => {
+            casualties.slice(0, 3).forEach((c, idx) => {
                 const age = parseNumeric(c.AGE) || '?';
                 const sex = c.Sex || '?';
                 const type = c['Casualty Type'] || 'Unknown';
@@ -1678,13 +1691,32 @@ function generatePopupContent(crash) {
                 const seatbelt = c['Seat Belt'] === 'Yes' ? '🔒' : c['Seat Belt'] === 'No' ? '❌' : '';
                 const helmet = c.Helmet === 'Worn' ? '🪖' : c.Helmet === 'Not Worn' ? '❌' : '';
                 const hospital = c.Hospital ? ` (🏥 ${c.Hospital})` : '';
-
                 html += `<p style="margin: 3px 0 3px 10px;">
                     ${idx + 1}. ${type}, ${age}/${sex}, ${injury} ${seatbelt}${helmet}${hospital}
                 </p>`;
             });
-            if (casualties.length > 3) {
-                html += `<p style="margin: 3px 0 3px 10px; font-style: italic;">... and ${casualties.length - 3} more</p>`;
+            if (extraCount > 0) {
+                html += `<div id="${casExtraId}" style="display:none;">`;
+                casualties.slice(3).forEach((c, idx) => {
+                    const age = parseNumeric(c.AGE) || '?';
+                    const sex = c.Sex || '?';
+                    const type = c['Casualty Type'] || 'Unknown';
+                    const injury = c['Injury Extent'] || 'Unknown';
+                    const seatbelt = c['Seat Belt'] === 'Yes' ? '🔒' : c['Seat Belt'] === 'No' ? '❌' : '';
+                    const helmet = c.Helmet === 'Worn' ? '🪖' : c.Helmet === 'Not Worn' ? '❌' : '';
+                    const hospital = c.Hospital ? ` (🏥 ${c.Hospital})` : '';
+                    html += `<p style="margin: 3px 0 3px 10px;">
+                        ${idx + 4}. ${type}, ${age}/${sex}, ${injury} ${seatbelt}${helmet}${hospital}
+                    </p>`;
+                });
+                html += `</div>
+                <p style="margin: 4px 0 3px 10px;">
+                    <a id="${casLinkId}" href="#" data-expand-label="Show ${extraCount} more ▼"
+                       onclick="togglePopupExpand('${casExtraId}','${casLinkId}'); return false;"
+                       style="color:#00d4ff; font-size:11px; text-decoration:none; font-weight:600;">
+                        Show ${extraCount} more ▼
+                    </a>
+                </p>`;
             }
             html += `</div>`;
         }
@@ -1712,24 +1744,45 @@ function generatePopupContent(crash) {
             html += `<p style="margin: 2px 0 2px 10px; font-size: 11px;">• ${type}: ${count}</p>`;
         });
 
-        // Show first 3 units in detail
-        const detailedUnits = units.slice(0, 3);
-        if (detailedUnits.length > 0) {
+        // Show all units in detail, with overflow collapsible
+        if (units.length > 0) {
+            const rid = crash.REPORT_ID || Math.random().toString(36).slice(2);
+            const unitExtraId = `unit-extra-${rid}`;
+            const unitLinkId = `unit-link-${rid}`;
+            const extraCount = units.length - 3;
             html += `<div style="margin-top: 5px; font-size: 10px; color: #666;">`;
-            detailedUnits.forEach((u, idx) => {
+            units.slice(0, 3).forEach((u, idx) => {
                 const type = u['Unit Type'] || 'Unknown';
                 const year = u['Veh Year'] ? ` (${parseNumeric(u['Veh Year'])})` : '';
                 const occupants = u['Number Occupants'] ? `, ${parseNumeric(u['Number Occupants'])} occupants` : '';
                 const regState = u['Veh Reg State'] ? `, Reg: ${u['Veh Reg State']}` : '';
                 const direction = u['Direction Of Travel'] ? `, ${u['Direction Of Travel']}` : '';
                 const movement = u['Unit Movement'] ? `, ${u['Unit Movement']}` : '';
-
                 html += `<p style="margin: 3px 0 3px 10px;">
                     ${idx + 1}. ${type}${year}${occupants}${regState}${direction}${movement}
                 </p>`;
             });
-            if (units.length > 3) {
-                html += `<p style="margin: 3px 0 3px 10px; font-style: italic;">... and ${units.length - 3} more</p>`;
+            if (extraCount > 0) {
+                html += `<div id="${unitExtraId}" style="display:none;">`;
+                units.slice(3).forEach((u, idx) => {
+                    const type = u['Unit Type'] || 'Unknown';
+                    const year = u['Veh Year'] ? ` (${parseNumeric(u['Veh Year'])})` : '';
+                    const occupants = u['Number Occupants'] ? `, ${parseNumeric(u['Number Occupants'])} occupants` : '';
+                    const regState = u['Veh Reg State'] ? `, Reg: ${u['Veh Reg State']}` : '';
+                    const direction = u['Direction Of Travel'] ? `, ${u['Direction Of Travel']}` : '';
+                    const movement = u['Unit Movement'] ? `, ${u['Unit Movement']}` : '';
+                    html += `<p style="margin: 3px 0 3px 10px;">
+                        ${idx + 4}. ${type}${year}${occupants}${regState}${direction}${movement}
+                    </p>`;
+                });
+                html += `</div>
+                <p style="margin: 4px 0 3px 10px;">
+                    <a id="${unitLinkId}" href="#" data-expand-label="Show ${extraCount} more ▼"
+                       onclick="togglePopupExpand('${unitExtraId}','${unitLinkId}'); return false;"
+                       style="color:#00d4ff; font-size:11px; text-decoration:none; font-weight:600;">
+                        Show ${extraCount} more ▼
+                    </a>
+                </p>`;
             }
             html += `</div>`;
         }
@@ -1796,14 +1849,13 @@ function addMarkers(callback) {
 
             const marker = L.marker(coords, { icon: markerIcon });
 
-            // Lazy popup generation - create content only when popup is first opened
-            let popupGenerated = false;
+            // Lazy popup generation - generate once on first open, cache the result
+            let cachedPopupContent = null;
             marker.bindPopup(function() {
-                if (!popupGenerated) {
-                    popupGenerated = true;
-                    return generatePopupContent(row);
+                if (!cachedPopupContent) {
+                    cachedPopupContent = generatePopupContent(row);
                 }
-                return this.getPopup().getContent();
+                return cachedPopupContent;
             }, { maxWidth: 450 });
 
             markers.push(marker);
@@ -2314,6 +2366,15 @@ function updateActiveFiltersDisplay() {
     const content = document.getElementById('activeFiltersContent');
     if (!content) return;
 
+    // Attach remove-filter handler once via event delegation
+    if (!content._removeHandlerAttached) {
+        content.addEventListener('click', function(e) {
+            const btn = e.target.closest('.filter-tag-remove');
+            if (btn) clearSingleFilter(btn.dataset.filter);
+        });
+        content._removeHandlerAttached = true;
+    }
+
     const filters = getFilterValues();
     const activeFilters = [];
 
@@ -2499,6 +2560,7 @@ function updateActiveFiltersDisplay() {
             `<span class="active-filter-tag">
                 <span class="filter-name">${f.name}:</span>
                 <span class="filter-value">${f.value}</span>
+                <button class="filter-tag-remove" data-filter="${f.name}" title="Remove" aria-label="Remove ${f.name} filter">×</button>
             </span>`
         ).join('');
 
@@ -2508,6 +2570,64 @@ function updateActiveFiltersDisplay() {
             titleElement.textContent = `🔍 ${count} filter${count !== 1 ? 's' : ''} active`;
         }
     }
+}
+
+// Clear a single filter by its display name and re-apply
+function clearSingleFilter(filterName) {
+    const checkAll = function(menuId, dropdownId) {
+        const menu = document.getElementById(menuId);
+        if (menu) {
+            menu.querySelectorAll('input[type="checkbox"]').forEach(function(cb) { cb.checked = true; });
+            if (typeof updateCheckboxDropdownDisplay === 'function') updateCheckboxDropdownDisplay(dropdownId);
+        }
+    };
+    const resetSelect = function(id) {
+        const el = document.getElementById(id);
+        if (el) { for (let opt of el.options) opt.selected = (opt.value === 'all'); }
+    };
+
+    switch (filterName) {
+        case 'Year':
+            if (yearRangeSlider) yearRangeSlider.set([2012, 2024]);
+            break;
+        case 'Date':
+            document.getElementById('dateFrom').value = '';
+            document.getElementById('dateTo').value = '';
+            break;
+        case 'Time':
+            document.getElementById('timeFrom').value = '';
+            document.getElementById('timeTo').value = '';
+            break;
+        case 'Severity':    checkAll('severityMenu', 'severity');       break;
+        case 'Crash Type':  checkAll('crashTypeMenu', 'crashType');     break;
+        case 'Weather':     document.getElementById('weather').value = 'all'; break;
+        case 'Day':         checkAll('dayOfWeekMenu', 'dayOfWeek');     break;
+        case 'LGA':         checkAll('areaMenu', 'area');               break;
+        case 'Suburb':      checkAll('suburbMenu', 'suburb');           break;
+        case 'Road User':   resetSelect('roadUserType');                break;
+        case 'Age':         resetSelect('ageGroup');                    break;
+        case 'Sex':         resetSelect('casualtySex');                 break;
+        case 'Injury':      resetSelect('injuryExtent');                break;
+        case 'Seat Belt':   resetSelect('seatBelt');                    break;
+        case 'Helmet':      resetSelect('helmet');                      break;
+        case 'Heavy Vehicle': document.getElementById('heavyVehicle').value = 'all'; break;
+        case 'Vehicle Type':  resetSelect('vehicleType');               break;
+        case 'Vehicle Year':  resetSelect('vehicleYear');               break;
+        case 'Occupants':   resetSelect('occupants');                   break;
+        case 'Towing':      document.getElementById('towing').value = 'all';   break;
+        case 'Rollover':    document.getElementById('rollover').value = 'all'; break;
+        case 'Fire':        document.getElementById('fire').value = 'all';     break;
+        case 'License':     resetSelect('licenseType');                 break;
+        case 'Reg State':   resetSelect('vehRegState');                 break;
+        case 'Direction':   resetSelect('directionTravel');             break;
+        case 'Movement':    resetSelect('unitMovement');                break;
+        case 'Road Surface': resetSelect('roadSurface');                break;
+        case 'Moisture':    resetSelect('moistureCond');                break;
+        case 'Drugs':       document.getElementById('drugsInvolved').value = 'all'; break;
+    }
+
+    if (typeof updateAdvancedFilterBadge === 'function') updateAdvancedFilterBadge();
+    applyFilters();
 }
 
 // Update year range display and validate

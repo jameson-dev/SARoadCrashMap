@@ -592,13 +592,12 @@
         <div class="analytics-content">
             <div class="chart-container">
                 <div class="chart-header">
-                    <h4>Crashes Over Time</h4>
+                    <h4>Crashes Over Time <span class="chart-info-icon">i<span class="chart-info-tooltip">Total crashes per year or month. In Yearly mode, click a point to filter to that year. Toggle between Yearly and Monthly views using the buttons.</span></span></h4>
                     <div class="chart-header-right">
                         <div class="chart-toggle-btns">
                             <button id="btnYearly" class="chart-toggle-btn active" onclick="setOverTimeMode('yearly')">Yearly</button>
                             <button id="btnMonthly" class="chart-toggle-btn" onclick="setOverTimeMode('monthly')">Monthly</button>
                         </div>
-                        <span class="chart-info-icon">i<span class="chart-info-tooltip">Total crashes per year or month. In Yearly mode, click a point to filter to that year. Toggle between Yearly and Monthly views using the buttons.</span></span>
                     </div>
                 </div>
                 <div id="yearFilterBanner" class="year-filter-banner" style="display:none">
@@ -611,8 +610,7 @@
             </div>
             <div class="chart-container">
                 <div class="chart-header">
-                    <h4>Crashes by Day of Week</h4>
-                    <span class="chart-info-icon">i<span class="chart-info-tooltip">Total crashes for each day of the week. Orange bars highlight weekends (Sat &amp; Sun). The dashed line shows the daily average.</span></span>
+                    <h4>Crashes by Day of Week <span class="chart-info-icon">i<span class="chart-info-tooltip">Total crashes for each day of the week. Orange bars highlight weekends (Sat &amp; Sun). The dashed line shows the daily average.</span></span></h4>
                 </div>
                 <div class="chart-wrapper">
                     <canvas id="crashesByDayChart"></canvas>
@@ -620,8 +618,7 @@
             </div>
             <div class="chart-container">
                 <div class="chart-header">
-                    <h4>Crashes by Hour</h4>
-                    <span class="chart-info-icon">i<span class="chart-info-tooltip">Total crashes by hour of day (12am–11pm). Bars graduate from blue (fewer) to red (more). The dashed line shows the hourly average.</span></span>
+                    <h4>Crashes by Hour <span class="chart-info-icon">i<span class="chart-info-tooltip">Total crashes by hour of day (12am–11pm). Bars graduate from blue (fewer) to red (more). The dashed line shows the hourly average.</span></span></h4>
                 </div>
                 <div class="chart-wrapper">
                     <canvas id="crashesByHourChart"></canvas>
@@ -629,13 +626,49 @@
             </div>
             <div class="chart-container">
                 <div class="chart-header">
-                    <h4>Severity Distribution</h4>
-                    <span class="chart-info-icon">i<span class="chart-info-tooltip">Breakdown of crashes by severity. Click a segment to filter the map and graphs to that severity only. Click the same segment again to restore.</span></span>
+                    <h4>Severity Distribution <span class="chart-info-icon">i<span class="chart-info-tooltip">Breakdown of crashes by severity. Click a segment to filter the map and graphs to that severity only. Click the same segment again to restore.</span></span></h4>
                 </div>
                 <div class="chart-wrapper">
                     <canvas id="severityDistributionChart"></canvas>
                 </div>
                 <p class="chart-click-hint">Click a segment to filter by severity</p>
+            </div>
+
+            <div class="chart-container">
+                <div class="chart-header">
+                    <h4>Top Crash Types <span class="chart-info-icon">i<span class="chart-info-tooltip">Top 10 crash types by frequency in the filtered data. Click a bar to solo-filter by that crash type. Click again to restore all types.</span></span></h4>
+                </div>
+                <div class="chart-wrapper chart-wrapper--tall">
+                    <canvas id="crashTypeChart"></canvas>
+                </div>
+                <p class="chart-click-hint">Click a bar to filter by crash type</p>
+            </div>
+
+            <div class="chart-container">
+                <div class="chart-header">
+                    <h4>Top Areas (LGA) <span class="chart-info-icon">i<span class="chart-info-tooltip">Top 10 Local Government Areas by crash count in the filtered data. Click a bar to filter the map to that LGA. Click again to restore all areas.</span></span></h4>
+                </div>
+                <div class="chart-wrapper chart-wrapper--tall">
+                    <canvas id="topLGAChart"></canvas>
+                </div>
+                <p class="chart-click-hint">Click a bar to filter by LGA</p>
+            </div>
+
+            <div class="chart-container">
+                <div class="chart-header">
+                    <h4>Weather Conditions <span class="chart-info-icon">i<span class="chart-info-tooltip">Crash count by weather condition. Click a bar to filter the map to that weather condition. Click again to restore all conditions.</span></span></h4>
+                </div>
+                <div class="chart-wrapper chart-wrapper--tall">
+                    <canvas id="weatherChart"></canvas>
+                </div>
+                <p class="chart-click-hint">Click a bar to filter by weather</p>
+            </div>
+
+            <div class="chart-container">
+                <div class="chart-header">
+                    <h4>Day &times; Hour Heatmap <span class="chart-info-icon">i<span class="chart-info-tooltip">Crash intensity by day of week and hour of day. Darker red = more crashes. Reveals high-risk time windows such as Friday afternoon rush hour or Saturday night.</span></span></h4>
+                </div>
+                <div id="dayHourHeatmap" class="heatmap-wrap"></div>
             </div>
         </div>
     </div>
@@ -1166,8 +1199,23 @@
             crashesOverTime: null,
             crashesByDay: null,
             crashesByHour: null,
-            severityDistribution: null
+            severityDistribution: null,
+            crashType: null,
+            topLGA: null,
+            weather: null
         };
+
+        // Solo-select one checkbox value in a dropdown (or restore all if already solo)
+        function soloSelectDropdown(menuId, displayId, value) {
+            var menu = document.getElementById(menuId);
+            if (!menu) return;
+            var checkboxes = Array.from(menu.querySelectorAll('input[type="checkbox"]'));
+            var checked = checkboxes.filter(function(cb) { return cb.checked; });
+            var alreadySolo = checked.length === 1 && checked[0].value === value;
+            checkboxes.forEach(function(cb) { cb.checked = alreadySolo || (cb.value === value); });
+            if (typeof updateCheckboxDropdownDisplay === 'function') updateCheckboxDropdownDisplay(displayId);
+            if (typeof applyFilters === 'function') applyFilters();
+        }
 
         // Current aggregation mode for Crashes Over Time
         let crashesOverTimeMode = 'yearly';
@@ -1392,6 +1440,59 @@
                     }
                 });
             }
+
+            // Shared options for horizontal bar charts (click-to-filter)
+            var hBarOpts = function(menuId, displayId, isWeather) {
+                return {
+                    responsive: true, maintainAspectRatio: false,
+                    indexAxis: 'y',
+                    plugins: { legend: { display: false }, tooltip: { callbacks: { label: function(ctx) { return ' ' + ctx.raw.toLocaleString() + ' crashes'; } } } },
+                    scales: { x: { beginAtZero: true, ticks: { font: { size: 10 } } }, y: { ticks: { font: { size: 10 } } } },
+                    onHover: function(event) { event.native.target.style.cursor = 'pointer'; },
+                    onClick: function(event, elements, chart) {
+                        if (elements.length === 0) return;
+                        var label = chart.data.labels[elements[0].index];
+                        if (isWeather) {
+                            var sel = document.getElementById('weather');
+                            if (!sel) return;
+                            if (sel.value === label) { sel.value = 'all'; } else { sel.value = label; }
+                            if (typeof applyFilters === 'function') applyFilters();
+                        } else {
+                            soloSelectDropdown(menuId, displayId, label);
+                        }
+                    }
+                };
+            };
+
+            // Crash Type horizontal bar
+            var ctxCT = document.getElementById('crashTypeChart');
+            if (ctxCT) {
+                charts.crashType = new Chart(ctxCT, {
+                    type: 'bar',
+                    data: { labels: [], datasets: [{ label: 'Crashes', data: [], backgroundColor: '#4a90e2' }] },
+                    options: hBarOpts('crashTypeMenu', 'crashType', false)
+                });
+            }
+
+            // Top LGA horizontal bar
+            var ctxLGA = document.getElementById('topLGAChart');
+            if (ctxLGA) {
+                charts.topLGA = new Chart(ctxLGA, {
+                    type: 'bar',
+                    data: { labels: [], datasets: [{ label: 'Crashes', data: [], backgroundColor: '#26c6da' }] },
+                    options: hBarOpts('areaMenu', 'area', false)
+                });
+            }
+
+            // Weather horizontal bar
+            var ctxWx = document.getElementById('weatherChart');
+            if (ctxWx) {
+                charts.weather = new Chart(ctxWx, {
+                    type: 'bar',
+                    data: { labels: [], datasets: [{ label: 'Crashes', data: [], backgroundColor: '#66bb6a' }] },
+                    options: hBarOpts(null, null, true)
+                });
+            }
         }
 
         // Initialize charts when page loads
@@ -1491,7 +1592,160 @@
                 charts.severityDistribution.data.datasets[0].data = [sev.PDO, sev.Minor, sev.Serious, sev.Fatal];
                 charts.severityDistribution.update();
             }
+
+            // ── Top Crash Types ───────────────────────────────────────────────
+            var typeCounts = {};
+            crashData.forEach(function(crash) {
+                var t = crash['Crash Type'];
+                if (t) typeCounts[t] = (typeCounts[t] || 0) + 1;
+            });
+            var sortedTypes = Object.keys(typeCounts).sort(function(a, b) { return typeCounts[b] - typeCounts[a]; }).slice(0, 10).reverse();
+            if (charts.crashType) {
+                charts.crashType.data.labels = sortedTypes;
+                charts.crashType.data.datasets[0].data = sortedTypes.map(function(t) { return typeCounts[t]; });
+                charts.crashType.data.datasets[0].backgroundColor = gradientColors(sortedTypes.map(function(t) { return typeCounts[t]; }), '#90caf9', '#1565c0');
+                charts.crashType.update();
+            }
+
+            // ── Top LGAs ─────────────────────────────────────────────────────
+            var lgaCounts = {};
+            crashData.forEach(function(crash) {
+                var l = crash['LGA'];
+                if (l) lgaCounts[l] = (lgaCounts[l] || 0) + 1;
+            });
+            var sortedLGAs = Object.keys(lgaCounts).sort(function(a, b) { return lgaCounts[b] - lgaCounts[a]; }).slice(0, 10).reverse();
+            if (charts.topLGA) {
+                charts.topLGA.data.labels = sortedLGAs;
+                charts.topLGA.data.datasets[0].data = sortedLGAs.map(function(l) { return lgaCounts[l]; });
+                charts.topLGA.data.datasets[0].backgroundColor = gradientColors(sortedLGAs.map(function(l) { return lgaCounts[l]; }), '#80deea', '#006064');
+                charts.topLGA.update();
+            }
+
+            // ── Weather Conditions ────────────────────────────────────────────
+            var wxCounts = {};
+            crashData.forEach(function(crash) {
+                var w = crash['Weather Cond'];
+                if (w) wxCounts[w] = (wxCounts[w] || 0) + 1;
+            });
+            var sortedWx = Object.keys(wxCounts).sort(function(a, b) { return wxCounts[b] - wxCounts[a]; }).reverse();
+            if (charts.weather) {
+                charts.weather.data.labels = sortedWx;
+                charts.weather.data.datasets[0].data = sortedWx.map(function(w) { return wxCounts[w]; });
+                charts.weather.data.datasets[0].backgroundColor = gradientColors(sortedWx.map(function(w) { return wxCounts[w]; }), '#a5d6a7', '#1b5e20');
+                charts.weather.update();
+            }
+
+            // ── Day × Hour Heatmap ────────────────────────────────────────────
+            (function() {
+                var container = document.getElementById('dayHourHeatmap');
+                if (!container) return;
+                var dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+                var dayNameToIdx = { 'Sunday':0,'Monday':1,'Tuesday':2,'Wednesday':3,'Thursday':4,'Friday':5,'Saturday':6 };
+                var matrix = Array.from({length: 7}, function() { return Array(24).fill(0); });
+                crashData.forEach(function(crash) {
+                    var d = crash['Day'], dt = crash['Crash Date Time'];
+                    if (d && dayNameToIdx.hasOwnProperty(d) && dt) {
+                        var tp = dt.split(' ')[1];
+                        if (tp) { var h = parseInt(tp.split(':')[0]); if (!isNaN(h) && h >= 0 && h < 24) matrix[dayNameToIdx[d]][h]++; }
+                    }
+                });
+                var max = 1;
+                matrix.forEach(function(row) { row.forEach(function(v) { if (v > max) max = v; }); });
+
+                var html = '<div class="heatmap-table">';
+                // Column headers (every 3 hours)
+                html += '<div class="heatmap-row"><div class="heatmap-row-label"></div>';
+                for (var h = 0; h < 24; h++) {
+                    html += '<div class="heatmap-col-hdr">' + (h % 3 === 0 ? formatHourLabel(h) : '') + '</div>';
+                }
+                html += '</div>';
+                // Data rows
+                matrix.forEach(function(row, di) {
+                    html += '<div class="heatmap-row"><div class="heatmap-row-label">' + dayNames[di] + '</div>';
+                    row.forEach(function(v, h) {
+                        var alpha = (v / max).toFixed(2);
+                        var tip = dayNames[di] + ' ' + formatHourLabel(h) + ': ' + v.toLocaleString() + ' crashes';
+                        html += '<div class="heatmap-cell" title="' + tip + '" style="background:rgba(239,83,80,' + alpha + ')"></div>';
+                    });
+                    html += '</div>';
+                });
+                html += '</div>';
+                container.innerHTML = html;
+            })();
         }
+
+        // ── Per-chart maximise / restore ─────────────────────────────────────
+        var _focusedChartId = null;
+
+        function maximizeChart(containerId) {
+            var content = document.querySelector('.analytics-content');
+            if (!content) return;
+
+            // Clicking the already-focused chart toggles back to normal
+            if (_focusedChartId === containerId) {
+                restoreCharts();
+                return;
+            }
+
+            // Clear any existing focus first
+            document.querySelectorAll('.chart-container').forEach(function(c) { c.classList.remove('chart-focused'); });
+            document.querySelectorAll('.chart-maximize-btn').forEach(function(b) {
+                b.textContent = '⤢'; b.title = 'Maximise'; b.classList.remove('is-active');
+            });
+
+            // Apply focus — the focused container overlays via CSS (position: absolute; inset: 0)
+            var container = document.getElementById(containerId);
+            if (!container) return;
+            container.classList.add('chart-focused');
+            content.classList.add('chart-zoomed');
+            _focusedChartId = containerId;
+
+            var btn = container.querySelector('.chart-maximize-btn');
+            if (btn) { btn.textContent = '⤡'; btn.title = 'Restore'; btn.classList.add('is-active'); }
+
+            // Reflow the focused chart canvas at its new (larger) size
+            setTimeout(function() {
+                Object.values(charts).forEach(function(c) { if (c && typeof c.resize === 'function') c.resize(); });
+            }, 50);
+        }
+
+        function restoreCharts() {
+            var content = document.querySelector('.analytics-content');
+            if (content) content.classList.remove('chart-zoomed');
+            document.querySelectorAll('.chart-container').forEach(function(c) { c.classList.remove('chart-focused'); });
+            document.querySelectorAll('.chart-maximize-btn').forEach(function(b) {
+                b.textContent = '⤢'; b.title = 'Maximise'; b.classList.remove('is-active');
+            });
+            _focusedChartId = null;
+
+            // Double rAF ensures the browser fully reflows the grid before Chart.js
+            // measures parent dimensions and resizes canvases back to grid-cell size
+            requestAnimationFrame(function() {
+                requestAnimationFrame(function() {
+                    Object.values(charts).forEach(function(c) { if (c && typeof c.resize === 'function') c.resize(); });
+                });
+            });
+        }
+
+        // Inject maximise buttons into every chart-container at load time
+        window.addEventListener('load', function() {
+            document.querySelectorAll('.chart-container').forEach(function(container, idx) {
+                if (!container.id) container.id = 'chart-container-' + idx;
+                var btn = document.createElement('button');
+                btn.className = 'chart-maximize-btn';
+                btn.textContent = '⤢';
+                btn.title = 'Maximise';
+                btn.setAttribute('aria-label', 'Maximise chart');
+                btn.onclick = (function(id) { return function() { maximizeChart(id); }; })(container.id);
+                // Insert inline into the chart-header so it sits alongside the info icon
+                var header = container.querySelector('.chart-header');
+                if (header) {
+                    header.appendChild(btn);
+                } else {
+                    container.appendChild(btn);
+                }
+            });
+        });
 
         // Make functions available globally for app.js
         window.updateChartsWithData = updateChartsWithData;
