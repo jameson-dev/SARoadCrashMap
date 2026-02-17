@@ -7,11 +7,11 @@
     <title>SA Crash Data Map 2012-2024</title>
 
     <!-- Web App Manifest -->
-    <link rel="manifest" href="/manifest.json">
+    <link rel="manifest" href="manifest.json">
 
     <!-- Icons -->
-    <link rel="icon" type="image/svg+xml" href="/saroadcrashmap-icon.svg">
-    <link rel="apple-touch-icon" href="/saroadcrashmap-icon.svg">
+    <link rel="icon" type="image/svg+xml" href="saroadcrashmap-icon.svg">
+    <link rel="apple-touch-icon" href="saroadcrashmap-icon.svg">
 
     <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -27,6 +27,19 @@
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
+    <!-- First Visit Disclaimer Acknowledgment -->
+    <div id="firstVisitOverlay" class="first-visit-overlay" style="display: none;">
+        <div class="first-visit-popup">
+            <h2>Welcome to SA Crash Data Map</h2>
+            <p>Before using this application, please acknowledge that you have read and understood the disclaimer.</p>
+            <p>This tool provides crash data visualization for educational and informational purposes only.</p>
+            <div class="first-visit-actions">
+                <a href="#" onclick="openInfoModal('disclaimerModal'); return false;" class="view-disclaimer-link">View Full Disclaimer</a>
+                <button onclick="acknowledgeDisclaimer()" class="acknowledge-btn">I Acknowledge</button>
+            </div>
+        </div>
+    </div>
+
     <div id="map"></div>
 
     <button class="toggle-panel-btn" onclick="togglePanel()">☰ Filters</button>

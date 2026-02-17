@@ -2,21 +2,21 @@
   "name": "SA Crash Data Map 2012-2024",
   "short_name": "SA Crash Map",
   "description": "Interactive map visualization of South Australia crash data with advanced filtering and analysis capabilities",
-  "start_url": "/",
+  "start_url": "./",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#4a90e2",
   "orientation": "any",
-  "scope": "/",
+  "scope": "./",
   "icons": [
     {
-      "src": "/saroadcrashmap-icon.svg",
+      "src": "./saroadcrashmap-icon.svg",
       "sizes": "any",
       "type": "image/svg+xml",
       "purpose": "any"
     },
     {
-      "src": "/saroadcrashmap-icon.svg",
+      "src": "./saroadcrashmap-icon.svg",
       "sizes": "512x512",
       "type": "image/svg+xml",
       "purpose": "maskable"
@@ -29,7 +29,7 @@
       "name": "View Map",
       "short_name": "Map",
       "description": "Open crash data map",
-      "url": "/",
+      "url": "./",
       "icons": []
     }
   ]

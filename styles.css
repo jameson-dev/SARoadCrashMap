@@ -2045,3 +2045,98 @@
                 max-width: calc(100% - 20px);
             }
         }
+
+/* First Visit Disclaimer Overlay */
+.first-visit-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.85);
+    z-index: 10000;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    backdrop-filter: blur(5px);
+}
+
+.first-visit-popup {
+    background: white;
+    padding: 40px;
+    border-radius: 12px;
+    max-width: 500px;
+    width: 90%;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+    text-align: center;
+}
+
+.first-visit-popup h2 {
+    color: #2c3e50;
+    margin-top: 0;
+    margin-bottom: 20px;
+    font-size: 28px;
+}
+
+.first-visit-popup p {
+    color: #555;
+    line-height: 1.6;
+    margin-bottom: 15px;
+    font-size: 16px;
+}
+
+.first-visit-actions {
+    margin-top: 30px;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.view-disclaimer-link {
+    color: #4a90e2;
+    text-decoration: underline;
+    font-size: 15px;
+    cursor: pointer;
+    transition: color 0.2s;
+}
+
+.view-disclaimer-link:hover {
+    color: #357abd;
+}
+
+.acknowledge-btn {
+    background: #4a90e2;
+    color: white;
+    border: none;
+    padding: 15px 30px;
+    font-size: 16px;
+    font-weight: 600;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.acknowledge-btn:hover {
+    background: #357abd;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(74, 144, 226, 0.3);
+}
+
+.acknowledge-btn:active {
+    transform: translateY(0);
+}
+
+@media (max-width: 768px) {
+    .first-visit-popup {
+        padding: 30px 20px;
+        max-width: 90%;
+    }
+
+    .first-visit-popup h2 {
+        font-size: 24px;
+    }
+
+    .first-visit-popup p {
+        font-size: 14px;
+    }
+}

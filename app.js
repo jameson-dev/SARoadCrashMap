@@ -16,6 +16,22 @@ let activeLayers = {
     choropleth: false
 };
 
+// First-visit disclaimer acknowledgment
+function checkFirstVisit() {
+    const hasAcknowledged = localStorage.getItem('disclaimerAcknowledged');
+    if (!hasAcknowledged) {
+        document.getElementById('firstVisitOverlay').style.display = 'flex';
+    }
+}
+
+function acknowledgeDisclaimer() {
+    localStorage.setItem('disclaimerAcknowledged', 'true');
+    document.getElementById('firstVisitOverlay').style.display = 'none';
+}
+
+// Check first visit on page load
+window.addEventListener('DOMContentLoaded', checkFirstVisit);
+
 // Heavy vehicle types definition
 const HEAVY_VEHICLE_TYPES = [
     'BDOUBLE - ROAD TRAIN',
@@ -126,10 +142,18 @@ function initMap() {
     // Initialize layers
     markersLayer = L.markerClusterGroup({
         chunkedLoading: true,
+        chunkDelay: 50,        // Reduced from default 200ms for faster loading
+        chunkProgress: null,   // Disable progress updates for better performance
         spiderfyOnMaxZoom: true,
         showCoverageOnHover: false,
         zoomToBoundsOnClick: true,
-        maxClusterRadius: 50,
+        maxClusterRadius: function(zoom) {
+            // More aggressive clustering at lower zoom levels for better performance
+            return zoom < 10 ? 80 : (zoom < 13 ? 60 : 50);
+        },
+        disableClusteringAtZoom: 19, // Disable clustering when fully zoomed in
+        animate: false,        // Disable animations for faster rendering
+        removeOutsideVisibleBounds: true, // Remove markers outside viewport
         iconCreateFunction: function(cluster) {
             const childCount = cluster.getChildCount();
 
@@ -518,63 +542,18 @@ function loadSuburbBoundaries(filePath = 'data/sa_suburbs.geojson') {
 }
 
 // Pre-compute LGA assignments for crashes with missing/N/A LGA names
-// This runs once at startup to avoid expensive point-in-polygon during rendering
+// Note: LGA assignments are now pre-computed in the CSV file (see scripts/add_lga_column.py)
+// This function now just applies filters immediately without client-side computation
 function precomputeLGAAssignments() {
-    if (!lgaBoundaries || !lgaBoundaries.features || typeof turf === 'undefined') {
-        console.warn('Cannot pre-compute LGA assignments: boundaries or Turf.js not available');
-        return;
-    }
+    console.log('Using pre-computed LGA assignments from CSV');
 
-    // Update message (loading overlay already visible)
-    updateLoadingMessage('Pre-computing LGA assignments...');
+    // Count how many crashes have LGA assignments
+    const withLGA = crashData.filter(row => row['LGA'] && row['LGA'].trim()).length;
+    const total = crashData.length;
+    console.log(`LGA coverage: ${withLGA}/${total} crashes (${(withLGA/total*100).toFixed(1)}%)`);
 
-    let naCount = 0;
-    let assignedCount = 0;
-
-    // Use requestAnimationFrame to ensure loading indicator shows
-    requestAnimationFrame(() => {
-        setTimeout(() => {
-            crashData.forEach(row => {
-                const lga = row['LGA Name'];
-
-                // Only process crashes with N/A or missing LGA
-                if (!lga || lga.trim() === '' || lga.toUpperCase() === 'N/A') {
-                    naCount++;
-                    const coords = convertCoordinates(row.ACCLOC_X, row.ACCLOC_Y);
-
-                    if (coords) {
-                        const [lat, lng] = coords;
-                        const point = turf.point([lng, lat]);
-
-                        for (const feature of lgaBoundaries.features) {
-                            try {
-                                const isInside = turf.booleanPointInPolygon(point, feature);
-
-                                if (isInside) {
-                                    row._computedLGA = getLGAName(feature.properties);
-                                    assignedCount++;
-                                    break;
-                                }
-                            } catch (e) {
-                                continue;
-                            }
-                        }
-
-                        // If still not found, mark as unassigned
-                        if (!row._computedLGA) {
-                            row._computedLGA = 'Unassigned (No LGA boundary found)';
-                        }
-                    }
-                }
-            });
-
-            console.log(`Pre-computed LGA assignments: ${assignedCount}/${naCount} N/A crashes assigned to LGAs`);
-
-            // Now that LGA processing is complete, apply filters and show the map
-            // Pass false so loading gets hidden after map is ready
-            applyFilters(false);
-        }, 0);
-    });
+    // Apply filters and show the map immediately
+    applyFilters(false);
 }
 
 // Convert abbreviated LGA name to full display name
@@ -795,29 +774,25 @@ function populateFilterOptions() {
         weatherSelect.appendChild(option);
     });
 
-    // Areas (LGA) - populate checkbox dropdown with full names
-    const areas = [...new Set(crashData.map(row => row['LGA Name']).filter(v => v))];
+    // Areas (LGA) - populate checkbox dropdown with pre-computed LGA values
+    const areas = [...new Set(crashData.map(row => row['LGA']).filter(v => v))];
     const areaMenu = document.getElementById('areaMenu');
 
-    // Sort by display name instead of abbreviated name
-    areas.sort((a, b) => {
-        const nameA = getFullLGAName(a);
-        const nameB = getFullLGAName(b);
-        return nameA.localeCompare(nameB);
-    }).forEach((area, index) => {
+    // Sort LGA names alphabetically (already full names from pre-computed column)
+    areas.sort((a, b) => a.localeCompare(b)).forEach((area, index) => {
         const item = document.createElement('div');
         item.className = 'checkbox-dropdown-item';
 
         const checkbox = document.createElement('input');
         checkbox.type = 'checkbox';
         checkbox.id = `area-${index}`;
-        checkbox.value = area; // Keep abbreviated name as value for filtering
+        checkbox.value = area; // Full LGA name for filtering
         checkbox.checked = true; // All selected by default
         checkbox.onchange = () => updateCheckboxDropdownDisplay('area');
 
         const label = document.createElement('label');
         label.htmlFor = `area-${index}`;
-        label.textContent = getFullLGAName(area); // Display full name
+        label.textContent = area; // Display full name from CSV
 
         item.appendChild(checkbox);
         item.appendChild(label);
@@ -1091,8 +1066,8 @@ function matchesBasicFilters(row, filters) {
         if (filters.drugsInvolved === 'No' && hasDrugs) return false;
     }
 
-    // Area filter
-    if (!filters.selectedAreas.includes('all') && !filters.selectedAreas.includes(row['LGA Name'])) {
+    // Area filter (using pre-computed LGA)
+    if (!filters.selectedAreas.includes('all') && !filters.selectedAreas.includes(row['LGA'])) {
         return false;
     }
 
@@ -1482,18 +1457,18 @@ function updateMapLayers(changedLayer = null, isInitialLoad = false) {
             if (changedLayer === 'markers') {
                 if (activeLayers.markers) {
                     showLoading('Adding markers to map...');
-                    requestAnimationFrame(() => {
-                        setTimeout(() => {
-                            try {
-                                addMarkers();
+                    try {
+                        addMarkers(() => {
+                            // All markers added, hide loading after brief delay
+                            setTimeout(() => {
                                 hideLoading();
-                            } catch (error) {
-                                console.error('Error adding markers:', error);
-                                hideLoading();
-                                alert('Error displaying markers. Please try again.');
-                            }
-                        }, 0);
-                    });
+                            }, 100);
+                        });
+                    } catch (error) {
+                        console.error('Error adding markers:', error);
+                        hideLoading();
+                        alert('Error displaying markers. Please try again.');
+                    }
                 } else {
                     if (markersLayer) {
                         markersLayer.clearLayers();
@@ -1561,35 +1536,41 @@ function updateMapLayers(changedLayer = null, isInitialLoad = false) {
     // Use requestAnimationFrame to ensure loading indicator renders
     requestAnimationFrame(() => {
         setTimeout(() => {
-            // Add active layers
+            // Add active layers asynchronously
             if (activeLayers.markers) {
                 showLoading('Adding markers to map...');
-                addMarkers();
-            }
-            if (activeLayers.density) {
-                showLoading('Generating density map...');
-                addDensityMap();
-            }
-            if (activeLayers.choropleth) {
-                showLoading('Rendering choropleth layer...');
-                addChoropleth();
-            }
-
-            // Hide loading indicator after rendering completes (unless it's initial load)
-            if (!isInitialLoad) {
-                requestAnimationFrame(() => {
+                // Progressive loading with callback
+                addMarkers(() => {
+                    // All markers added, continue with other layers or hide loading
                     setTimeout(() => {
+                        if (activeLayers.density) {
+                            showLoading('Generating density map...');
+                            addDensityMap();
+                        }
+                        if (activeLayers.choropleth) {
+                            showLoading('Rendering choropleth layer...');
+                            addChoropleth();
+                        }
                         hideLoading();
                     }, 100);
                 });
+            } else {
+                // No markers, add other layers
+                if (activeLayers.density) {
+                    showLoading('Generating density map...');
+                    addDensityMap();
+                }
+                if (activeLayers.choropleth) {
+                    showLoading('Rendering choropleth layer...');
+                    addChoropleth();
+                }
+                hideLoading();
             }
         }, 0);
     });
     } catch (error) {
         console.error('Error updating map layers:', error);
-        if (!isInitialLoad) {
-            hideLoading();
-        }
+        hideLoading();
         alert('Error updating map display. Please refresh the page.');
     }
 }
@@ -1728,42 +1709,94 @@ function generatePopupContent(crash) {
     }
 }
 
-// Add markers to map
-function addMarkers() {
-    markersLayer.clearLayers();
+// Cache for marker icons to avoid recreating the same icons
+const markerIconCache = {};
 
-    filteredData.forEach((row, index) => {
-        // Use cached coordinates instead of converting each time
-        const coords = row._coords;
-        if (!coords) return;
+function getMarkerIcon(severity) {
+    const color = severityColors[severity] || '#808080';
 
-        const severity = row['CSEF Severity'];
-        const color = severityColors[severity] || '#808080';
+    // Return cached icon if available
+    if (markerIconCache[color]) {
+        return markerIconCache[color];
+    }
 
-        // Create custom marker icon
-        const markerIcon = L.divIcon({
-            className: 'custom-marker',
-            html: `<div style="background-color: ${color}; width: 12px; height: 12px; border-radius: 50%; border: 2px solid white;"></div>`,
-            iconSize: [12, 12]
-        });
-
-        const marker = L.marker(coords, { icon: markerIcon });
-
-        // Lazy load popup content on click instead of generating for all markers
-        // Lazy popup generation - create content only when popup is first opened
-        let popupGenerated = false;
-        marker.bindPopup(function() {
-            if (!popupGenerated) {
-                popupGenerated = true;
-                return generatePopupContent(row);
-            }
-            return this.getPopup().getContent();
-        }, { maxWidth: 450 });
-
-        markersLayer.addLayer(marker);
+    // Create and cache new icon
+    const icon = L.divIcon({
+        className: 'custom-marker',
+        html: `<div style="background-color: ${color}; width: 12px; height: 12px; border-radius: 50%; border: 2px solid white;"></div>`,
+        iconSize: [12, 12]
     });
 
-    map.addLayer(markersLayer);
+    markerIconCache[color] = icon;
+    return icon;
+}
+
+// Add markers to map with progressive loading
+function addMarkers(callback) {
+    markersLayer.clearLayers();
+
+    const chunkSize = 2000; // Process 2000 markers per chunk
+    const totalMarkers = filteredData.length;
+    let processedCount = 0;
+
+    // Add layer to map immediately so chunks appear as they're processed
+    if (!map.hasLayer(markersLayer)) {
+        map.addLayer(markersLayer);
+    }
+
+    // Process markers in chunks to avoid blocking UI
+    function processChunk() {
+        const markers = [];
+        const endIndex = Math.min(processedCount + chunkSize, totalMarkers);
+
+        for (let i = processedCount; i < endIndex; i++) {
+            const row = filteredData[i];
+
+            // Use cached coordinates instead of converting each time
+            const coords = row._coords;
+            if (!coords) continue;
+
+            const severity = row['CSEF Severity'];
+            const markerIcon = getMarkerIcon(severity);
+
+            const marker = L.marker(coords, { icon: markerIcon });
+
+            // Lazy popup generation - create content only when popup is first opened
+            let popupGenerated = false;
+            marker.bindPopup(function() {
+                if (!popupGenerated) {
+                    popupGenerated = true;
+                    return generatePopupContent(row);
+                }
+                return this.getPopup().getContent();
+            }, { maxWidth: 450 });
+
+            markers.push(marker);
+        }
+
+        // Add this chunk of markers
+        if (markers.length > 0) {
+            markersLayer.addLayers(markers);
+        }
+
+        processedCount = endIndex;
+
+        // Update progress message
+        const percentComplete = Math.round((processedCount / totalMarkers) * 100);
+        updateLoadingMessage(`Adding markers to map... ${percentComplete}%`);
+
+        // Process next chunk or finish
+        if (processedCount < totalMarkers) {
+            // Schedule next chunk (yield to UI thread)
+            setTimeout(processChunk, 0);
+        } else {
+            // All markers added - call callback if provided
+            if (callback) callback();
+        }
+    }
+
+    // Start processing
+    processChunk();
 }
 
 // Add density map layer
@@ -1852,14 +1885,10 @@ function addChoropleth() {
     const lgaCountsNormalized = {};
 
     filteredData.forEach(row => {
-        let lga = row['LGA Name'];
+        // Use pre-computed LGA from CSV
+        const lga = row['LGA'];
 
-        // Use pre-computed LGA if available (for N/A crashes)
-        if ((!lga || lga.trim() === '' || lga.toUpperCase() === 'N/A') && row._computedLGA) {
-            lga = row._computedLGA;
-        }
-
-        if (lga) {
+        if (lga && lga.trim()) {
             lgaCounts[lga] = (lgaCounts[lga] || 0) + 1;
 
             // Also count with normalized name
@@ -1988,8 +2017,8 @@ function addChoropleth() {
         const lgaLocations = {};
 
         filteredData.forEach(row => {
-            const lga = row['LGA Name'];
-            if (!lga) return;
+            const lga = row['LGA'];
+            if (!lga || !lga.trim()) return;
 
             const coords = convertCoordinates(row.ACCLOC_X, row.ACCLOC_Y);
             if (!coords) return;
