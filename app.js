@@ -3612,6 +3612,178 @@ function initMultiSelectEnhancements() {
     addAreaSearch();
 }
 
+// Export filtered crash data to CSV
+function exportFilteredData() {
+    if (!filteredData || filteredData.length === 0) {
+        alert('No data to export. Please apply filters first.');
+        return;
+    }
+
+    // Create CSV content
+    let csv = '';
+
+    // Add export metadata
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
+    const totalCrashes = filteredData.length;
+
+    // Count casualties
+    let totalFatalities = 0;
+    let totalSerious = 0;
+    let totalMinor = 0;
+    let totalCasualties = 0;
+
+    filteredData.forEach(crash => {
+        const casualties = crash._casualties || [];
+        totalCasualties += casualties.length;
+        casualties.forEach(c => {
+            const injury = c['Injury Extent'];
+            if (injury === 'Fatal') totalFatalities++;
+            else if (injury === 'Serious injury') totalSerious++;
+            else if (injury === 'Minor injury') totalMinor++;
+        });
+    });
+
+    // Add summary header
+    csv += `SA Crash Data Export\n`;
+    csv += `Generated: ${new Date().toLocaleString()}\n`;
+    csv += `Total Crashes: ${totalCrashes}\n`;
+    csv += `Total Casualties: ${totalCasualties}\n`;
+    csv += `Fatalities: ${totalFatalities}\n`;
+    csv += `Serious Injuries: ${totalSerious}\n`;
+    csv += `Minor Injuries: ${totalMinor}\n`;
+    csv += `\n`;
+
+    // Add active filters summary
+    const filters = getFilterValues();
+    csv += `Active Filters:\n`;
+    if (filters.yearStart !== 2012 || filters.yearEnd !== 2024) {
+        csv += `Year Range: ${filters.yearStart} - ${filters.yearEnd}\n`;
+    }
+    if (!filters.selectedSeverities.includes('all')) {
+        csv += `Severity: ${filters.selectedSeverities.join(', ')}\n`;
+    }
+    if (filters.crashType !== 'all') {
+        csv += `Crash Type: ${filters.crashType}\n`;
+    }
+    if (filters.weather !== 'all') {
+        csv += `Weather: ${filters.weather}\n`;
+    }
+    if (filters.dayNight !== 'all') {
+        csv += `Day/Night: ${filters.dayNight}\n`;
+    }
+    if (filters.dui !== 'all') {
+        csv += `DUI Involved: ${filters.dui}\n`;
+    }
+    if (filters.drugs !== 'all') {
+        csv += `Drugs Involved: ${filters.drugs}\n`;
+    }
+    if (!filters.selectedAreas.includes('all')) {
+        csv += `LGA: ${filters.selectedAreas.slice(0, 5).join(', ')}${filters.selectedAreas.length > 5 ? '...' : ''}\n`;
+    }
+    if (!filters.selectedSuburbs.includes('all')) {
+        csv += `Suburbs: ${filters.selectedSuburbs.slice(0, 5).join(', ')}${filters.selectedSuburbs.length > 5 ? '...' : ''}\n`;
+    }
+    csv += `\n`;
+
+    // Column headers
+    const headers = [
+        'Report ID',
+        'Date',
+        'Time',
+        'Severity',
+        'Crash Type',
+        'LGA',
+        'Suburb',
+        'Postcode',
+        'Speed Limit (km/h)',
+        'Weather',
+        'Day/Night',
+        'Road Surface',
+        'Moisture',
+        'DUI Involved',
+        'Drugs Involved',
+        'Total Casualties',
+        'Fatalities',
+        'Serious Injuries',
+        'Minor Injuries',
+        'Total Units',
+        'Latitude',
+        'Longitude'
+    ];
+
+    csv += headers.join(',') + '\n';
+
+    // Add data rows
+    filteredData.forEach(crash => {
+        const casualties = crash._casualties || [];
+        const units = crash._units || [];
+
+        // Count casualties by severity
+        let fatal = 0, serious = 0, minor = 0;
+        casualties.forEach(c => {
+            const injury = c['Injury Extent'];
+            if (injury === 'Fatal') fatal++;
+            else if (injury === 'Serious injury') serious++;
+            else if (injury === 'Minor injury') minor++;
+        });
+
+        const coords = crash._coords || [null, null];
+
+        const row = [
+            escapeCSV(crash['Report ID'] || ''),
+            escapeCSV(crash['Crash Date'] || ''),
+            escapeCSV(crash['Crash Time'] || ''),
+            escapeCSV(crash['CSEF Severity'] || ''),
+            escapeCSV(crash['Crash Type'] || ''),
+            escapeCSV(crash['LGA'] || ''),
+            escapeCSV(crash['Suburb'] || ''),
+            escapeCSV(crash['Postcode'] || ''),
+            escapeCSV(crash['Area Speed'] || ''),
+            escapeCSV(crash['Weather Cond'] || ''),
+            escapeCSV(crash['DayNight'] || ''),
+            escapeCSV(crash['Road Surface'] || ''),
+            escapeCSV(crash['Moisture Cond'] || ''),
+            escapeCSV(crash['DUI Involved'] || 'No'),
+            escapeCSV(crash['Drugs Involved'] || 'No'),
+            casualties.length,
+            fatal,
+            serious,
+            minor,
+            units.length,
+            coords[0] || '',
+            coords[1] || ''
+        ];
+
+        csv += row.join(',') + '\n';
+    });
+
+    // Create download
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+
+    link.setAttribute('href', url);
+    link.setAttribute('download', `SA_Crash_Data_Export_${timestamp}.csv`);
+    link.style.visibility = 'hidden';
+
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    console.log(`Exported ${totalCrashes} crashes to CSV`);
+}
+
+// Helper function to escape CSV values
+function escapeCSV(value) {
+    if (value === null || value === undefined) return '';
+    const str = String(value);
+    // Escape quotes and wrap in quotes if contains comma, quote, or newline
+    if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+        return '"' + str.replace(/"/g, '""') + '"';
+    }
+    return str;
+}
+
 // Close modal when clicking outside of it
 window.onclick = function(event) {
     const modal = document.getElementById('advancedFiltersModal');

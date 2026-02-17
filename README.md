@@ -48,9 +48,9 @@ An interactive web-based map visualization tool for exploring South Australian c
 - **Rollover Involved**: Filter crashes where rollover occurred
 - **Fire Involved**: Filter crashes where fire occurred
 - **Vehicle Year**: Filter by vehicle age (Before 2000, 2000-2010, 2011-2020, 2021+)
-- **Number of Occupants**: Filter by vehicle occupancy (1, 2, 3-4, 5+ occupants)
+- **Number of Occupants**: Filter by vehicle occupancy (1, 2, 3, 4, 5+ occupants)
 - **Towing**: Filter vehicles that were towing trailers/caravans
-- **Heavy Vehicles**: Filter crashes involving heavy vehicles (trucks, semi-trailers, road trains)
+- **Heavy Vehicles**: Filter crashes involving heavy vehicles (trucks, semi-trailers, road trains, buses)
 
 ### **Advanced Features**
 
@@ -62,9 +62,14 @@ An interactive web-based map visualization tool for exploring South Australian c
 #### Location Search
 - **Search by Address/Suburb**: Find crashes near any SA location
 - **Radius Filtering**: Set custom search radius (1-50km)
-- **GPS Support**: Use your current location
 
-#### Smart Filter Management
+#### Data Export
+- **CSV Export**: Export filtered crash data to CSV format
+- **Summary Statistics**: Includes totals for crashes, casualties, and injuries
+- **Filter Documentation**: Active filters are documented in the export
+- **Comprehensive Data**: Includes crash details, location, casualties, and units involved
+
+#### Filter Management
 - **Active Filters Bar**: See all active filters at a glance
 - **Quick Clear**: Remove individual filters or clear all
 - **Filter Persistence**: Filters are saved in URL for easy sharing
@@ -250,7 +255,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 A: 2% of crashes have invalid or missing coordinates in the dataset.
 
 **Q: Can I export filtered data?**
-A: Currently not supported, but considered for future release.
+A: Yes. Click the "Export to CSV" button in the Statistics panel (at the bottom of the Explorer). The export includes all filtered crash data with summary statistics, active filters, and comprehensive crash details including casualties and units involved.
 
 **Q: How often is the data updated?**
 A: Data is sourced from Data.SA and updated when new datasets are published. This involves cleansing & aggregating the data which can take time.
