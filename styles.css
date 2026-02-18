@@ -2267,7 +2267,7 @@
         .heatmap-table {
             display: flex;
             flex-direction: column;
-            gap: 2px;
+            gap: 3px;
             min-width: 340px;
         }
 
@@ -2297,7 +2297,7 @@
 
         .heatmap-cell {
             flex: 1;
-            height: 18px;
+            height: 28px;
             border-radius: 2px;
             cursor: default;
             min-width: 0;
