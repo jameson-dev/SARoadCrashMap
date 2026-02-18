@@ -42,6 +42,15 @@
 
     <div id="map"></div>
 
+    <!-- No results overlay (shown when active filters produce 0 crashes) -->
+    <div id="noResultsOverlay" class="no-results-overlay" style="display:none;">
+        <div class="no-results-content">
+            <div class="no-results-icon">&#9906;</div>
+            <div class="no-results-title">No crashes found</div>
+            <div class="no-results-sub">Try broadening your filters or clearing the search.</div>
+        </div>
+    </div>
+
     <button class="toggle-panel-btn" onclick="togglePanel()">☰ Filters</button>
 
     <!-- Active Filters Badge -->
@@ -1362,7 +1371,30 @@
 
         // Initialize charts
         function initializeCharts() {
-            const tooltipPlugin = { tooltip: { callbacks: { label: pctTooltip } } };
+            // Theme-aware tooltip colours — re-read CSS vars at render time so they
+            // automatically switch when the user toggles light/dark mode.
+            const tooltipPlugin = {
+                tooltip: {
+                    callbacks: { label: pctTooltip },
+                    backgroundColor: function() {
+                        return getComputedStyle(document.documentElement)
+                            .getPropertyValue('--bg-secondary').trim() || '#f5f5f5';
+                    },
+                    titleColor: function() {
+                        return getComputedStyle(document.documentElement)
+                            .getPropertyValue('--text-primary').trim() || '#2a2a2a';
+                    },
+                    bodyColor: function() {
+                        return getComputedStyle(document.documentElement)
+                            .getPropertyValue('--text-secondary').trim() || '#666666';
+                    },
+                    borderColor: function() {
+                        return getComputedStyle(document.documentElement)
+                            .getPropertyValue('--border').trim() || 'rgba(0,0,0,0.1)';
+                    },
+                    borderWidth: 1
+                }
+            };
             const baseScales  = { y: { beginAtZero: true } };
 
             // Crashes Over Time - line chart (click point in yearly mode → jump to that year)

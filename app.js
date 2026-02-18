@@ -9,6 +9,7 @@ let suburbBoundaries = null;  // GeoJSON with suburb boundary polygons
 let choroplethMode = 'lga';  // 'lga' or 'suburb'
 let markersLayer;
 let densityLayer;
+let densityZoomListener = null; // stored so it can be removed when the layer is cleared
 let choroplethLayer;
 let activeLayers = {
     markers: true,
@@ -511,8 +512,14 @@ function loadLGABoundaries() {
         })
         .catch(error => {
             console.warn('Could not load LGA boundaries:', error);
-            // Even if LGA loading fails, still apply filters and show the map
-            applyFilters(false);
+            // Disable the choropleth toggle so users know it won't work
+            const choroplethToggle = document.getElementById('choroplethToggle');
+            if (choroplethToggle) {
+                choroplethToggle.title = 'Choropleth unavailable — boundary data failed to load';
+                choroplethToggle.style.opacity = '0.5';
+            }
+            // Still apply filters and show the map with markers/density layers
+            applyFilters();
         });
 }
 
@@ -538,6 +545,11 @@ function loadSuburbBoundaries(filePath = 'data/sa_suburbs.geojson') {
         })
         .catch(error => {
             console.warn('Could not load suburb boundaries:', error);
+            // Keep the suburb button disabled and update its tooltip
+            const suburbBtn = document.getElementById('choroplethModeSuburb');
+            if (suburbBtn) {
+                suburbBtn.title = 'Suburb view unavailable — boundary data failed to load';
+            }
         });
 }
 
@@ -553,7 +565,7 @@ function precomputeLGAAssignments() {
     console.log(`LGA coverage: ${withLGA}/${total} crashes (${(withLGA/total*100).toFixed(1)}%)`);
 
     // Apply filters and show the map immediately
-    applyFilters(false);
+    applyFilters();
 }
 
 // Convert abbreviated LGA name to full display name
@@ -1191,21 +1203,19 @@ function matchesUnitsFilters(row, filters) {
         }
 
         // Vehicle Year filter (uses ranges: pre-2000, 2000-2010, 2011-2020, 2021+)
+        // Units with no valid year are skipped (treated as non-matching for this unit,
+        // but other units in the same crash can still match).
         if (hasVehicleYearFilter) {
             const year = parseInt(unit['Veh Year']);
-            if (!isNaN(year)) {
-                const matchesAnyYear = filters.selectedVehicleYears.some(range => {
-                    if (range === 'pre-2000') return year < 2000;
-                    if (range === '2000-2010') return year >= 2000 && year <= 2010;
-                    if (range === '2011-2020') return year >= 2011 && year <= 2020;
-                    if (range === '2021+') return year >= 2021;
-                    return false;
-                });
-                if (!matchesAnyYear) return false;
-            } else {
-                // No valid year data - exclude if year filter is active
+            if (isNaN(year)) return false; // this unit has no year — try the next unit
+            const matchesAnyYear = filters.selectedVehicleYears.some(range => {
+                if (range === 'pre-2000') return year < 2000;
+                if (range === '2000-2010') return year >= 2000 && year <= 2010;
+                if (range === '2011-2020') return year >= 2011 && year <= 2020;
+                if (range === '2021+') return year >= 2021;
                 return false;
-            }
+            });
+            if (!matchesAnyYear) return false;
         }
 
         // Occupants filter (uses values: 1, 2, 3, 4, 5+)
@@ -1270,7 +1280,7 @@ function matchesUnitsFilters(row, filters) {
 }
 
 // Apply filters and update map
-function applyFilters(isInitialLoad = false) {
+function applyFilters() {
     // Show loading indicator
     showLoading('Filtering crash data...');
 
@@ -1290,6 +1300,12 @@ function applyFilters(isInitialLoad = false) {
             // Update statistics
             updateStatistics();
 
+            // Show/hide the "no crashes found" overlay
+            const noResultsEl = document.getElementById('noResultsOverlay');
+            if (noResultsEl) {
+                noResultsEl.style.display = filteredData.length === 0 ? 'block' : 'none';
+            }
+
             // Update active filters display
             updateActiveFiltersDisplay();
 
@@ -1298,8 +1314,8 @@ function applyFilters(isInitialLoad = false) {
                 updateChartsWithData(filteredData);
             }
 
-            // Update map layers (pass isInitialLoad flag)
-            updateMapLayers(null, isInitialLoad);
+            // Update map layers
+            updateMapLayers();
 
             // Update advanced filter badge
             if (typeof updateAdvancedFilterBadge === 'function') {
@@ -1335,7 +1351,7 @@ function updateStatistics() {
 }
 
 // Update map layers based on active selections
-function updateMapLayers(changedLayer = null, isInitialLoad = false) {
+function updateMapLayers(changedLayer = null) {
     try {
         // If a specific layer changed, only update that layer
         if (changedLayer) {
@@ -1376,6 +1392,10 @@ function updateMapLayers(changedLayer = null, isInitialLoad = false) {
                     map.removeLayer(densityLayer);
                     densityLayer = null;
                 }
+                if (densityZoomListener) {
+                    map.off('zoomend', densityZoomListener);
+                    densityZoomListener = null;
+                }
             }
         } else if (changedLayer === 'choropleth') {
             if (activeLayers.choropleth) {
@@ -1412,6 +1432,10 @@ function updateMapLayers(changedLayer = null, isInitialLoad = false) {
     if (densityLayer && map.hasLayer(densityLayer)) {
         map.removeLayer(densityLayer);
         densityLayer = null;
+    }
+    if (densityZoomListener) {
+        map.off('zoomend', densityZoomListener);
+        densityZoomListener = null;
     }
     if (choroplethLayer && map.hasLayer(choroplethLayer)) {
         map.removeLayer(choroplethLayer);
@@ -1738,6 +1762,12 @@ function addMarkers(callback) {
 
 // Add density map layer
 function addDensityMap() {
+    // Remove any existing zoom listener to prevent accumulation on repeated calls
+    if (densityZoomListener) {
+        map.off('zoomend', densityZoomListener);
+        densityZoomListener = null;
+    }
+
     const densityData = [];
 
     filteredData.forEach(row => {
@@ -1773,39 +1803,72 @@ function addDensityMap() {
         }
     }).addTo(map);
 
-    // Update line density - scale radius gradually with zoom
-    map.on('zoomend', function() {
+    // Scale heatmap radius/blur with zoom level; stored so it can be removed later
+    densityZoomListener = function() {
         if (densityLayer && map.hasLayer(densityLayer)) {
             const zoom = map.getZoom();
-
-            // Step-wise radius and blur increase based on zoom level
-            // Higher blur at zoomed-in levels to blend white spots smoothly
-            // Default (zoom 7-12): radius 2, blur 1
-            // +6 zooms (zoom 13-15): radius 3, blur 3
-            // +9 zooms (zoom 16): radius 4, blur 5
-            // +10 zooms (zoom 17+): radius 6, blur 6
-            let radius = 2;
-            let blur = 1;
-
-            if (zoom >= 13) {
-                radius = 3;
-                blur = 2;
-            }
-            if (zoom >= 16) {
-                radius = 4;
-                blur = 4;
-            }
-            if (zoom >= 17) {
-                radius = 6;
-                blur = 4;
-            }
-
-            densityLayer.setOptions({
-                radius: radius,
-                blur: blur
-            });
+            let radius = 2, blur = 1;
+            if (zoom >= 13) { radius = 3; blur = 2; }
+            if (zoom >= 16) { radius = 4; blur = 4; }
+            if (zoom >= 17) { radius = 6; blur = 4; }
+            densityLayer.setOptions({ radius, blur });
         }
-    });
+    };
+    map.on('zoomend', densityZoomListener);
+}
+
+// Shared colour scale for choropleth layers (LGA + Suburb)
+// Uses a logarithmic intensity scale for better variance across the full range.
+function getColorForCount(count, max) {
+    if (!max || count === 0) return '#0a0a0a';
+
+    const logCount = Math.log(count + 1);
+    const logMax   = Math.log(max   + 1);
+    const intensity = logCount / logMax;
+
+    if (intensity > 0.96) return '#FF00FF';
+    if (intensity > 0.92) return '#FF1AFF';
+    if (intensity > 0.88) return '#FF33FF';
+    if (intensity > 0.84) return '#FF4DCC';
+    if (intensity > 0.80) return '#FF66B3';
+    if (intensity > 0.76) return '#FF0066';
+    if (intensity > 0.72) return '#FF0033';
+    if (intensity > 0.70) return '#FF0000';
+    if (intensity > 0.69) return '#FF0D00';
+    if (intensity > 0.68) return '#FF1A00';
+    if (intensity > 0.67) return '#FF2600';
+    if (intensity > 0.66) return '#FF3300';
+    if (intensity > 0.65) return '#FF4000';
+    if (intensity > 0.64) return '#FF4D00';
+    if (intensity > 0.63) return '#FF5900';
+    if (intensity > 0.62) return '#FF6600';
+    if (intensity > 0.61) return '#FF7000';
+    if (intensity > 0.60) return '#FF7700';
+    if (intensity > 0.59) return '#FF7F00';
+    if (intensity > 0.58) return '#FF8800';
+    if (intensity > 0.57) return '#FF9000';
+    if (intensity > 0.56) return '#FF9900';
+    if (intensity > 0.55) return '#FFA200';
+    if (intensity > 0.54) return '#FFAA00';
+    if (intensity > 0.52) return '#FFB300';
+    if (intensity > 0.48) return '#FF8C00';
+    if (intensity > 0.44) return '#FFA500';
+    if (intensity > 0.40) return '#FFB700';
+    if (intensity > 0.36) return '#FFCC00';
+    if (intensity > 0.32) return '#FFE000';
+    if (intensity > 0.28) return '#FFFF00';
+    if (intensity > 0.24) return '#D4FF00';
+    if (intensity > 0.20) return '#A8FF00';
+    if (intensity > 0.18) return '#7CFC00';
+    if (intensity > 0.16) return '#32CD32';
+    if (intensity > 0.14) return '#00FF00';
+    if (intensity > 0.12) return '#00E68A';
+    if (intensity > 0.10) return '#00CED1';
+    if (intensity > 0.08) return '#00BFFF';
+    if (intensity > 0.06) return '#1E90FF';
+    if (intensity > 0.04) return '#4169E1';
+    if (intensity > 0.02) return '#6A5ACD';
+    return '#4B0082';
 }
 
 // Add choropleth layer (by LGA)
@@ -1834,74 +1897,9 @@ function addChoropleth() {
         }
     });
 
-    // Find max count for color scaling (use normalized counts)
-    const maxCount = Math.max(...Object.values(lgaCountsNormalized));
-
-    // Helper function to get color based on crash count using logarithmic scale
-    function getColorForCount(count, max) {
-        if (count === 0) return '#0a0a0a'; // Very dark for no crashes
-
-        // Use logarithmic scale to compress range and show more variance
-        const logCount = Math.log(count + 1);
-        const logMax = Math.log(max + 1);
-        const intensity = logCount / logMax;
-
-        // Expanded granular color steps with bright colors throughout (40+ color steps)
-        // Magenta/Pink range (highest values - bright and vibrant)
-        if (intensity > 0.96) return '#FF00FF';   // Bright magenta (extreme)
-        if (intensity > 0.92) return '#FF1AFF';   // Bright pink-magenta
-        if (intensity > 0.88) return '#FF33FF';   // Hot pink-magenta
-        if (intensity > 0.84) return '#FF4DCC';   // Bright pink
-        if (intensity > 0.80) return '#FF66B3';   // Light bright pink
-        if (intensity > 0.76) return '#FF0066';   // Deep hot pink
-        if (intensity > 0.72) return '#FF0033';   // Pink-red
-
-        // Red to Orange range (500-1000+ crashes - added many more steps for variance)
-        if (intensity > 0.70) return '#FF0000';   // Pure bright red
-        if (intensity > 0.69) return '#FF0D00';   // Red (slightly orange-tinted)
-        if (intensity > 0.68) return '#FF1A00';   // Red-orange 1
-        if (intensity > 0.67) return '#FF2600';   // Red-orange 2
-        if (intensity > 0.66) return '#FF3300';   // Red-orange 3
-        if (intensity > 0.65) return '#FF4000';   // Orange-red 1
-        if (intensity > 0.64) return '#FF4D00';   // Orange-red 2
-        if (intensity > 0.63) return '#FF5900';   // Orange-red 3
-        if (intensity > 0.62) return '#FF6600';   // Orange 1
-        if (intensity > 0.61) return '#FF7000';   // Orange 2
-        if (intensity > 0.60) return '#FF7700';   // Orange 3
-        if (intensity > 0.59) return '#FF7F00';   // Orange 4
-        if (intensity > 0.58) return '#FF8800';   // Orange 5
-        if (intensity > 0.57) return '#FF9000';   // Orange-yellow 1
-        if (intensity > 0.56) return '#FF9900';   // Orange-yellow 2
-        if (intensity > 0.55) return '#FFA200';   // Orange-yellow 3
-        if (intensity > 0.54) return '#FFAA00';   // Orange-yellow 4
-        if (intensity > 0.52) return '#FFB300';   // Amber 1
-
-        // Yellow-orange range
-        if (intensity > 0.48) return '#FF8C00';   // Dark orange
-        if (intensity > 0.44) return '#FFA500';   // Light orange
-        if (intensity > 0.40) return '#FFB700';   // Amber
-        if (intensity > 0.36) return '#FFCC00';   // Gold
-        if (intensity > 0.32) return '#FFE000';   // Yellow-gold
-        if (intensity > 0.28) return '#FFFF00';   // Pure yellow
-
-        // Green-yellow range
-        if (intensity > 0.24) return '#D4FF00';   // Yellow-green
-        if (intensity > 0.20) return '#A8FF00';   // Lime-yellow
-        if (intensity > 0.18) return '#7CFC00';   // Lawn green
-        if (intensity > 0.16) return '#32CD32';   // Lime green
-        if (intensity > 0.14) return '#00FF00';   // Pure green
-
-        // Cyan-green range
-        if (intensity > 0.12) return '#00E68A';   // Spring green
-        if (intensity > 0.10) return '#00CED1';   // Dark turquoise
-        if (intensity > 0.08) return '#00BFFF';   // Deep sky blue
-
-        // Blue range (lower values - kept bright)
-        if (intensity > 0.06) return '#1E90FF';   // Dodger blue
-        if (intensity > 0.04) return '#4169E1';   // Royal blue
-        if (intensity > 0.02) return '#6A5ACD';   // Slate blue (brighter)
-        return '#4B0082';                         // Indigo (still visible)
-    }
+    // Find max count for color scaling; guard against empty data
+    const lgaValues = Object.values(lgaCountsNormalized);
+    const maxCount = lgaValues.length > 0 ? Math.max(...lgaValues) : 0;
 
     // Use real LGA boundaries if available
     if (lgaBoundaries && lgaBoundaries.features) {
@@ -2021,35 +2019,9 @@ function addChoroplethBySuburb() {
         }
     });
 
-    // Find max count for color scaling
-    const maxCount = Math.max(...Object.values(suburbCounts));
-
-    // Helper function to get color based on crash count (reuse same scale as LGA)
-    function getColorForCount(count, max) {
-        if (count === 0) return '#0a0a0a';
-
-        const logCount = Math.log(count + 1);
-        const logMax = Math.log(max + 1);
-        const intensity = logCount / logMax;
-
-        // Same color scale as LGA choropleth
-        if (intensity > 0.96) return '#FF00FF';
-        if (intensity > 0.92) return '#FF1AFF';
-        if (intensity > 0.88) return '#FF33FF';
-        if (intensity > 0.84) return '#FF4DCC';
-        if (intensity > 0.80) return '#FF66B3';
-        if (intensity > 0.76) return '#FF0066';
-        if (intensity > 0.72) return '#FF0033';
-        if (intensity > 0.70) return '#FF0000';
-        if (intensity > 0.60) return '#FF6600';
-        if (intensity > 0.52) return '#FFB300';
-        if (intensity > 0.40) return '#FFB700';
-        if (intensity > 0.28) return '#FFFF00';
-        if (intensity > 0.16) return '#32CD32';
-        if (intensity > 0.08) return '#00BFFF';
-        if (intensity > 0.04) return '#4169E1';
-        return '#4B0082';
-    }
+    // Find max count for color scaling; guard against empty data
+    const suburbValues = Object.values(suburbCounts);
+    const maxCount = suburbValues.length > 0 ? Math.max(...suburbValues) : 0;
 
     // Render suburb boundaries
     choroplethLayer = L.geoJSON(suburbBoundaries, {
