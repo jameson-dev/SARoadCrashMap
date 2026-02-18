@@ -574,7 +574,7 @@ function getFullLGAName(abbreviatedName) {
         'CC MARION.': 'Marion',
         'CC MITCHAM.': 'Mitcham',
         'CC MT.GAMBIER.': 'Mount Gambier',
-        'CC OF NORWOOD,PAYNEHAM & ST PETERS': 'Norwood, Payneham and St Peters',
+        'CC OF NORWOOD,PAYNEHAM & ST PETERS': 'Norwood Payneham and St Peters',
         'CC ONKAPARINGA.': 'Onkaparinga',
         'CC OF PLAYFORD.': 'Playford',
         'CC PT.ADELAIDE ENFIELD.': 'Port Adelaide Enfield',
@@ -595,7 +595,7 @@ function getFullLGAName(abbreviatedName) {
         'DC ADELAIDE HILLS.': 'Adelaide Hills',
         'DC ALEXANDRINA.': 'Alexandrina',
         'BARUNGA WEST DISTRICT COUNCIL': 'Barunga West',
-        'THE BERRI BARMERA COUNCIL': 'Berri & Barmera',
+        'THE BERRI BARMERA COUNCIL': 'Berri Barmera',
         'DC CEDUNA': 'Ceduna',
         'CLARE AND GILBERT VALLEYS DISTRICT COUNCIL': 'Clare and Gilbert Valleys',
         'DC CLEVE.': 'Cleve',
@@ -671,13 +671,13 @@ function getFullLGAName(abbreviatedName) {
         'CITY OF VICTOR HARBOR': 'Victor Harbor',
         'CITY OF WEST TORRENS': 'West Torrens',
         'CITY OF WHYALLA': 'Whyalla',
-        'CLARE AND GILBERT VALLEYS COUNCIL': 'Clare and Gilbert Valleys ',
+        'CLARE AND GILBERT VALLEYS COUNCIL': 'Clare and Gilbert Valleys',
         'COORONG DISTRICT COUNCIL': 'Coorong',
-        'COPPER COAST COUNCIL': 'Copper Coast ',
-        'KINGSTON DC': 'Kingston',
-        'LIGHT REGIONAL COUNCIL': 'Light Regional ',
+        'COPPER COAST COUNCIL': 'Copper Coast',
+        'KINGSTON DC': 'Kingston SE',
+        'LIGHT REGIONAL COUNCIL': 'Light Regional',
         'LOWER EYRE COUNCIL': 'Lower Eyre Peninsula',
-        'MID MURRAY COUNCIL': 'Mid Murray ',
+        'MID MURRAY COUNCIL': 'Mid Murray',
         'MOUNT BARKER DISTRICT COUNCIL': 'Mount Barker',
         'MUNICIPAL COUNCIL OF ROXBY DOWNS': 'Roxby Downs',
         'NARACOORTE LUCINDALE COUNCIL': 'Naracoorte & Lucindale',
@@ -731,232 +731,82 @@ function getFullLGAName(abbreviatedName) {
 }
 
 // Populate filter dropdown options
-function populateFilterOptions() {
-    // Crash types - populate checkbox dropdown
-    const crashTypes = [...new Set(crashData.map(row => row['Crash Type']).filter(v => v))];
-    const crashTypeMenu = document.getElementById('crashTypeMenu');
+// ── Filter dropdown helpers ──────────────────────────────────────────────────
 
-    // Search bar
-    const crashTypeSearchWrap = document.createElement('div');
-    crashTypeSearchWrap.className = 'dropdown-search-wrap';
-    crashTypeSearchWrap.innerHTML = '<input type="text" class="dropdown-search" placeholder="Search..." oninput="filterDropdownItems(\'crashType\', this.value)">';
-    crashTypeMenu.appendChild(crashTypeSearchWrap);
+// Returns unique, alphabetically-sorted, non-empty values for a column
+function uniqueValues(data, column) {
+    return [...new Set(data.map(row => row[column]).filter(v => v))]
+        .sort((a, b) => a.localeCompare(b));
+}
 
-    // Scrollable items list
-    const crashTypeList = document.createElement('div');
-    crashTypeList.className = 'dropdown-items-list';
-    crashTypeList.id = 'crashTypeItemsList';
-    crashTypes.sort().forEach((type, index) => {
-        const item = document.createElement('div');
-        item.className = 'checkbox-dropdown-item';
-
-        const checkbox = document.createElement('input');
-        checkbox.type = 'checkbox';
-        checkbox.id = `crashType-${index}`;
-        checkbox.value = type;
-        checkbox.checked = true; // All selected by default
-        checkbox.onchange = () => updateCheckboxDropdownDisplay('crashType');
-
-        const label = document.createElement('label');
-        label.htmlFor = `crashType-${index}`;
-        label.textContent = type;
-
-        item.appendChild(checkbox);
-        item.appendChild(label);
-        crashTypeList.appendChild(item);
+// Appends <option> elements to a <select> element
+function populateSelect(elementId, items) {
+    const el = document.getElementById(elementId);
+    if (!el) return;
+    items.forEach(item => {
+        const opt = document.createElement('option');
+        opt.value = opt.textContent = item;
+        el.appendChild(opt);
     });
-    crashTypeMenu.appendChild(crashTypeList);
+}
 
-    // Add select/clear controls
+// Builds a searchable checkbox dropdown: search bar + scrollable item list + Select/Clear All
+function buildCheckboxDropdown(id, items) {
+    const menu = document.getElementById(`${id}Menu`);
+    if (!menu) return;
+
+    const searchWrap = document.createElement('div');
+    searchWrap.className = 'dropdown-search-wrap';
+    searchWrap.innerHTML = `<input type="text" class="dropdown-search" placeholder="Search..." oninput="filterDropdownItems('${id}', this.value)">`;
+    menu.appendChild(searchWrap);
+
+    const list = document.createElement('div');
+    list.className = 'dropdown-items-list';
+    list.id = `${id}ItemsList`;
+    items.forEach((item, i) => {
+        const row = document.createElement('div');
+        row.className = 'checkbox-dropdown-item';
+        const cb = document.createElement('input');
+        cb.type = 'checkbox';
+        cb.id = `${id}-${i}`;
+        cb.value = item;
+        cb.checked = true;
+        cb.onchange = () => updateCheckboxDropdownDisplay(id);
+        const lbl = document.createElement('label');
+        lbl.htmlFor = cb.id;
+        lbl.textContent = item;
+        row.appendChild(cb);
+        row.appendChild(lbl);
+        list.appendChild(row);
+    });
+    menu.appendChild(list);
+
     const controls = document.createElement('div');
     controls.className = 'checkbox-dropdown-controls';
     controls.innerHTML = `
-        <button class="checkbox-select-all" onclick="selectAllDropdownItems('crashType')">Select All</button>
-        <button class="checkbox-clear-all" onclick="clearAllDropdownItems('crashType')">Clear All</button>
+        <button class="checkbox-select-all" onclick="selectAllDropdownItems('${id}')">Select All</button>
+        <button class="checkbox-clear-all" onclick="clearAllDropdownItems('${id}')">Clear All</button>
     `;
-    crashTypeMenu.appendChild(controls);
+    menu.appendChild(controls);
+}
 
-    // Weather conditions
-    const weatherConditions = [...new Set(crashData.map(row => row['Weather Cond']).filter(v => v))];
-    const weatherSelect = document.getElementById('weather');
-    weatherConditions.sort().forEach(weather => {
-        const option = document.createElement('option');
-        option.value = weather;
-        option.textContent = weather;
-        weatherSelect.appendChild(option);
-    });
+// ── Populate all filter dropdowns from loaded data ───────────────────────────
+function populateFilterOptions() {
+    // Searchable checkbox dropdowns
+    buildCheckboxDropdown('crashType', uniqueValues(crashData,  'Crash Type'));
+    buildCheckboxDropdown('area',      uniqueValues(crashData,  'LGA'));
+    buildCheckboxDropdown('suburb',    uniqueValues(crashData,  'Suburb'));
 
-    // Areas (LGA) - populate checkbox dropdown with pre-computed LGA values
-    const areas = [...new Set(crashData.map(row => row['LGA']).filter(v => v))];
-    const areaMenu = document.getElementById('areaMenu');
-
-    // Search bar
-    const areaSearchWrap = document.createElement('div');
-    areaSearchWrap.className = 'dropdown-search-wrap';
-    areaSearchWrap.innerHTML = '<input type="text" class="dropdown-search" placeholder="Search..." oninput="filterDropdownItems(\'area\', this.value)">';
-    areaMenu.appendChild(areaSearchWrap);
-
-    // Scrollable items list
-    const areaList = document.createElement('div');
-    areaList.className = 'dropdown-items-list';
-    areaList.id = 'areaItemsList';
-
-    // Sort LGA names alphabetically (already full names from pre-computed column)
-    areas.sort((a, b) => a.localeCompare(b)).forEach((area, index) => {
-        const item = document.createElement('div');
-        item.className = 'checkbox-dropdown-item';
-
-        const checkbox = document.createElement('input');
-        checkbox.type = 'checkbox';
-        checkbox.id = `area-${index}`;
-        checkbox.value = area; // Full LGA name for filtering
-        checkbox.checked = true; // All selected by default
-        checkbox.onchange = () => updateCheckboxDropdownDisplay('area');
-
-        const label = document.createElement('label');
-        label.htmlFor = `area-${index}`;
-        label.textContent = area; // Display full name from CSV
-
-        item.appendChild(checkbox);
-        item.appendChild(label);
-        areaList.appendChild(item);
-    });
-    areaMenu.appendChild(areaList);
-
-    // Add select/clear controls
-    const areaControls = document.createElement('div');
-    areaControls.className = 'checkbox-dropdown-controls';
-    areaControls.innerHTML = `
-        <button class="checkbox-select-all" onclick="selectAllDropdownItems('area')">Select All</button>
-        <button class="checkbox-clear-all" onclick="clearAllDropdownItems('area')">Clear All</button>
-    `;
-    areaMenu.appendChild(areaControls);
-
-    // Suburbs - populate checkbox dropdown
-    const suburbs = [...new Set(crashData.map(row => row.Suburb).filter(v => v))];
-    const suburbMenu = document.getElementById('suburbMenu');
-
-    if (suburbMenu) {
-        // Search bar
-        const suburbSearchWrap = document.createElement('div');
-        suburbSearchWrap.className = 'dropdown-search-wrap';
-        suburbSearchWrap.innerHTML = '<input type="text" class="dropdown-search" placeholder="Search..." oninput="filterDropdownItems(\'suburb\', this.value)">';
-        suburbMenu.appendChild(suburbSearchWrap);
-
-        // Scrollable items list
-        const suburbList = document.createElement('div');
-        suburbList.className = 'dropdown-items-list';
-        suburbList.id = 'suburbItemsList';
-        suburbs.sort().forEach((suburb, index) => {
-            const item = document.createElement('div');
-            item.className = 'checkbox-dropdown-item';
-
-            const checkbox = document.createElement('input');
-            checkbox.type = 'checkbox';
-            checkbox.id = `suburb-${index}`;
-            checkbox.value = suburb;
-            checkbox.checked = true; // All selected by default
-            checkbox.onchange = () => updateCheckboxDropdownDisplay('suburb');
-
-            const label = document.createElement('label');
-            label.htmlFor = `suburb-${index}`;
-            label.textContent = suburb;
-
-            item.appendChild(checkbox);
-            item.appendChild(label);
-            suburbList.appendChild(item);
-        });
-        suburbMenu.appendChild(suburbList);
-
-        // Add select/clear controls
-        const suburbControls = document.createElement('div');
-        suburbControls.className = 'checkbox-dropdown-controls';
-        suburbControls.innerHTML = `
-            <button class="checkbox-select-all" onclick="selectAllDropdownItems('suburb')">Select All</button>
-            <button class="checkbox-clear-all" onclick="clearAllDropdownItems('suburb')">Clear All</button>
-        `;
-        suburbMenu.appendChild(suburbControls);
-    }
-
-    // Road User Types (from casualty data)
-    const roadUserTypes = [...new Set(casualtyData.map(row => row['Casualty Type']).filter(v => v))];
-    const roadUserSelect = document.getElementById('roadUserType');
-    roadUserTypes.sort().forEach(type => {
-        const option = document.createElement('option');
-        option.value = type;
-        option.textContent = type;
-        roadUserSelect.appendChild(option);
-    });
-
-    // Unit Types (from units data - includes vehicles, pedestrians, fixed objects, etc.)
-    const vehicleTypes = [...new Set(unitsData.map(row => row['Unit Type']).filter(v => v))];
-    const vehicleSelect = document.getElementById('vehicleType');
-    vehicleTypes.sort().forEach(type => {
-        const option = document.createElement('option');
-        option.value = type;
-        option.textContent = type;
-        vehicleSelect.appendChild(option);
-    });
-
-    // Road Surface (from crash data)
-    const roadSurfaces = [...new Set(crashData.map(row => row['Road Surface']).filter(v => v))];
-    const roadSurfaceSelect = document.getElementById('roadSurface');
-    roadSurfaces.sort().forEach(surface => {
-        const option = document.createElement('option');
-        option.value = surface;
-        option.textContent = surface;
-        roadSurfaceSelect.appendChild(option);
-    });
-
-    // Moisture Conditions (from crash data)
-    const moistureConditions = [...new Set(crashData.map(row => row['Moisture Cond']).filter(v => v))];
-    const moistureSelect = document.getElementById('moistureCond');
-    moistureConditions.sort().forEach(condition => {
-        const option = document.createElement('option');
-        option.value = condition;
-        option.textContent = condition;
-        moistureSelect.appendChild(option);
-    });
-
-    // License Types (from units data)
-    const licenseTypes = [...new Set(unitsData.map(row => row['Licence Type']).filter(v => v))];
-    const licenseTypeSelect = document.getElementById('licenseType');
-    licenseTypes.sort().forEach(type => {
-        const option = document.createElement('option');
-        option.value = type;
-        option.textContent = type;
-        licenseTypeSelect.appendChild(option);
-    });
-
-    // Vehicle Registration States (from units data)
-    const regStates = [...new Set(unitsData.map(row => row['Veh Reg State']).filter(v => v))];
-    const regStateSelect = document.getElementById('vehRegState');
-    regStates.sort().forEach(state => {
-        const option = document.createElement('option');
-        option.value = state;
-        option.textContent = state;
-        regStateSelect.appendChild(option);
-    });
-
-    // Direction of Travel (from units data)
-    const directions = [...new Set(unitsData.map(row => row['Direction Of Travel']).filter(v => v))];
-    const directionSelect = document.getElementById('directionTravel');
-    directions.sort().forEach(direction => {
-        const option = document.createElement('option');
-        option.value = direction;
-        option.textContent = direction;
-        directionSelect.appendChild(option);
-    });
-
-    // Unit Movement (from units data)
-    const movements = [...new Set(unitsData.map(row => row['Unit Movement']).filter(v => v))];
-    const movementSelect = document.getElementById('unitMovement');
-    movements.sort().forEach(movement => {
-        const option = document.createElement('option');
-        option.value = movement;
-        option.textContent = movement;
-        movementSelect.appendChild(option);
-    });
+    // Simple <select> dropdowns — one line each
+    populateSelect('weather',         uniqueValues(crashData,    'Weather Cond'));
+    populateSelect('roadUserType',    uniqueValues(casualtyData, 'Casualty Type'));
+    populateSelect('vehicleType',     uniqueValues(unitsData,    'Unit Type'));
+    populateSelect('roadSurface',     uniqueValues(crashData,    'Road Surface'));
+    populateSelect('moistureCond',    uniqueValues(crashData,    'Moisture Cond'));
+    populateSelect('licenseType',     uniqueValues(unitsData,    'Licence Type'));
+    populateSelect('vehRegState',     uniqueValues(unitsData,    'Veh Reg State'));
+    populateSelect('directionTravel', uniqueValues(unitsData,    'Direction Of Travel'));
+    populateSelect('unitMovement',    uniqueValues(unitsData,    'Unit Movement'));
 }
 
 // Helper: Get selected values from a multi-select element or checkbox dropdown

@@ -786,7 +786,6 @@
         }
 
         .section-divider {
-            border-bottom: 2px solid var(--border);
             padding-bottom: 12px;
             margin-bottom: 12px;
         }
@@ -2308,6 +2307,60 @@
         .heatmap-cell:hover {
             outline: 1px solid rgba(239, 83, 80, 0.8);
             opacity: 0.85;
+        }
+
+        /* Wide chart variant — spans full grid row when in fullscreen */
+        .analytics-panel.fullscreen .chart-container--wide {
+            grid-column: 1 / -1;
+        }
+
+        /* Crash Type × Severity Matrix */
+        .ct-matrix {
+            width: 100%;
+            overflow-x: auto;
+        }
+
+        .ct-matrix-row {
+            display: flex;
+            gap: 3px;
+            margin-bottom: 2px;
+            align-items: stretch;
+        }
+
+        .ct-matrix-row.ct-matrix-hdr .ct-matrix-cell {
+            background: none !important;
+            color: var(--text-secondary);
+            font-weight: 600;
+            font-size: 10px;
+        }
+
+        .ct-matrix-label {
+            flex: 0 0 155px;
+            font-size: 10px;
+            color: var(--text-secondary);
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            display: flex;
+            align-items: center;
+            padding-right: 6px;
+        }
+
+        .ct-matrix-cell {
+            flex: 1;
+            min-width: 52px;
+            padding: 5px 3px;
+            text-align: center;
+            font-size: 10px;
+            font-weight: 700;
+            color: white;
+            border-radius: 3px;
+            cursor: default;
+            transition: outline 0.1s;
+        }
+
+        .ct-matrix-cell:hover {
+            outline: 1px solid rgba(255, 255, 255, 0.4);
         }
 
         @media (max-width: 768px) {
