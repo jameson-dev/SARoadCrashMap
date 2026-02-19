@@ -1,7 +1,7 @@
 // Service Worker for SA Crash Data Map
 // Implements caching strategies for offline support and performance
 
-const VERSION = '1.0.44';
+const VERSION = '1.0.45';
 const CACHE_NAME = `crash-map-static-v${VERSION}`;
 const DATA_CACHE_NAME = `crash-map-data-v${VERSION}`;
 const RUNTIME_CACHE_NAME = `crash-map-runtime-v${VERSION}`;
@@ -223,14 +223,22 @@ async function fetchAndCache(request, cacheName) {
         const networkResponse = await fetch(request);
 
         // Only cache successful HTTP/HTTPS GET requests
+        // Avoid caching opaque responses (cross-origin without CORS)
         if (networkResponse &&
-            networkResponse.status === 200 &&
+            networkResponse.ok &&
+            networkResponse.type !== 'opaque' &&
+            networkResponse.type !== 'error' &&
             request.method === 'GET' &&
             request.url.startsWith('http')) {
-            const cache = await caches.open(cacheName);
-            // Clone the response because it can only be consumed once
-            cache.put(request, networkResponse.clone());
-            console.log('[Service Worker] Cached:', request.url);
+            try {
+                const cache = await caches.open(cacheName);
+                // Clone the response because it can only be consumed once
+                await cache.put(request, networkResponse.clone());
+                console.log('[Service Worker] Cached:', request.url);
+            } catch (cacheError) {
+                // Cache.put() can fail for various reasons - log but don't crash
+                console.warn('[Service Worker] Failed to cache:', request.url, cacheError);
+            }
         }
 
         return networkResponse;
