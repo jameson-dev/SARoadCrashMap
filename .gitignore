@@ -183,3 +183,4 @@ cython_debug/
 *.py
 start_server.bat
 /scripts
+/data/raw

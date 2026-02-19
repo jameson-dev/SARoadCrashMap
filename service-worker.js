@@ -1,7 +1,7 @@
 // Service Worker for SA Crash Data Map
 // Implements caching strategies for offline support and performance
 
-const VERSION = '1.0.45';
+const VERSION = '1.0.46';
 const CACHE_NAME = `crash-map-static-v${VERSION}`;
 const DATA_CACHE_NAME = `crash-map-data-v${VERSION}`;
 const RUNTIME_CACHE_NAME = `crash-map-runtime-v${VERSION}`;
@@ -223,9 +223,10 @@ async function fetchAndCache(request, cacheName) {
         const networkResponse = await fetch(request);
 
         // Only cache successful HTTP/HTTPS GET requests
-        // Avoid caching opaque responses (cross-origin without CORS)
+        // Avoid caching opaque, error, or redirected responses
         if (networkResponse &&
             networkResponse.ok &&
+            !networkResponse.redirected &&
             networkResponse.type !== 'opaque' &&
             networkResponse.type !== 'error' &&
             request.method === 'GET' &&
@@ -237,8 +238,22 @@ async function fetchAndCache(request, cacheName) {
                 console.log('[Service Worker] Cached:', request.url);
             } catch (cacheError) {
                 // Cache.put() can fail for various reasons - log but don't crash
-                console.warn('[Service Worker] Failed to cache:', request.url, cacheError);
+                console.warn('[Service Worker] Failed to cache:', request.url, {
+                    error: cacheError.message,
+                    status: networkResponse.status,
+                    type: networkResponse.type,
+                    redirected: networkResponse.redirected,
+                    headers: Object.fromEntries([...networkResponse.headers.entries()].slice(0, 5))
+                });
             }
+        } else if (networkResponse && request.url.includes('/data/')) {
+            // Log why data files weren't cached
+            console.log('[Service Worker] Skipping cache for:', request.url, {
+                ok: networkResponse.ok,
+                status: networkResponse.status,
+                type: networkResponse.type,
+                redirected: networkResponse.redirected
+            });
         }
 
         return networkResponse;

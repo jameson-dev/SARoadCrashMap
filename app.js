@@ -1026,20 +1026,6 @@ function matchesBasicFilters(row, filters) {
         if (!filters.selectedMoistureConds.includes(row['Moisture Cond'])) return false;
     }
 
-    // Rollover filter
-    if (filters.rollover !== 'all') {
-        const hasRollover = row.ROLLOVER && row.ROLLOVER.trim() !== '';
-        if (filters.rollover === 'Yes' && !hasRollover) return false;
-        if (filters.rollover === 'No' && hasRollover) return false;
-    }
-
-    // Fire filter
-    if (filters.fire !== 'all') {
-        const hasFire = row.FIRE && row.FIRE.trim() !== '';
-        if (filters.fire === 'Yes' && !hasFire) return false;
-        if (filters.fire === 'No' && hasFire) return false;
-    }
-
     // Speed zone filter
     if (filters.selectedSpeedZones && !filters.selectedSpeedZones.includes('all')) {
         const speed = (row['Area Speed'] || '').trim();
@@ -1245,6 +1231,22 @@ function matchesUnitsFilters(row, filters) {
         const hasTowing = units.some(u => u.TOWING && u.TOWING.trim() !== '');
         if (filters.towing === 'Yes' && !hasTowing) return false;
         if (filters.towing === 'No' && hasTowing) return false;
+    }
+
+    // Handle Rollover filter (yes/no filter - not combined with others)
+    if (filters.rollover !== 'all') {
+        if (units.length === 0) return filters.rollover !== 'Yes';
+        const hasRollover = units.some(u => u.Rollover && u.Rollover.trim() !== '');
+        if (filters.rollover === 'Yes' && !hasRollover) return false;
+        if (filters.rollover === 'No' && hasRollover) return false;
+    }
+
+    // Handle Fire filter (yes/no filter - not combined with others)
+    if (filters.fire !== 'all') {
+        if (units.length === 0) return filters.fire !== 'Yes';
+        const hasFire = units.some(u => u.Fire && u.Fire.trim() !== '');
+        if (filters.fire === 'Yes' && !hasFire) return false;
+        if (filters.fire === 'No' && hasFire) return false;
     }
 
     // If no multi-select unit filters are active, pass
@@ -1610,8 +1612,8 @@ function generatePopupContent(crash) {
     if (casualties.length > 0) {
         html += `
             <div style="margin-top: 12px; padding-top: 10px; border-top: 1px solid #ddd;">
-                <h4 style="margin: 0 0 8px 0; font-size: 13px; color: #00d4ff;">
-                    👥 Casualties (${casualties.length})
+                <h4 style="margin: 0 0 8px 0; font-size: 13px; color: #ef5350;">
+                    🚑 Casualties - Injured/Killed (${casualties.length})
                 </h4>`;
 
         // Group casualties by type and injury
@@ -1680,8 +1682,8 @@ function generatePopupContent(crash) {
     if (units.length > 0) {
         html += `
             <div style="margin-top: 12px; padding-top: 10px; border-top: 1px solid #ddd;">
-                <h4 style="margin: 0 0 8px 0; font-size: 13px; color: #00d4ff;">
-                    🚗 Units Involved (${units.length})
+                <h4 style="margin: 0 0 8px 0; font-size: 13px; color: #ffa726;">
+                    🚗 Vehicles & Drivers (${units.length})
                 </h4>`;
 
         // Group units by type
@@ -1711,8 +1713,12 @@ function generatePopupContent(crash) {
                 const regState = u['Veh Reg State'] ? `, Reg: ${u['Veh Reg State']}` : '';
                 const direction = u['Direction Of Travel'] ? `, ${u['Direction Of Travel']}` : '';
                 const movement = u['Unit Movement'] ? `, ${u['Unit Movement']}` : '';
+                // Driver demographics
+                const driverAge = u.Age ? parseNumeric(u.Age) : '?';
+                const driverSex = u.Sex || '?';
+                const driverInfo = (u.Age || u.Sex) ? ` | Driver: ${driverAge}/${driverSex}` : '';
                 html += `<p style="margin: 3px 0 3px 10px;">
-                    ${idx + 1}. ${type}${year}${occupants}${regState}${direction}${movement}
+                    ${idx + 1}. ${type}${year}${occupants}${regState}${driverInfo}${direction}${movement}
                 </p>`;
             });
             if (extraCount > 0) {
@@ -1724,8 +1730,12 @@ function generatePopupContent(crash) {
                     const regState = u['Veh Reg State'] ? `, Reg: ${u['Veh Reg State']}` : '';
                     const direction = u['Direction Of Travel'] ? `, ${u['Direction Of Travel']}` : '';
                     const movement = u['Unit Movement'] ? `, ${u['Unit Movement']}` : '';
+                    // Driver demographics
+                    const driverAge = u.Age ? parseNumeric(u.Age) : '?';
+                    const driverSex = u.Sex || '?';
+                    const driverInfo = (u.Age || u.Sex) ? ` | Driver: ${driverAge}/${driverSex}` : '';
                     html += `<p style="margin: 3px 0 3px 10px;">
-                        ${idx + 4}. ${type}${year}${occupants}${regState}${direction}${movement}
+                        ${idx + 4}. ${type}${year}${occupants}${regState}${driverInfo}${direction}${movement}
                     </p>`;
                 });
                 html += `</div>
