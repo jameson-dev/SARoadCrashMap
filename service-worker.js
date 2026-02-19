@@ -1,7 +1,7 @@
 // Service Worker for SA Crash Data Map
 // Implements caching strategies for offline support and performance
 
-const VERSION = '1.0.46';
+const VERSION = '1.0.48';
 const CACHE_NAME = `crash-map-static-v${VERSION}`;
 const DATA_CACHE_NAME = `crash-map-data-v${VERSION}`;
 const RUNTIME_CACHE_NAME = `crash-map-runtime-v${VERSION}`;

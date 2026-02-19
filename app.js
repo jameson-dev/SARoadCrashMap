@@ -100,7 +100,9 @@ function initMap() {
         minZoom: 5,  // Prevent zooming out too far
         maxZoom: 19, // Allow detailed street-level zoom
         maxBounds: australiaBounds, // Restrict panning to Australia
-        maxBoundsViscosity: 0.8 // Make bounds "sticky" (0.0 = soft, 1.0 = hard boundaries)
+        maxBoundsViscosity: 0.8, // Make bounds "sticky" (0.0 = soft, 1.0 = hard boundaries)
+        zoomAnimation: false, // Disable zoom animation so markers update instantly
+        fadeAnimation: true   // Smooth tile fade prevents flicker
     });
 
     // Define multiple base map layers
@@ -147,7 +149,8 @@ function initMap() {
     // Initialize layers
     markersLayer = L.markerClusterGroup({
         chunkedLoading: true,
-        chunkDelay: 50,        // Reduced from default 200ms for faster loading
+        chunkDelay: 1,         // Near-instant chunk processing (1ms)
+        chunkInterval: 200,    // Process 200 markers per chunk for faster completion
         chunkProgress: null,   // Disable progress updates for better performance
         spiderfyOnMaxZoom: true,
         showCoverageOnHover: false,
@@ -157,7 +160,8 @@ function initMap() {
             return zoom < 10 ? 80 : (zoom < 13 ? 60 : 50);
         },
         disableClusteringAtZoom: 19, // Disable clustering when fully zoomed in
-        animate: false,        // Disable animations for faster rendering
+        animate: true,         // Enable smooth animations during zoom
+        animateAddingMarkers: true, // Enable fade-in animations for markers
         removeOutsideVisibleBounds: true, // Remove markers outside viewport
         iconCreateFunction: function(cluster) {
             const childCount = cluster.getChildCount();

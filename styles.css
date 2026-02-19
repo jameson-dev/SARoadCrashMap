@@ -78,6 +78,39 @@
             height: 100vh;
             width: 100%;
             z-index: 1;
+            background-color: #1a1a1a; /* Dark background prevents white flash during tile loading */
+        }
+
+        /* Hardware acceleration for smoother zoom/pan */
+        .leaflet-map-pane,
+        .leaflet-tile-pane,
+        .leaflet-overlay-pane,
+        .leaflet-marker-pane {
+            transform: translate3d(0, 0, 0);
+            will-change: transform;
+        }
+
+        /* Quick fade-in animation for markers and clusters */
+        .leaflet-marker-icon,
+        .marker-cluster {
+            animation: markerFadeIn 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        @keyframes markerFadeIn {
+            from {
+                opacity: 0;
+                transform: scale(0.95);
+            }
+            to {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+
+        /* Quick cluster split/merge during zoom */
+        .leaflet-cluster-anim .leaflet-marker-icon,
+        .leaflet-cluster-anim .leaflet-marker-shadow {
+            transition: transform 0.15s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.15s ease-out;
         }
 
         .controls-panel {
