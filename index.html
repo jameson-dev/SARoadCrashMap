@@ -23,6 +23,9 @@
     <!-- noUiSlider CSS -->
     <link rel="stylesheet" href="https://unpkg.com/nouislider@15.7.1/dist/nouislider.min.css">
 
+    <!-- Leaflet Draw CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css" />
+
     <!-- Custom Styles -->
     <link rel="stylesheet" href="styles.css">
 </head>
@@ -41,6 +44,11 @@
     </div>
 
     <div id="map"></div>
+    <!-- Draw-mode hint — shown via .draw-mode-active on <body> -->
+    <div id="drawModeHint" class="draw-mode-hint">
+        <span class="draw-mode-hint-text"></span>
+        <button class="draw-mode-cancel-btn" onclick="cancelDrawMode()">Cancel</button>
+    </div>
 
     <!-- No results overlay (shown when active filters produce 0 crashes) -->
     <div id="noResultsOverlay" class="no-results-overlay" style="display:none;">
@@ -77,47 +85,67 @@
         </div>
 
         <div class="panel-content">
-        <!-- Location Search - Collapsible -->
-        <div class="filter-group section-divider">
-            <div class="location-search-header" onclick="toggleLocationSearch()">
-                <span class="header-text">🔍 Search by Location</span>
-                <span class="toggle-icon">▼</span>
+        <!-- Spatial Filters - Side by Side -->
+        <div class="spatial-filters-row section-divider">
+            <!-- Location Search -->
+            <div class="filter-group spatial-filter-col">
+                <div class="location-search-header" onclick="toggleLocationSearch()">
+                    <span class="header-text">🔍 Search</span>
+                    <span class="toggle-icon">▼</span>
+                </div>
+                <div class="location-search-content" id="locationSearchContent">
+                    <div class="location-search-inner">
+                        <input type="text" id="locationSearch" placeholder="Enter suburb, street, or landmark..."
+                            autocomplete="off"
+                            oninput="handleLocationInput(this.value)"
+                            onkeydown="handleLocationKeydown(event)"
+                            class="location-search-input">
+                        <div class="location-suggestions" id="locationSuggestions"></div>
+                        <div class="radius-container">
+                            <label class="radius-label">Radius:</label>
+                            <select id="searchRadius" class="radius-select">
+                                <option value="0.5">0.5 km</option>
+                                <option value="1">1 km</option>
+                                <option value="2" selected>2 km</option>
+                                <option value="3">3 km</option>
+                                <option value="5">5 km</option>
+                                <option value="7">7 km</option>
+                                <option value="10">10 km</option>
+                                <option value="15">15 km</option>
+                                <option value="20">20 km</option>
+                                <option value="25">25 km</option>
+                                <option value="50">50 km</option>
+                            </select>
+                        </div>
+                        <div class="button-row">
+                            <button onclick="searchByLocation()" class="apply-filters-btn button-row-item">Search</button>
+                            <button onclick="clearLocationSearch()" class="clear-filters-btn button-row-item">Clear</button>
+                        </div>
+                        <div id="searchResults" class="search-results-box hidden"></div>
+                    </div>
+                </div>
             </div>
 
-            <div class="location-search-content" id="locationSearchContent">
-                <div class="location-search-inner">
-                    <input type="text" id="locationSearch" placeholder="Enter suburb, street, or landmark..."
-                        autocomplete="off"
-                        oninput="handleLocationInput(this.value)"
-                        onkeydown="handleLocationKeydown(event)"
-                        class="location-search-input">
-
-                    <!-- Suggestions dropdown -->
-                    <div class="location-suggestions" id="locationSuggestions"></div>
-
-                    <div class="radius-container">
-                        <label class="radius-label">Radius:</label>
-                        <select id="searchRadius" class="radius-select">
-                            <option value="0.5">0.5 km</option>
-                            <option value="1">1 km</option>
-                            <option value="2" selected>2 km</option>
-                            <option value="3">3 km</option>
-                            <option value="5">5 km</option>
-                            <option value="7">7 km</option>
-                            <option value="10">10 km</option>
-                            <option value="15">15 km</option>
-                            <option value="20">20 km</option>
-                            <option value="25">25 km</option>
-                            <option value="50">50 km</option>
-                        </select>
+            <!-- Draw Area -->
+            <div class="filter-group spatial-filter-col">
+                <div class="location-search-header" onclick="toggleDrawAreaSection()">
+                    <span class="header-text">&#128208; Draw Area</span>
+                    <span class="toggle-icon" id="drawAreaToggleIcon">&#9660;</span>
+                </div>
+                <div class="location-search-content" id="drawAreaContent">
+                    <div class="location-search-inner">
+                        <p class="help-text-small" style="margin:0 0 10px;color:var(--text-secondary);">Draw a custom area</p>
+                        <div class="button-row" style="gap:6px;">
+                            <button onclick="startDrawArea('rectangle')" class="draw-area-btn button-row-item" id="drawRectBtn">
+                                <span style="font-size:14px;">&#9645;</span> Rectangle
+                            </button>
+                            <button onclick="startDrawArea('polygon')" class="draw-area-btn button-row-item" id="drawPolyBtn">
+                                <span style="font-size:14px;">&#9651;</span> Polygon
+                            </button>
+                        </div>
+                        <div id="drawAreaStatus" class="draw-area-status" style="display:none;"></div>
+                        <button id="drawAreaClearBtn" onclick="clearDrawArea()" class="clear-filters-btn" style="display:none;width:100%;margin-top:8px;">Clear Area</button>
                     </div>
-
-                    <div class="button-row">
-                        <button onclick="searchByLocation()" class="apply-filters-btn button-row-item">Search</button>
-                        <button onclick="clearLocationSearch()" class="clear-filters-btn button-row-item">Clear</button>
-                    </div>
-
-                    <div id="searchResults" class="search-results-box hidden"></div>
                 </div>
             </div>
         </div>
@@ -249,6 +277,17 @@
             </div>
         </div>
 
+        <!-- Marker Colour Mode -->
+        <div class="filter-group" style="margin-top:8px;">
+            <label class="filter-label">Colour Markers By</label>
+            <select id="markerColorModeSelect" onchange="setMarkerColorMode(this.value)" style="width:100%;margin-bottom:6px;">
+                <option value="severity">Severity</option>
+                <option value="crashtype">Crash Type</option>
+                <option value="daynight">Day / Night</option>
+            </select>
+            <div id="markerColorLegend" class="marker-color-legend"></div>
+        </div>
+
         <div class="stats-panel">
             <h3>Statistics</h3>
             <div class="stat-item">
@@ -269,6 +308,9 @@
             </div>
             <button class="export-btn" onclick="exportFilteredData()" title="Export filtered crash data to CSV">
                 Export to CSV
+            </button>
+            <button class="export-btn" onclick="toggleDataTable()" title="View filtered crashes as a sortable table" style="margin-top:6px;background:var(--bg-secondary);color:var(--text-primary);border:1px solid var(--border);">
+                View Data Table
             </button>
         </div>
         </div><!-- End panel-content -->
@@ -368,6 +410,33 @@
                             <option value="all" selected>All</option>
                             <option value="Yes">Yes</option>
                             <option value="No">No</option>
+                        </select>
+                    </div>
+
+                    <div class="filter-group">
+                        <label class="filter-label">Speed Zone</label>
+                        <select id="speedZoneFilter" multiple size="4">
+                            <option value="all" selected>All Speed Zones</option>
+                        </select>
+                        <div class="help-text-small">Speed limit at crash location (km/h)</div>
+                    </div>
+
+                    <div class="filter-group">
+                        <label class="filter-label">Month of Year</label>
+                        <select id="monthFilter" multiple size="4">
+                            <option value="all" selected>All Months</option>
+                            <option value="1">January</option>
+                            <option value="2">February</option>
+                            <option value="3">March</option>
+                            <option value="4">April</option>
+                            <option value="5">May</option>
+                            <option value="6">June</option>
+                            <option value="7">July</option>
+                            <option value="8">August</option>
+                            <option value="9">September</option>
+                            <option value="10">October</option>
+                            <option value="11">November</option>
+                            <option value="12">December</option>
                         </select>
                     </div>
                 </div>
@@ -570,6 +639,9 @@
     <!-- Leaflet Heat (for Density Map) -->
     <script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
 
+    <!-- Leaflet Draw (for draw-area spatial filter) -->
+    <script src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js"></script>
+
     <!-- noUiSlider JS -->
     <script src="https://unpkg.com/nouislider@15.7.1/dist/nouislider.min.js"></script>
 
@@ -722,6 +794,65 @@
                 </div>
                 <div id="crashTypeSeverityMatrix" class="heatmap-wrap"></div>
             </div>
+
+            <div class="chart-container">
+                <div class="chart-header">
+                    <h4>Seat Belt Compliance <span class="chart-info-icon">i<span class="chart-info-tooltip">Whether casualties were wearing a seat belt at the time of the crash. Based on casualty records linked to each crash.</span></span></h4>
+                </div>
+                <div class="chart-wrapper">
+                    <canvas id="seatBeltChart"></canvas>
+                </div>
+            </div>
+
+            <div class="chart-container">
+                <div class="chart-header">
+                    <h4>Helmet Usage <span class="chart-info-icon">i<span class="chart-info-tooltip">Whether casualties (motorcyclists, cyclists) were wearing a helmet at the time of the crash.</span></span></h4>
+                </div>
+                <div class="chart-wrapper">
+                    <canvas id="helmetChart"></canvas>
+                </div>
+            </div>
+
+            <div class="chart-container">
+                <div class="chart-header">
+                    <h4>Casualty Sex Breakdown <span class="chart-info-icon">i<span class="chart-info-tooltip">Number of casualties by sex across all crashes in the filtered data.</span></span></h4>
+                </div>
+                <div class="chart-wrapper">
+                    <canvas id="casualtySexChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Data Table Panel -->
+    <div id="dataTablePanel" class="data-table-panel" style="display:none;">
+        <div class="data-table-header">
+            <span class="data-table-title">Crash Data Table</span>
+            <div class="data-table-controls">
+                <span id="dataTableInfo" class="data-table-info"></span>
+                <button class="data-table-nav-btn" id="dtPrevBtn" onclick="dtChangePage(-1)">&#8249; Prev</button>
+                <button class="data-table-nav-btn" id="dtNextBtn" onclick="dtChangePage(1)">Next &#8250;</button>
+                <button class="data-table-close-btn" onclick="toggleDataTable()">&#10005;</button>
+            </div>
+        </div>
+        <div class="data-table-scroll">
+            <table id="dataTable" class="data-table">
+                <thead>
+                    <tr>
+                        <th id="dt-th-Year" onclick="dtSort('Year')" class="dt-sortable">Year <span class="dt-sort-icon">&#8597;</span></th>
+                        <th id="dt-th-Crash_Date_Time" onclick="dtSort('Crash Date Time')" class="dt-sortable">Date/Time <span class="dt-sort-icon">&#8597;</span></th>
+                        <th id="dt-th-Suburb" onclick="dtSort('Suburb')" class="dt-sortable">Suburb <span class="dt-sort-icon">&#8597;</span></th>
+                        <th id="dt-th-LGA" onclick="dtSort('LGA')" class="dt-sortable">LGA <span class="dt-sort-icon">&#8597;</span></th>
+                        <th id="dt-th-CSEF_Severity" onclick="dtSort('CSEF Severity')" class="dt-sortable">Severity <span class="dt-sort-icon">&#8597;</span></th>
+                        <th id="dt-th-Crash_Type" onclick="dtSort('Crash Type')" class="dt-sortable">Crash Type <span class="dt-sort-icon">&#8597;</span></th>
+                        <th id="dt-th-Area_Speed" onclick="dtSort('Area Speed')" class="dt-sortable">Speed Zone <span class="dt-sort-icon">&#8597;</span></th>
+                        <th id="dt-th-Total_Fats" onclick="dtSort('Total Fats')" class="dt-sortable">Fatal <span class="dt-sort-icon">&#8597;</span></th>
+                        <th id="dt-th-Total_SI" onclick="dtSort('Total SI')" class="dt-sortable">SI <span class="dt-sort-icon">&#8597;</span></th>
+                        <th id="dt-th-Total_MI" onclick="dtSort('Total MI')" class="dt-sortable">MI <span class="dt-sort-icon">&#8597;</span></th>
+                    </tr>
+                </thead>
+                <tbody id="dataTableBody"></tbody>
+            </table>
         </div>
     </div>
 
@@ -1525,7 +1656,7 @@
                         plugins: { legend: { display: true, position: 'bottom' }, ...tooltipPlugin },
                         onClick: function(event, elements) {
                             if (elements.length === 0) return;
-                            var severityMap = ['1: PDO', '2: MI', '3: SI', '4: Fatal'];
+                            var severityMap = ['1: Property Damage Only', '2: Minor Inj.', '3: Severe Inj.', '4: Fatal'];
                             var severityIds = ['severity-pdo', 'severity-mi', 'severity-si', 'severity-fatal'];
                             var clickedValue = severityMap[elements[0].index];
                             var checkboxes = severityIds.map(function(id) { return document.getElementById(id); }).filter(Boolean);
@@ -1681,6 +1812,66 @@
                             tooltip: { callbacks: { label: function(ctx) { return ' ' + ctx.raw.toLocaleString() + ' casualties'; } } }
                         },
                         scales: { x: { ticks: { font: { size: 10 } } }, y: { beginAtZero: true } }
+                    }
+                });
+            }
+
+            // Seat Belt Compliance — doughnut
+            var ctxSB = document.getElementById('seatBeltChart');
+            if (ctxSB) {
+                charts.seatBelt = new Chart(ctxSB, {
+                    type: 'doughnut',
+                    data: { labels: [], datasets: [{ data: [], backgroundColor: [] }] },
+                    options: {
+                        responsive: true, maintainAspectRatio: false,
+                        plugins: {
+                            legend: { display: true, position: 'bottom', labels: { font: { size: 10 }, boxWidth: 12, padding: 8 } },
+                            tooltip: { callbacks: { label: function(ctx) {
+                                var total = ctx.dataset.data.reduce(function(a, b) { return a + b; }, 0);
+                                var pct = total > 0 ? ((ctx.raw / total) * 100).toFixed(1) : '0.0';
+                                return ' ' + ctx.raw.toLocaleString() + ' (' + pct + '%)';
+                            }}}
+                        }
+                    }
+                });
+            }
+
+            // Helmet Compliance — doughnut
+            var ctxHlm = document.getElementById('helmetChart');
+            if (ctxHlm) {
+                charts.helmet = new Chart(ctxHlm, {
+                    type: 'doughnut',
+                    data: { labels: [], datasets: [{ data: [], backgroundColor: [] }] },
+                    options: {
+                        responsive: true, maintainAspectRatio: false,
+                        plugins: {
+                            legend: { display: true, position: 'bottom', labels: { font: { size: 10 }, boxWidth: 12, padding: 8 } },
+                            tooltip: { callbacks: { label: function(ctx) {
+                                var total = ctx.dataset.data.reduce(function(a, b) { return a + b; }, 0);
+                                var pct = total > 0 ? ((ctx.raw / total) * 100).toFixed(1) : '0.0';
+                                return ' ' + ctx.raw.toLocaleString() + ' (' + pct + '%)';
+                            }}}
+                        }
+                    }
+                });
+            }
+
+            // Casualty Sex Breakdown — doughnut
+            var ctxSex = document.getElementById('casualtySexChart');
+            if (ctxSex) {
+                charts.casualtySex = new Chart(ctxSex, {
+                    type: 'doughnut',
+                    data: { labels: [], datasets: [{ data: [], backgroundColor: [] }] },
+                    options: {
+                        responsive: true, maintainAspectRatio: false,
+                        plugins: {
+                            legend: { display: true, position: 'bottom', labels: { font: { size: 10 }, boxWidth: 12, padding: 8 } },
+                            tooltip: { callbacks: { label: function(ctx) {
+                                var total = ctx.dataset.data.reduce(function(a, b) { return a + b; }, 0);
+                                var pct = total > 0 ? ((ctx.raw / total) * 100).toFixed(1) : '0.0';
+                                return ' ' + ctx.raw.toLocaleString() + ' (' + pct + '%)';
+                            }}}
+                        }
                     }
                 });
             }
@@ -1984,6 +2175,86 @@
                 });
                 html += '</div>';
                 container.innerHTML = html;
+            })();
+
+            // ── Seat Belt Compliance ──────────────────────────────────────────
+            (function() {
+                if (!charts.seatBelt) return;
+                var sbCounts = {};
+                crashData.forEach(function(crash) {
+                    if (!crash._casualties) return;
+                    crash._casualties.forEach(function(c) {
+                        var v = (c['Seat Belt'] || 'Unknown').trim();
+                        sbCounts[v] = (sbCounts[v] || 0) + 1;
+                    });
+                });
+                // Keyword-based classifier (case-insensitive) so any data phrasing works
+                function classifyWorn(label) {
+                    var l = label.toLowerCase();
+                    if (l === 'worn' || l === 'yes')                          return '#43a047'; // green
+                    if (l.indexOf('not worn') !== -1 || l === 'no')           return '#e53935'; // red
+                    if (l.indexOf('not applic') !== -1 ||
+                        l.indexOf('not req') !== -1  || l === 'n/a')          return '#039be5'; // blue
+                    if (l.indexOf('unknown') !== -1  || l === 'unk')          return '#fb8c00'; // amber
+                    return '#8e24aa'; // purple fallback for anything else
+                }
+                var sbSorted = Object.entries(sbCounts).sort(function(a, b) { return b[1] - a[1]; });
+                charts.seatBelt.data.labels = sbSorted.map(function(e) { return e[0]; });
+                charts.seatBelt.data.datasets[0].data = sbSorted.map(function(e) { return e[1]; });
+                charts.seatBelt.data.datasets[0].backgroundColor = sbSorted.map(function(e) { return classifyWorn(e[0]); });
+                charts.seatBelt.update();
+            })();
+
+            // ── Helmet Compliance ─────────────────────────────────────────────
+            (function() {
+                if (!charts.helmet) return;
+                var hmCounts = {};
+                crashData.forEach(function(crash) {
+                    if (!crash._casualties) return;
+                    crash._casualties.forEach(function(c) {
+                        var v = (c['Helmet'] || 'Unknown').trim();
+                        hmCounts[v] = (hmCounts[v] || 0) + 1;
+                    });
+                });
+                function classifyHelmet(label) {
+                    var l = label.toLowerCase();
+                    if (l === 'worn' || l === 'yes')                          return '#43a047';
+                    if (l.indexOf('not worn') !== -1 || l === 'no')           return '#e53935';
+                    if (l.indexOf('not applic') !== -1 ||
+                        l.indexOf('not req') !== -1  || l === 'n/a')          return '#039be5';
+                    if (l.indexOf('unknown') !== -1  || l === 'unk')          return '#fb8c00';
+                    return '#8e24aa';
+                }
+                var hmSorted = Object.entries(hmCounts).sort(function(a, b) { return b[1] - a[1]; });
+                charts.helmet.data.labels = hmSorted.map(function(e) { return e[0]; });
+                charts.helmet.data.datasets[0].data = hmSorted.map(function(e) { return e[1]; });
+                charts.helmet.data.datasets[0].backgroundColor = hmSorted.map(function(e) { return classifyHelmet(e[0]); });
+                charts.helmet.update();
+            })();
+
+            // ── Casualty Sex Breakdown ────────────────────────────────────────
+            (function() {
+                if (!charts.casualtySex) return;
+                var sexCounts = {};
+                crashData.forEach(function(crash) {
+                    if (!crash._casualties) return;
+                    crash._casualties.forEach(function(c) {
+                        var v = (c['Sex'] || 'Unknown').trim();
+                        sexCounts[v] = (sexCounts[v] || 0) + 1;
+                    });
+                });
+                function classifySex(label) {
+                    var l = label.toLowerCase();
+                    if (l === 'male'   || l === 'm') return '#5c6bc0'; // indigo
+                    if (l === 'female' || l === 'f') return '#26a69a'; // teal
+                    if (l.indexOf('unknown') !== -1 || l === 'unk') return '#fb8c00'; // amber
+                    return '#8e24aa'; // purple fallback
+                }
+                var sexSorted = Object.entries(sexCounts).sort(function(a, b) { return b[1] - a[1]; });
+                charts.casualtySex.data.labels = sexSorted.map(function(e) { return e[0]; });
+                charts.casualtySex.data.datasets[0].data = sexSorted.map(function(e) { return e[1]; });
+                charts.casualtySex.data.datasets[0].backgroundColor = sexSorted.map(function(e) { return classifySex(e[0]); });
+                charts.casualtySex.update();
             })();
         }
 

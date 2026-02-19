@@ -426,6 +426,71 @@
             font-style: italic;
         }
 
+        /* Spatial Filters Side-by-Side Layout */
+        .spatial-filters-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            transition: grid-template-columns 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .spatial-filter-col {
+            position: relative;
+            min-width: 0;
+            overflow: hidden;
+            transition: opacity 0.3s ease-out;
+            opacity: 1;
+        }
+
+        /* When search is active, give it full width */
+        .spatial-filters-row.search-active {
+            grid-template-columns: 1fr 0;
+        }
+
+        .spatial-filters-row.search-active .spatial-filter-col:nth-child(2) {
+            opacity: 0;
+        }
+
+        /* When draw is active, give it full width */
+        .spatial-filters-row.draw-active {
+            grid-template-columns: 0 1fr;
+        }
+
+        .spatial-filters-row.draw-active .spatial-filter-col:nth-child(1) {
+            opacity: 0;
+        }
+
+        /* Add subtle divider between columns (only when both visible) */
+        .spatial-filter-col:first-child::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            right: -4px;
+            width: 1px;
+            height: 100%;
+            background: var(--border);
+            opacity: 0.5;
+            transition: opacity 0.3s;
+        }
+
+        /* Hide divider when either column is active */
+        .spatial-filters-row.search-active .spatial-filter-col:first-child::after,
+        .spatial-filters-row.draw-active .spatial-filter-col:first-child::after {
+            opacity: 0;
+        }
+
+        /* Stack vertically on mobile */
+        @media (max-width: 768px) {
+            .spatial-filters-row {
+                grid-template-columns: 1fr;
+                gap: 0;
+            }
+
+            .spatial-filter-col:first-child::after {
+                display: none;
+            }
+        }
+
         /* Collapsible Location Search */
         .location-search-header {
             display: flex;
@@ -2669,4 +2734,292 @@
     .first-visit-popup p {
         font-size: 14px;
     }
+}
+
+/* ── Marker Colour Legend ─────────────────────────────────────────────────── */
+.marker-color-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 8px;
+    margin-top: 4px;
+    min-height: 18px;
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+    color: var(--text-secondary);
+    white-space: nowrap;
+}
+
+.legend-dot {
+    display: inline-block;
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+/* ── Data Table Panel ─────────────────────────────────────────────────────── */
+.data-table-panel {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 320px;
+    background: var(--bg-primary);
+    border-top: 1px solid var(--border);
+    box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.15);
+    z-index: 1500;
+    display: flex;
+    flex-direction: column;
+}
+
+.data-table-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 12px;
+    background: var(--bg-secondary);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+    gap: 8px;
+}
+
+.data-table-title {
+    font-weight: 600;
+    font-size: 13px;
+    color: var(--text-primary);
+    white-space: nowrap;
+}
+
+.data-table-controls {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.data-table-info {
+    font-size: 12px;
+    color: var(--text-secondary);
+    white-space: nowrap;
+}
+
+.data-table-nav-btn {
+    padding: 3px 10px;
+    font-size: 12px;
+    border: 1px solid var(--border);
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+.data-table-nav-btn:hover:not(:disabled) {
+    background: var(--bg-secondary);
+}
+
+.data-table-nav-btn:disabled {
+    opacity: 0.4;
+    cursor: default;
+}
+
+.data-table-close-btn {
+    padding: 3px 8px;
+    font-size: 13px;
+    border: 1px solid var(--border);
+    background: var(--bg-primary);
+    color: var(--text-secondary);
+    border-radius: 4px;
+    cursor: pointer;
+    line-height: 1;
+    transition: background 0.15s, color 0.15s;
+}
+
+.data-table-close-btn:hover {
+    background: var(--danger-bg);
+    color: var(--danger);
+    border-color: var(--danger);
+}
+
+.data-table-scroll {
+    overflow: auto;
+    flex: 1;
+}
+
+.data-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+    white-space: nowrap;
+}
+
+.data-table thead {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background: var(--bg-secondary);
+}
+
+.data-table th {
+    padding: 6px 10px;
+    text-align: left;
+    font-weight: 600;
+    color: var(--text-secondary);
+    border-bottom: 1px solid var(--border);
+    user-select: none;
+}
+
+.data-table th.dt-sortable {
+    cursor: pointer;
+}
+
+.data-table th.dt-sortable:hover {
+    color: var(--accent);
+    background: var(--accent-bg);
+}
+
+.data-table th.dt-active-sort {
+    color: var(--accent);
+}
+
+.dt-sort-icon {
+    font-size: 10px;
+    opacity: 0.6;
+}
+
+.data-table td {
+    padding: 5px 10px;
+    border-bottom: 1px solid var(--border);
+    color: var(--text-primary);
+    vertical-align: middle;
+}
+
+.data-table tr:hover td {
+    background: var(--accent-bg);
+}
+
+.data-table .dt-num {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+/* Severity badge chips in table */
+.dt-sev {
+    display: inline-block;
+    padding: 1px 6px;
+    border-radius: 10px;
+    font-size: 11px;
+    font-weight: 600;
+}
+
+.dt-sev-pdo   { background: rgba(128,128,128,0.15); color: #666; }
+.dt-sev-mi    { background: rgba(255,167,38,0.15);  color: #e65100; }
+.dt-sev-si    { background: rgba(239,83,80,0.15);   color: #c62828; }
+.dt-sev-fatal { background: rgba(139,0,0,0.15);     color: #8B0000; font-weight: 700; }
+
+[data-theme="dark"] .dt-sev-pdo   { color: #bbb; }
+[data-theme="dark"] .dt-sev-mi    { color: #ffa726; }
+[data-theme="dark"] .dt-sev-si    { color: #ef9a9a; }
+[data-theme="dark"] .dt-sev-fatal { color: #ff6b6b; }
+
+@media (max-width: 768px) {
+    .data-table-panel {
+        height: 260px;
+    }
+}
+
+/* ── Draw Area Filter ─────────────────────────────────────────────────────── */
+
+/* Buttons inside the draw-area section */
+.draw-area-btn {
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 6px 10px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s, color 0.15s;
+    flex: 1;
+}
+
+.draw-area-btn:hover {
+    background: var(--accent-bg);
+    border-color: var(--accent);
+    color: var(--accent);
+}
+
+/* Active state while drawing */
+.draw-area-btn.draw-btn-active {
+    background: var(--accent-bg);
+    border-color: var(--accent);
+    color: var(--accent);
+    font-weight: 600;
+}
+
+/* Status message shown when area is drawn or drawing is in progress */
+.draw-area-status {
+    margin-top: 6px;
+    padding: 6px 8px;
+    border-radius: 6px;
+    font-size: 11px;
+    background: var(--accent-bg);
+    color: var(--accent);
+    border: 1px solid var(--accent);
+    line-height: 1.4;
+}
+
+/* Map-overlay hint bar shown during active drawing */
+.draw-mode-hint {
+    position: fixed;
+    top: 56px;         /* below any top bar */
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 2000;
+    background: var(--bg-primary);
+    border: 1px solid var(--accent);
+    border-radius: 8px;
+    padding: 8px 14px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    box-shadow: var(--shadow-md);
+    font-size: 13px;
+    color: var(--text-primary);
+    pointer-events: none;  /* let map clicks through by default */
+    opacity: 0;
+    transition: opacity 0.2s;
+    white-space: nowrap;
+}
+
+.draw-mode-hint.visible {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.draw-mode-cancel-btn {
+    padding: 3px 10px;
+    font-size: 12px;
+    border: 1px solid var(--danger);
+    background: var(--danger-bg);
+    color: var(--danger);
+    border-radius: 4px;
+    cursor: pointer;
+    pointer-events: auto;
+    transition: background 0.15s;
+}
+
+.draw-mode-cancel-btn:hover {
+    background: var(--danger);
+    color: var(--accent-text);
+}
+
+/* Dim the cursor while drawing mode is active */
+body.draw-mode-active #map {
+    cursor: crosshair !important;
 }

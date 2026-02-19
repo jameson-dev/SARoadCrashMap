@@ -7,6 +7,10 @@ let filteredData = [];
 let lgaBoundaries = null;
 let suburbBoundaries = null;  // GeoJSON with suburb boundary polygons
 let choroplethMode = 'lga';  // 'lga' or 'suburb'
+let markerColorMode = 'severity'; // 'severity' | 'crashtype' | 'daynight'
+let drawnItems = null;   // L.FeatureGroup holding the drawn shape
+let drawnLayer = null;   // the actual drawn L.Layer (rectangle or polygon)
+let activeDrawHandler = null; // current Leaflet.draw handler (so we can cancel it)
 let markersLayer;
 let densityLayer;
 let densityZoomListener = null; // stored so it can be removed when the layer is cleared
@@ -204,6 +208,34 @@ function initMap() {
         }
     });
 
+    // ── Draw area layer ───────────────────────────────────────────────────────
+    drawnItems = new L.FeatureGroup().addTo(map);
+
+    // When a shape is finished drawing
+    map.on(L.Draw.Event.CREATED, function(e) {
+        drawnItems.clearLayers();
+        drawnLayer = e.layer;
+        drawnLayer.setStyle({
+            color: '#4a90e2',
+            weight: 2,
+            dashArray: '6 4',
+            fillColor: '#4a90e2',
+            fillOpacity: 0.06
+        });
+        drawnItems.addLayer(drawnLayer);
+        activeDrawHandler = null;
+        document.body.classList.remove('draw-mode-active');
+        updateDrawAreaUI();
+        applyFilters();
+    });
+
+    // Cancel draw (Escape key or Cancel button)
+    map.on(L.Draw.Event.DRAWSTOP, function() {
+        activeDrawHandler = null;
+        document.body.classList.remove('draw-mode-active');
+        updateDrawAreaUI();
+    });
+
     // Add custom cluster styling
     const style = document.createElement('style');
     style.textContent = `
@@ -331,6 +363,9 @@ function loadUnitsData() {
 
             // Populate filter dropdowns
             populateFilterOptions();
+
+            // Initialise marker colour legend with the default (severity) mode
+            updateMarkerColorLegend();
 
             // Load LGA boundaries first, then apply filters
             // This ensures LGA assignments are complete before map is displayed
@@ -819,6 +854,10 @@ function populateFilterOptions() {
     populateSelect('vehRegState',     uniqueValues(unitsData,    'Veh Reg State'));
     populateSelect('directionTravel', uniqueValues(unitsData,    'Direction Of Travel'));
     populateSelect('unitMovement',    uniqueValues(unitsData,    'Unit Movement'));
+
+    // Speed zone filter — sort numerically
+    const speedValues = uniqueValues(crashData, 'Area Speed').sort((a, b) => parseInt(a) - parseInt(b));
+    populateSelect('speedZoneFilter', speedValues);
 }
 
 // Helper: Get selected values from a multi-select element or checkbox dropdown
@@ -921,7 +960,11 @@ function getFilterValues() {
         // Crash conditions
         selectedRoadSurfaces: getSelectedValues('roadSurface'),
         selectedMoistureConds: getSelectedValues('moistureCond'),
-        drugsInvolved: getValue('drugsInvolved')
+        drugsInvolved: getValue('drugsInvolved'),
+
+        // New filters
+        selectedSpeedZones: getSelectedValues('speedZoneFilter'),
+        selectedMonths: getSelectedValues('monthFilter')
     };
 }
 
@@ -995,6 +1038,32 @@ function matchesBasicFilters(row, filters) {
         const hasFire = row.FIRE && row.FIRE.trim() !== '';
         if (filters.fire === 'Yes' && !hasFire) return false;
         if (filters.fire === 'No' && hasFire) return false;
+    }
+
+    // Speed zone filter
+    if (filters.selectedSpeedZones && !filters.selectedSpeedZones.includes('all')) {
+        const speed = (row['Area Speed'] || '').trim();
+        if (!filters.selectedSpeedZones.includes(speed)) return false;
+    }
+
+    // Month-of-year filter (parse DD/MM/YYYY from Crash Date Time)
+    if (filters.selectedMonths && !filters.selectedMonths.includes('all')) {
+        const dt = row['Crash Date Time'];
+        if (!dt) return false;
+        const datePart = dt.split(' ')[0];
+        const dp = datePart ? datePart.split('/') : [];
+        if (dp.length < 2) return false;
+        const month = String(parseInt(dp[1]));
+        if (!filters.selectedMonths.includes(month)) return false;
+    }
+
+    // Draw area filter — point-in-polygon using pre-cached coords + Turf.js
+    if (drawnLayer) {
+        const coords = row._coords;
+        if (!coords) return false;
+        const pt   = turf.point([coords[1], coords[0]]); // Turf: [lng, lat]
+        const poly = drawnLayer.toGeoJSON();
+        if (!turf.booleanPointInPolygon(pt, poly)) return false;
     }
 
     return true;
@@ -1316,6 +1385,16 @@ function applyFilters() {
 
             // Update map layers
             updateMapLayers();
+
+            // Refresh marker colour legend (crash-type palette may have changed)
+            updateMarkerColorLegend();
+
+            // Re-render data table if it's currently open
+            const dtPanel = document.getElementById('dataTablePanel');
+            if (dtPanel && dtPanel.style.display !== 'none') {
+                dtCurrentPage = 0;
+                renderDataTable();
+            }
 
             // Update advanced filter badge
             if (typeof updateAdvancedFilterBadge === 'function') {
@@ -1674,18 +1753,75 @@ function generatePopupContent(crash) {
 // Cache for marker icons to avoid recreating the same icons
 const markerIconCache = {};
 
-function getMarkerIcon(severity) {
-    const color = severityColors[severity] || '#808080';
+// Crash-type colour palette (cycles if there are more types than colours)
+const CRASH_TYPE_PALETTE = [
+    '#e53935','#8e24aa','#1e88e5','#00897b','#f4511e',
+    '#43a047','#6d4c41','#546e7a','#039be5','#d81b60',
+    '#fdd835','#c0ca33','#00acc1','#7cb342','#e64a19'
+];
+const crashTypeColorMap = {};
+let crashTypeColorIndex = 0;
+function getCrashTypeColor(type) {
+    if (!crashTypeColorMap[type]) {
+        crashTypeColorMap[type] = CRASH_TYPE_PALETTE[crashTypeColorIndex % CRASH_TYPE_PALETTE.length];
+        crashTypeColorIndex++;
+    }
+    return crashTypeColorMap[type];
+}
 
-    // Return cached icon if available
-    if (markerIconCache[color]) {
-        return markerIconCache[color];
+function setMarkerColorMode(mode) {
+    markerColorMode = mode;
+    // Invalidate icon cache so new-coloured icons are created
+    Object.keys(markerIconCache).forEach(k => delete markerIconCache[k]);
+    // Rebuild legend
+    updateMarkerColorLegend();
+    // Redraw markers if the layer is active
+    if (activeLayers.markers && filteredData.length > 0) {
+        addMarkers();
+    }
+}
+
+function updateMarkerColorLegend() {
+    const legend = document.getElementById('markerColorLegend');
+    if (!legend) return;
+    if (markerColorMode === 'severity') {
+        legend.innerHTML = Object.entries(severityColors).map(([label, color]) =>
+            `<span class="legend-item"><span class="legend-dot" style="background:${color}"></span>${label.replace(/^\d: /,'')}</span>`
+        ).join('');
+    } else if (markerColorMode === 'daynight') {
+        legend.innerHTML = [
+            ['Day','#4a90e2'],['Night','#1a237e'],['Unknown','#808080']
+        ].map(([l,c]) => `<span class="legend-item"><span class="legend-dot" style="background:${c}"></span>${l}</span>`).join('');
+    } else {
+        // crash type — build from current assigned map
+        const entries = Object.entries(crashTypeColorMap);
+        if (entries.length === 0) {
+            legend.innerHTML = '<span style="font-size:11px;color:var(--text-secondary)">Apply filters to populate</span>';
+        } else {
+            legend.innerHTML = entries.map(([t,c]) =>
+                `<span class="legend-item"><span class="legend-dot" style="background:${c}"></span>${t}</span>`
+            ).join('');
+        }
+    }
+}
+
+function getMarkerIcon(row) {
+    let color;
+    if (markerColorMode === 'crashtype') {
+        color = getCrashTypeColor(row['Crash Type'] || 'Unknown');
+    } else if (markerColorMode === 'daynight') {
+        const dn = row['DayNight'] || '';
+        color = dn === 'Day' ? '#4a90e2' : dn === 'Night' ? '#1a237e' : '#808080';
+    } else {
+        // default: severity
+        color = severityColors[row['CSEF Severity']] || '#808080';
     }
 
-    // Create and cache new icon
+    if (markerIconCache[color]) return markerIconCache[color];
+
     const icon = L.divIcon({
         className: 'custom-marker',
-        html: `<div style="background-color: ${color}; width: 12px; height: 12px; border-radius: 50%; border: 2px solid white;"></div>`,
+        html: `<div style="background-color:${color};width:12px;height:12px;border-radius:50%;border:2px solid white;"></div>`,
         iconSize: [12, 12]
     });
 
@@ -1718,8 +1854,7 @@ function addMarkers(callback) {
             const coords = row._coords;
             if (!coords) continue;
 
-            const severity = row['CSEF Severity'];
-            const markerIcon = getMarkerIcon(severity);
+            const markerIcon = getMarkerIcon(row);
 
             const marker = L.marker(coords, { icon: markerIcon });
 
@@ -2369,6 +2504,22 @@ function updateActiveFiltersDisplay() {
         activeFilters.push({ name: 'Drugs', value: filters.drugsInvolved });
     }
 
+    // Speed Zone
+    if (filters.selectedSpeedZones && !filters.selectedSpeedZones.includes('all')) {
+        activeFilters.push({ name: 'Speed Zone', value: filters.selectedSpeedZones.join(', ') + ' km/h' });
+    }
+
+    // Month of Year
+    if (filters.selectedMonths && !filters.selectedMonths.includes('all')) {
+        const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+        activeFilters.push({ name: 'Month', value: filters.selectedMonths.map(m => MONTH_NAMES[parseInt(m) - 1]).join(', ') });
+    }
+
+    // Draw Area
+    if (drawnLayer) {
+        activeFilters.push({ name: 'Draw Area', value: 'Custom polygon' });
+    }
+
     // Update display
     const titleElement = document.querySelector('.active-filters-bar-title');
 
@@ -2446,6 +2597,7 @@ function clearSingleFilter(filterName) {
         case 'Road Surface': resetSelect('roadSurface');                break;
         case 'Moisture':    resetSelect('moistureCond');                break;
         case 'Drugs':       document.getElementById('drugsInvolved').value = 'all'; break;
+        case 'Draw Area':   clearDrawArea(); return; // clearDrawArea() calls applyFilters itself
     }
 
     if (typeof updateAdvancedFilterBadge === 'function') updateAdvancedFilterBadge();
@@ -3086,15 +3238,138 @@ function clearLocationSearch() {
 // Toggle location search collapse/expand
 function toggleLocationSearch() {
     const content = document.getElementById('locationSearchContent');
-    const header = document.querySelector('.location-search-header');
+    const header  = content ? content.previousElementSibling : null;
+    const row     = document.querySelector('.spatial-filters-row');
+    const drawContent = document.getElementById('drawAreaContent');
+    const drawHeader  = drawContent ? drawContent.previousElementSibling : null;
+    const drawIcon    = document.getElementById('drawAreaToggleIcon');
 
-    if (content.classList.contains('expanded')) {
-        content.classList.remove('expanded');
-        header.classList.remove('expanded');
-    } else {
+    const isOpen = content.classList.contains('expanded');
+
+    if (!isOpen) {
+        // Opening search — close draw and take full width
+        if (drawContent) {
+            drawContent.classList.remove('expanded');
+            if (drawHeader) drawHeader.classList.remove('expanded');
+            if (drawIcon) drawIcon.textContent = '▼';
+        }
         content.classList.add('expanded');
-        header.classList.add('expanded');
+        if (header) header.classList.add('expanded');
+        if (row) {
+            row.classList.remove('draw-active');
+            row.classList.add('search-active');
+        }
+    } else {
+        // Closing search — restore equal width
+        content.classList.remove('expanded');
+        if (header) header.classList.remove('expanded');
+        if (row) row.classList.remove('search-active');
     }
+}
+
+// ── Draw Area Filter ──────────────────────────────────────────────────────────
+
+function toggleDrawAreaSection() {
+    const content = document.getElementById('drawAreaContent');
+    const header  = content ? content.previousElementSibling : null;
+    const icon    = document.getElementById('drawAreaToggleIcon');
+    const row     = document.querySelector('.spatial-filters-row');
+    const searchContent = document.getElementById('locationSearchContent');
+    const searchHeader  = searchContent ? searchContent.previousElementSibling : null;
+
+    if (!content) return;
+    const isOpen = content.classList.contains('expanded');
+
+    if (!isOpen) {
+        // Opening draw — close search and take full width
+        if (searchContent) {
+            searchContent.classList.remove('expanded');
+            if (searchHeader) searchHeader.classList.remove('expanded');
+        }
+        content.classList.add('expanded');
+        if (header) header.classList.add('expanded');
+        if (icon) icon.textContent = '▲';
+        if (row) {
+            row.classList.remove('search-active');
+            row.classList.add('draw-active');
+        }
+    } else {
+        // Closing draw — restore equal width
+        content.classList.remove('expanded');
+        if (header) header.classList.remove('expanded');
+        if (icon) icon.textContent = '▼';
+        if (row) row.classList.remove('draw-active');
+    }
+}
+
+function startDrawArea(type) {
+    if (!map || typeof L.Draw === 'undefined') return;
+
+    // Cancel any in-progress drawing first
+    cancelDrawMode();
+
+    const shapeOpts = { color: '#4a90e2', weight: 2, dashArray: '6 4', fillColor: '#4a90e2', fillOpacity: 0.06 };
+    if (type === 'rectangle') {
+        activeDrawHandler = new L.Draw.Rectangle(map, { shapeOptions: shapeOpts });
+    } else {
+        activeDrawHandler = new L.Draw.Polygon(map, {
+            shapeOptions: shapeOpts,
+            allowIntersection: false,
+            showArea: true
+        });
+    }
+    activeDrawHandler.enable();
+
+    // Show hint on map
+    const hint = document.getElementById('drawModeHint');
+    const hintText = document.querySelector('.draw-mode-hint-text');
+    if (hintText) hintText.textContent = type === 'rectangle'
+        ? 'Click and drag to draw a rectangle'
+        : 'Click to place vertices — double-click to finish';
+    if (hint) hint.classList.add('visible');
+    document.body.classList.add('draw-mode-active');
+}
+
+function cancelDrawMode() {
+    if (activeDrawHandler) {
+        activeDrawHandler.disable();
+        activeDrawHandler = null;
+    }
+    document.body.classList.remove('draw-mode-active');
+    const hint = document.getElementById('drawModeHint');
+    if (hint) hint.classList.remove('visible');
+    updateDrawAreaUI();
+}
+
+function clearDrawArea() {
+    cancelDrawMode();
+    if (drawnItems) drawnItems.clearLayers();
+    drawnLayer = null;
+    updateDrawAreaUI();
+    applyFilters();
+}
+
+function updateDrawAreaUI() {
+    const statusEl = document.getElementById('drawAreaStatus');
+    const clearBtn = document.getElementById('drawAreaClearBtn');
+    const rectBtn  = document.getElementById('drawRectBtn');
+    const polyBtn  = document.getElementById('drawPolyBtn');
+    const isDrawing = !!activeDrawHandler;
+
+    if (statusEl) {
+        if (drawnLayer) {
+            statusEl.textContent = 'Area active — crashes filtered to drawn shape';
+            statusEl.style.display = 'block';
+        } else if (isDrawing) {
+            statusEl.textContent = 'Drawing… double-click to finish polygon, or drag to finish rectangle';
+            statusEl.style.display = 'block';
+        } else {
+            statusEl.style.display = 'none';
+        }
+    }
+    if (clearBtn) clearBtn.style.display = drawnLayer ? 'block' : 'none';
+    if (rectBtn)  rectBtn.classList.toggle('draw-btn-active', isDrawing);
+    if (polyBtn)  polyBtn.classList.toggle('draw-btn-active', isDrawing);
 }
 
 // ============================================================================
@@ -3759,6 +4034,147 @@ function escapeCSV(value) {
         return '"' + str.replace(/"/g, '""') + '"';
     }
     return str;
+}
+
+// ── Data Table ───────────────────────────────────────────────────────────────
+let dtCurrentPage = 0;
+let dtSortField   = 'Year';
+let dtSortAsc     = false;
+const DT_PAGE_SIZE = 25;
+
+const DT_COLUMNS = [
+    { key: 'Year',          label: 'Year'       },
+    { key: 'Crash Date Time', label: 'Date/Time' },
+    { key: 'Suburb',        label: 'Suburb'     },
+    { key: 'LGA',           label: 'LGA'        },
+    { key: 'CSEF Severity', label: 'Severity'   },
+    { key: 'Crash Type',    label: 'Crash Type' },
+    { key: 'Area Speed',    label: 'Speed Zone' },
+    { key: 'Total Fats',    label: 'Fatal'      },
+    { key: 'Total SI',      label: 'SI'         },
+    { key: 'Total MI',      label: 'MI'         }
+];
+
+function toggleDataTable() {
+    const panel = document.getElementById('dataTablePanel');
+    if (!panel) return;
+    if (panel.style.display === 'none' || panel.style.display === '') {
+        panel.style.display = 'flex';
+        renderDataTable();
+    } else {
+        panel.style.display = 'none';
+    }
+}
+
+function dtSort(field) {
+    if (dtSortField === field) {
+        dtSortAsc = !dtSortAsc;
+    } else {
+        dtSortField = field;
+        dtSortAsc   = true;
+    }
+    dtCurrentPage = 0;
+    renderDataTable();
+}
+
+function dtChangePage(delta) {
+    const sorted  = getDtSorted();
+    const maxPage = Math.max(0, Math.ceil(sorted.length / DT_PAGE_SIZE) - 1);
+    dtCurrentPage = Math.max(0, Math.min(dtCurrentPage + delta, maxPage));
+    renderDataTable();
+}
+
+function getDtSorted() {
+    const data = filteredData.slice();
+    data.sort(function(a, b) {
+        let va = a[dtSortField] ?? '';
+        let vb = b[dtSortField] ?? '';
+        // Numeric sort for Year, Total Fats, Total SI, Total MI, Area Speed
+        const numFields = ['Year', 'Total Fats', 'Total SI', 'Total MI', 'Area Speed'];
+        if (numFields.includes(dtSortField)) {
+            va = parseFloat(va) || 0;
+            vb = parseFloat(vb) || 0;
+        } else {
+            va = String(va).toLowerCase();
+            vb = String(vb).toLowerCase();
+        }
+        if (va < vb) return dtSortAsc ? -1 : 1;
+        if (va > vb) return dtSortAsc ?  1 : -1;
+        return 0;
+    });
+    return data;
+}
+
+function renderDataTable() {
+    const tbody   = document.getElementById('dataTableBody');
+    const info    = document.getElementById('dataTableInfo');
+    const prevBtn = document.getElementById('dtPrevBtn');
+    const nextBtn = document.getElementById('dtNextBtn');
+    if (!tbody) return;
+
+    const sorted   = getDtSorted();
+    const total    = sorted.length;
+    const maxPage  = Math.max(0, Math.ceil(total / DT_PAGE_SIZE) - 1);
+    dtCurrentPage  = Math.min(dtCurrentPage, maxPage);
+    const start    = dtCurrentPage * DT_PAGE_SIZE;
+    const pageRows = sorted.slice(start, start + DT_PAGE_SIZE);
+
+    // Update info text and nav buttons
+    if (info) info.textContent = total.toLocaleString() + ' crashes  |  Page ' + (dtCurrentPage + 1) + ' of ' + (maxPage + 1);
+    if (prevBtn) prevBtn.disabled = dtCurrentPage === 0;
+    if (nextBtn) nextBtn.disabled = dtCurrentPage >= maxPage;
+
+    // Update sort icons in header
+    DT_COLUMNS.forEach(function(col) {
+        const th = document.getElementById('dt-th-' + col.key.replace(/\s+/g, '_'));
+        if (!th) return;
+        const icon = th.querySelector('.dt-sort-icon');
+        if (!icon) return;
+        if (dtSortField === col.key) {
+            icon.textContent = dtSortAsc ? ' ↑' : ' ↓';
+            th.classList.add('dt-active-sort');
+        } else {
+            icon.textContent = ' ↕';
+            th.classList.remove('dt-active-sort');
+        }
+    });
+
+    // Severity label map
+    const sevMap = {
+        '1: PDO':   '<span class="dt-sev dt-sev-pdo">PDO</span>',
+        '2: MI':    '<span class="dt-sev dt-sev-mi">MI</span>',
+        '3: SI':    '<span class="dt-sev dt-sev-si">SI</span>',
+        '4: Fatal': '<span class="dt-sev dt-sev-fatal">Fatal</span>'
+    };
+
+    tbody.innerHTML = pageRows.map(function(row) {
+        const sev = row['CSEF Severity'] || '';
+        const sevCell = sevMap[sev] || escapeHtml(sev);
+        const speed   = row['Area Speed'] ? row['Area Speed'] + ' km/h' : '';
+        const fats    = parseInt(row['Total Fats']) || 0;
+        const si      = parseInt(row['Total SI'])   || 0;
+        const mi      = parseInt(row['Total MI'])   || 0;
+        return '<tr>' +
+            '<td>' + escapeHtml(String(row['Year'] || '')) + '</td>' +
+            '<td>' + escapeHtml(String(row['Crash Date Time'] || '')) + '</td>' +
+            '<td>' + escapeHtml(String(row['Suburb'] || '')) + '</td>' +
+            '<td>' + escapeHtml(String(row['LGA'] || '')) + '</td>' +
+            '<td>' + sevCell + '</td>' +
+            '<td>' + escapeHtml(String(row['Crash Type'] || '')) + '</td>' +
+            '<td>' + escapeHtml(speed) + '</td>' +
+            '<td class="dt-num">' + (fats  > 0 ? '<strong>' + fats  + '</strong>' : '–') + '</td>' +
+            '<td class="dt-num">' + (si    > 0 ? si    : '–') + '</td>' +
+            '<td class="dt-num">' + (mi    > 0 ? mi    : '–') + '</td>' +
+            '</tr>';
+    }).join('');
+}
+
+function escapeHtml(str) {
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
 }
 
 // Close modal when clicking outside of it
