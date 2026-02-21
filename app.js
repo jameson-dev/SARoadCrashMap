@@ -1847,7 +1847,7 @@ function getMarkerIcon(row) {
 function addMarkers(callback) {
     markersLayer.clearLayers();
 
-    const chunkSize = 2000; // Process 2000 markers per chunk
+    const chunkSize = 10000;
     const totalMarkers = filteredData.length;
     let processedCount = 0;
 
