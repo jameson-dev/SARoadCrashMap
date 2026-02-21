@@ -296,91 +296,108 @@ function convertCoordinates(x, y) {
     }
 }
 
-// Load and parse CSV data
-function loadData() {
-    showLoading('Loading crash data (190,000+ records)...');
+// Load and decompress JSON data
+async function loadData() {
+    showLoading('Loading crash data...');
 
-    // Load crash data first
-    Papa.parse('data/2012-2024_DATA_SA_Crash.csv', {
-        download: true,
-        header: true,
-        skipEmptyLines: true,
-        complete: function(results) {
-            console.log('Crash CSV loaded. Total rows:', results.data.length);
+    try {
+        // Fetch gzipped data
+        const response = await fetch('data/2012-2024_DATA_SA_Crash.json.gz');
 
-            crashData = results.data.filter(row => {
-                return row.ACCLOC_X && row.ACCLOC_Y &&
-                       row.ACCLOC_X.trim() !== '' &&
-                       row.ACCLOC_Y.trim() !== '';
-            });
-
-            console.log('Filtered crash data:', crashData.length, 'records with coordinates');
-
-            // Load casualty data
-            loadCasualtyData();
-        },
-        error: function(error) {
-            console.error('Error loading crash data:', error);
-            hideLoading();
-            alert('Error loading crash data. Please ensure the CSV file is in the correct location.');
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
         }
-    });
+
+        // Get compressed bytes
+        const compressedData = await response.arrayBuffer();
+
+        // Decompress with pako.js
+        const decompressed = pako.inflate(new Uint8Array(compressedData), { to: 'string' });
+
+        // Parse JSON
+        const allCrashData = JSON.parse(decompressed);
+        console.log('Crash data loaded:', allCrashData.length, 'total records');
+
+        // Filter crashes with valid coordinates
+        crashData = allCrashData.filter(row => {
+            return row.ACCLOC_X && row.ACCLOC_Y &&
+                   row.ACCLOC_X !== '' && row.ACCLOC_Y !== '';
+        });
+
+        console.log('Filtered crash data:', crashData.length, 'records with coordinates');
+
+        // Load casualty data
+        await loadCasualtyData();
+
+    } catch (error) {
+        console.error('Error loading crash data:', error);
+        hideLoading();
+        alert('Error loading crash data. Please check your connection and try again.');
+    }
 }
 
 // Load casualty data
-function loadCasualtyData() {
-    showLoading('Loading casualty data (77,000+ records)...');
+async function loadCasualtyData() {
+    showLoading('Loading casualty data...');
 
-    Papa.parse('data/2012-2024_DATA_SA_Casualty.csv', {
-        download: true,
-        header: true,
-        skipEmptyLines: true,
-        complete: function(results) {
-            casualtyData = results.data;
-            console.log('Casualty data loaded:', casualtyData.length, 'records');
+    try {
+        const response = await fetch('data/2012-2024_DATA_SA_Casualty.json.gz');
 
-            // Load units data
-            loadUnitsData();
-        },
-        error: function(error) {
-            console.error('Error loading casualty data:', error);
-            hideLoading();
-            alert('Error loading casualty data. Please ensure the CSV file is in the correct location.');
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
         }
-    });
+
+        const compressedData = await response.arrayBuffer();
+        const decompressed = pako.inflate(new Uint8Array(compressedData), { to: 'string' });
+        casualtyData = JSON.parse(decompressed);
+
+        console.log('Casualty data loaded:', casualtyData.length, 'records');
+
+        // Load units data
+        await loadUnitsData();
+
+    } catch (error) {
+        console.error('Error loading casualty data:', error);
+        hideLoading();
+        alert('Error loading casualty data. Please check your connection and try again.');
+    }
 }
 
 // Load units data
-function loadUnitsData() {
-    showLoading('Loading units data (407,000+ records)...');
+async function loadUnitsData() {
+    showLoading('Loading units data...');
 
-    Papa.parse('data/2012-2024_DATA_SA_Units.csv', {
-        download: true,
-        header: true,
-        skipEmptyLines: true,
-        complete: function(results) {
-            unitsData = results.data;
-            console.log('Units data loaded:', unitsData.length, 'records');
+    try {
+        const response = await fetch('data/2012-2024_DATA_SA_Units.json.gz');
 
-            // Link data together
-            linkCrashData();
-
-            // Populate filter dropdowns
-            populateFilterOptions();
-
-            // Initialise marker colour legend with the default (severity) mode
-            updateMarkerColorLegend();
-
-            // Load LGA boundaries first, then apply filters
-            // This ensures LGA assignments are complete before map is displayed
-            loadLGABoundaries();
-        },
-        error: function(error) {
-            console.error('Error loading units data:', error);
-            hideLoading();
-            alert('Error loading units data. Please ensure the CSV file is in the correct location.');
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
         }
-    });
+
+        const compressedData = await response.arrayBuffer();
+        const decompressed = pako.inflate(new Uint8Array(compressedData), { to: 'string' });
+        unitsData = JSON.parse(decompressed);
+
+        console.log('Units data loaded:', unitsData.length, 'records');
+
+        // Link data together
+        linkCrashData();
+
+        // Populate filter dropdowns
+        populateFilterOptions();
+
+        // Initialise marker colour legend with the default (severity) mode
+        updateMarkerColorLegend();
+
+        // Load LGA boundaries first, then apply filters
+        // This ensures LGA assignments are complete before map is displayed
+        loadLGABoundaries();
+
+    } catch (error) {
+        console.error('Error loading units data:', error);
+        hideLoading();
+        alert('Error loading units data. Please check your connection and try again.');
+    }
 }
 
 // Link casualty and units data to crashes by REPORT_ID
@@ -593,10 +610,8 @@ function loadSuburbBoundaries(filePath = 'data/sa_suburbs.geojson') {
 }
 
 // Pre-compute LGA assignments for crashes with missing/N/A LGA names
-// Note: LGA assignments are now pre-computed in the CSV file (see scripts/add_lga_column.py)
-// This function now just applies filters immediately without client-side computation
 function precomputeLGAAssignments() {
-    console.log('Using pre-computed LGA assignments from CSV');
+    console.log('Using pre-computed LGA assignments');
 
     // Count how many crashes have LGA assignments
     const withLGA = crashData.filter(row => row['LGA'] && row['LGA'].trim()).length;
@@ -787,7 +802,12 @@ function getFullLGAName(abbreviatedName) {
 // Returns unique, alphabetically-sorted, non-empty values for a column
 function uniqueValues(data, column) {
     return [...new Set(data.map(row => row[column]).filter(v => v))]
-        .sort((a, b) => a.localeCompare(b));
+        .sort((a, b) => {
+            // Handle both strings and numbers
+            const aStr = String(a);
+            const bStr = String(b);
+            return aStr.localeCompare(bStr);
+        });
 }
 
 // Appends <option> elements to a <select> element
@@ -1847,7 +1867,7 @@ function getMarkerIcon(row) {
 function addMarkers(callback) {
     markersLayer.clearLayers();
 
-    const chunkSize = 2000; // Process 2000 markers per chunk
+    const chunkSize = 20000;
     const totalMarkers = filteredData.length;
     let processedCount = 0;
 
@@ -2034,7 +2054,7 @@ function addChoropleth() {
     const lgaCountsNormalized = {};
 
     filteredData.forEach(row => {
-        // Use pre-computed LGA from CSV
+        // Use pre-computed LGA
         const lga = row['LGA'];
 
         if (lga && lga.trim()) {

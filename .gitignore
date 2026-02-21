@@ -184,3 +184,14 @@ cython_debug/
 start_server.bat
 /scripts
 /data/raw
+
+
+# Node modules
+node_modules/
+
+# Data compression - only commit compressed .gz files
+data/*.csv
+data/*.json
+!data/*.json.gz
+package-lock.json
+package.json
