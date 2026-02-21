@@ -610,10 +610,8 @@ function loadSuburbBoundaries(filePath = 'data/sa_suburbs.geojson') {
 }
 
 // Pre-compute LGA assignments for crashes with missing/N/A LGA names
-// Note: LGA assignments are now pre-computed in the CSV file (see scripts/add_lga_column.py)
-// This function now just applies filters immediately without client-side computation
 function precomputeLGAAssignments() {
-    console.log('Using pre-computed LGA assignments from CSV');
+    console.log('Using pre-computed LGA assignments');
 
     // Count how many crashes have LGA assignments
     const withLGA = crashData.filter(row => row['LGA'] && row['LGA'].trim()).length;
@@ -1869,7 +1867,7 @@ function getMarkerIcon(row) {
 function addMarkers(callback) {
     markersLayer.clearLayers();
 
-    const chunkSize = 10000;
+    const chunkSize = 20000;
     const totalMarkers = filteredData.length;
     let processedCount = 0;
 
