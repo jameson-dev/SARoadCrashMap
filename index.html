@@ -645,8 +645,8 @@
     <!-- noUiSlider JS -->
     <script src="https://unpkg.com/nouislider@15.7.1/dist/nouislider.min.js"></script>
 
-    <!-- PapaParse for CSV -->
-    <script src="https://unpkg.com/papaparse@5.4.1/papaparse.min.js"></script>
+    <!-- Pako for gzip decompression -->
+    <script src="https://unpkg.com/pako@2.1.0/dist/pako.min.js"></script>
 
     <!-- Proj4js for coordinate conversion -->
     <script src="https://unpkg.com/proj4@2.9.0/dist/proj4.js"></script>
@@ -1150,7 +1150,6 @@
                     <li><strong>Python:</strong> Data cleaning and consolidation (pandas, csv libraries)</li>
                     <li><strong>Leaflet.js:</strong> Interactive mapping library</li>
                     <li><strong>Proj4js:</strong> Coordinate system transformation</li>
-                    <li><strong>PapaParse:</strong> CSV parsing in browser</li>
                     <li><strong>Turf.js:</strong> Geospatial analysis and calculations</li>
                     <li><strong>noUiSlider:</strong> Range filter controls</li>
                 </ul>
@@ -2080,7 +2079,10 @@
                 var speedCounts = {};
                 crashData.forEach(function(crash) {
                     var s = crash['Area Speed'];
-                    if (s && s.trim()) speedCounts[s.trim()] = (speedCounts[s.trim()] || 0) + 1;
+                    if (s) {
+                        var sStr = String(s).trim();
+                        if (sStr) speedCounts[sStr] = (speedCounts[sStr] || 0) + 1;
+                    }
                 });
                 var sortedSpeeds = Object.keys(speedCounts).sort(function(a, b) { return parseInt(a) - parseInt(b); });
                 charts.speedZone.data.labels = sortedSpeeds.map(function(s) { return s + ' km/h'; });
@@ -2097,7 +2099,10 @@
                     if (!crash._casualties) return;
                     crash._casualties.forEach(function(c) {
                         var t = c['Casualty Type'];
-                        if (t && t.trim()) ruCounts[t.trim()] = (ruCounts[t.trim()] || 0) + 1;
+                        if (t) {
+                            var tStr = String(t).trim();
+                            if (tStr) ruCounts[tStr] = (ruCounts[tStr] || 0) + 1;
+                        }
                     });
                 });
                 var sorted = Object.entries(ruCounts).sort(function(a, b) { return b[1] - a[1]; });
