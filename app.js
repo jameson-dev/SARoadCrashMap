@@ -2054,7 +2054,7 @@ function addChoropleth() {
     const lgaCountsNormalized = {};
 
     filteredData.forEach(row => {
-        // Use pre-computed LGA from CSV
+        // Use pre-computed LGA
         const lga = row['LGA'];
 
         if (lga && lga.trim()) {
