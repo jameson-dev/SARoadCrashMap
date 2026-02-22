@@ -21,6 +21,13 @@ let activeLayers = {
     choropleth: false
 };
 
+// Tutorial state
+let currentTutorialTab = 'getting-started';
+
+// Filter change tracking
+let filtersChanged = false;
+let lastAppliedFilterState = null;
+
 // First-visit disclaimer acknowledgment
 function checkFirstVisit() {
     const hasAcknowledged = localStorage.getItem('disclaimerAcknowledged');
@@ -32,10 +39,531 @@ function checkFirstVisit() {
 function acknowledgeDisclaimer() {
     localStorage.setItem('disclaimerAcknowledged', 'true');
     document.getElementById('firstVisitOverlay').style.display = 'none';
+
+    // Check if tutorial should be shown
+    checkTutorial();
 }
 
 // Check first visit on page load
 window.addEventListener('DOMContentLoaded', checkFirstVisit);
+
+// Tutorial Functions
+const TUTORIAL_TABS = ['getting-started', 'filtering', 'analytics', 'tools', 'tips'];
+
+function checkTutorial() {
+    const tutorialCompleted = localStorage.getItem('tutorialCompleted');
+    if (!tutorialCompleted) {
+        openTutorial();
+    }
+}
+
+function openTutorial() {
+    const modal = document.getElementById('tutorialModal');
+    if (modal) {
+        modal.style.display = 'block';
+        document.body.style.overflow = 'hidden';
+        // Reset to first tab
+        currentTutorialTab = 'getting-started';
+        switchTutorialTab('getting-started');
+    }
+}
+
+function closeTutorial() {
+    const modal = document.getElementById('tutorialModal');
+    if (modal) {
+        modal.style.display = 'none';
+        document.body.style.overflow = 'auto';
+    }
+}
+
+function switchTutorialTab(tabName) {
+    currentTutorialTab = tabName;
+
+    // Update tab buttons
+    const tabButtons = document.querySelectorAll('#tutorialModal .tab-btn');
+    tabButtons.forEach(btn => {
+        if (btn.getAttribute('onclick').includes(tabName)) {
+            btn.classList.add('active');
+        } else {
+            btn.classList.remove('active');
+        }
+    });
+
+    // Update tab content
+    const tabContents = document.querySelectorAll('#tutorialModal .tab-content');
+    tabContents.forEach(content => {
+        content.classList.remove('active');
+    });
+
+    // Map tab names to their respective div IDs
+    const tabContentMap = {
+        'getting-started': 'gettingStartedTab',
+        'filtering': 'filteringTab',
+        'analytics': 'analyticsTab',
+        'tools': 'toolsTab',
+        'tips': 'tipsTab'
+    };
+
+    const contentId = tabContentMap[tabName];
+    const activeContent = document.getElementById(contentId);
+    if (activeContent) {
+        activeContent.classList.add('active');
+    }
+
+    // Update button states
+    updateTutorialButtons();
+}
+
+function nextTutorialTab() {
+    const currentIndex = TUTORIAL_TABS.indexOf(currentTutorialTab);
+    if (currentIndex < TUTORIAL_TABS.length - 1) {
+        switchTutorialTab(TUTORIAL_TABS[currentIndex + 1]);
+    }
+}
+
+function previousTutorialTab() {
+    const currentIndex = TUTORIAL_TABS.indexOf(currentTutorialTab);
+    if (currentIndex > 0) {
+        switchTutorialTab(TUTORIAL_TABS[currentIndex - 1]);
+    }
+}
+
+function updateTutorialButtons() {
+    const currentIndex = TUTORIAL_TABS.indexOf(currentTutorialTab);
+    const prevBtn = document.querySelector('#tutorialModal .tutorial-nav-buttons .btn-secondary:first-child');
+    const nextBtn = document.querySelector('#tutorialModal .tutorial-nav-buttons .btn-secondary:nth-child(2)');
+
+    if (prevBtn) {
+        prevBtn.disabled = currentIndex === 0;
+    }
+
+    if (nextBtn) {
+        if (currentIndex === TUTORIAL_TABS.length - 1) {
+            nextBtn.style.display = 'none';
+        } else {
+            nextBtn.style.display = 'block';
+        }
+    }
+}
+
+function updateTutorialPreference() {
+    const checkbox = document.getElementById('dontShowTutorial');
+    if (checkbox && checkbox.checked) {
+        localStorage.setItem('tutorialCompleted', 'true');
+    } else {
+        localStorage.removeItem('tutorialCompleted');
+    }
+}
+
+// Close tutorial modal when clicking outside
+window.addEventListener('click', function(event) {
+    const modal = document.getElementById('tutorialModal');
+    if (event.target === modal) {
+        closeTutorial();
+    }
+});
+
+// Filter Change Tracking Functions
+function captureCurrentFilterState() {
+    // Capture all filter values in their current state
+    const state = {
+        yearRange: currentYearRange ? [...currentYearRange] : [2012, 2024],
+        severities: getCheckboxValues('severityMenu'),
+        crashTypes: getCheckboxValues('crashTypeMenu'),
+        areas: getCheckboxValues('areaMenu'),
+        suburbs: getCheckboxValues('suburbMenu'),
+        weather: document.getElementById('weather')?.value || 'all',
+        dayNight: document.getElementById('dayNight')?.value || 'all',
+        timeFrom: document.getElementById('timeFrom')?.value || '',
+        timeTo: document.getElementById('timeTo')?.value || '',
+        dateFrom: document.getElementById('dateFrom')?.value || '',
+        dateTo: document.getElementById('dateTo')?.value || '',
+        duiInvolved: document.getElementById('duiInvolved')?.value || 'all',
+        drugsInvolved: document.getElementById('drugsInvolved')?.value || 'all',
+        roadSurface: getSelectValues('roadSurface'),
+        moistureCond: getSelectValues('moistureCond'),
+        speedZone: getSelectValues('speedZoneFilter'),
+        month: getSelectValues('monthFilter'),
+        roadUserType: getSelectValues('roadUserType'),
+        ageGroup: getSelectValues('ageGroup'),
+        casualtySex: getSelectValues('casualtySex'),
+        injuryExtent: getSelectValues('injuryExtent'),
+        seatBelt: getSelectValues('seatBelt'),
+        helmet: getSelectValues('helmet'),
+        heavyVehicle: document.getElementById('heavyVehicle')?.value || 'all',
+        vehicleType: getSelectValues('vehicleType'),
+        vehicleYear: getSelectValues('vehicleYear'),
+        occupants: getSelectValues('occupants'),
+        towing: document.getElementById('towing')?.value || 'all',
+        rollover: document.getElementById('rollover')?.value || 'all',
+        fire: document.getElementById('fire')?.value || 'all',
+        licenseType: getSelectValues('licenseType'),
+        vehRegState: getSelectValues('vehRegState'),
+        directionTravel: getSelectValues('directionTravel'),
+        unitMovement: getSelectValues('unitMovement')
+    };
+    return state;
+}
+
+function getCheckboxValues(menuId) {
+    const menu = document.getElementById(menuId);
+    if (!menu) return [];
+    const checkboxes = menu.querySelectorAll('input[type="checkbox"]:checked');
+    return Array.from(checkboxes).map(cb => cb.value).sort();
+}
+
+function getSelectValues(selectId) {
+    const select = document.getElementById(selectId);
+    if (!select) return ['all'];
+    const selected = Array.from(select.selectedOptions).map(opt => opt.value);
+    return selected.length > 0 ? selected.sort() : ['all'];
+}
+
+function compareFilterStates(state1, state2) {
+    if (!state1 || !state2) return false; // If no baseline yet, consider unchanged
+
+    // Compare all properties
+    return JSON.stringify(state1) !== JSON.stringify(state2);
+}
+
+function markFiltersChanged() {
+    const currentState = captureCurrentFilterState();
+    const hasChanged = compareFilterStates(currentState, lastAppliedFilterState);
+
+    filtersChanged = hasChanged;
+    updateApplyButtonState();
+}
+
+function updateApplyButtonState() {
+    const applyBtn = document.getElementById('applyFilters');
+    if (!applyBtn) return;
+
+    if (filtersChanged) {
+        // Enable button
+        applyBtn.disabled = false;
+        applyBtn.style.opacity = '1';
+        applyBtn.style.cursor = 'pointer';
+        applyBtn.title = 'Apply the current filter selections';
+    } else {
+        // Disable button
+        applyBtn.disabled = true;
+        applyBtn.style.opacity = '0.5';
+        applyBtn.style.cursor = 'not-allowed';
+        applyBtn.title = 'No filter changes to apply';
+    }
+}
+
+// Sample Filter Presets
+const FILTER_PRESETS = {
+    'fatal-recent': {
+        name: 'Fatal Crashes (2023-2024)',
+        description: 'Shows all fatal crashes from 2023-2024 to analyze recent fatality trends',
+        filters: {
+            yearFrom: 2023,
+            yearTo: 2024,
+            severities: ['4: Fatal'],
+            crashTypes: [],
+            areas: [],
+            suburbs: []
+        }
+    },
+    'motorcycle-night': {
+        name: 'Motorcycle/Rider Crashes at Night',
+        description: 'Rider crashes occurring during night time hours',
+        filters: {
+            yearFrom: 2012,
+            yearTo: 2024,
+            severities: [],
+            crashTypes: [],
+            areas: [],
+            suburbs: [],
+            dayNight: 'Night',
+            roadUsers: ['Rider']
+        }
+    },
+    'dui-crashes': {
+        name: 'DUI-Related Crashes',
+        description: 'Crashes where driver under influence was a factor',
+        filters: {
+            yearFrom: 2012,
+            yearTo: 2024,
+            severities: [],
+            crashTypes: [],
+            areas: [],
+            suburbs: [],
+            duiInvolved: 'Yes'
+        }
+    },
+    'heavy-vehicle': {
+        name: 'Heavy Vehicle Crashes',
+        description: 'Crashes involving semi-trailers, trucks, or buses',
+        filters: {
+            yearFrom: 2012,
+            yearTo: 2024,
+            severities: [],
+            crashTypes: [],
+            areas: [],
+            suburbs: [],
+            heavyVehicle: 'yes'
+        }
+    },
+    'pedestrian': {
+        name: 'Pedestrian Casualties',
+        description: 'Crashes involving pedestrian casualties',
+        filters: {
+            yearFrom: 2012,
+            yearTo: 2024,
+            severities: [],
+            crashTypes: [],
+            areas: [],
+            suburbs: [],
+            roadUsers: ['Pedestrian']
+        }
+    },
+    'wet-weather': {
+        name: 'Wet Weather Crashes',
+        description: 'Crashes occurring in rainy conditions on wet roads',
+        filters: {
+            yearFrom: 2012,
+            yearTo: 2024,
+            severities: [],
+            crashTypes: [],
+            areas: [],
+            suburbs: [],
+            weather: 'Raining',
+            moistureConds: ['Wet']
+        }
+    },
+    'weekend': {
+        name: 'Weekend Crashes',
+        description: 'Crashes occurring on Saturdays and Sundays (Year 2023-2024 for performance)',
+        filters: {
+            yearFrom: 2023,
+            yearTo: 2024,
+            severities: [],
+            crashTypes: [],
+            areas: [],
+            suburbs: []
+            // Note: Day of week filter not available in preset system
+        }
+    },
+    'hit-object': {
+        name: 'Hit Fixed Object Crashes',
+        description: 'Single vehicle crashes where vehicle hit a fixed object',
+        filters: {
+            yearFrom: 2012,
+            yearTo: 2024,
+            severities: [],
+            crashTypes: ['Hit Fixed Object'],
+            areas: [],
+            suburbs: []
+        }
+    },
+    'young-drivers': {
+        name: 'Young Driver Crashes (Under 26)',
+        description: 'Crashes involving casualties aged 0-25',
+        filters: {
+            yearFrom: 2012,
+            yearTo: 2024,
+            severities: [],
+            crashTypes: [],
+            areas: [],
+            suburbs: [],
+            ageGroups: ['0-17', '18-25']
+        }
+    }
+};
+
+function applyPreset(presetKey) {
+    if (!presetKey) {
+        // Reset description and return
+        document.getElementById('presetDescription').textContent = '';
+        return;
+    }
+
+    const preset = FILTER_PRESETS[presetKey];
+    if (!preset) return;
+
+    // Show description
+    const descEl = document.getElementById('presetDescription');
+    if (descEl) {
+        descEl.textContent = preset.description;
+    }
+
+    // Clear all filters first
+    clearFilters();
+
+    // Wait for clearFilters to complete before applying preset
+    // clearFilters() calls applyFilters() with setTimeout, so we need to wait
+    setTimeout(() => {
+        // Apply preset filters
+        const filters = preset.filters;
+
+        // Debug logging
+        console.log('Applying preset:', preset.name);
+        console.log('Preset filters:', filters);
+
+        // Year range
+    if (filters.yearFrom !== undefined) {
+        if (yearRangeSlider) {
+            yearRangeSlider.set([filters.yearFrom, filters.yearTo]);
+        }
+    }
+
+    // Severities (checkbox dropdown)
+    if (filters.severities && filters.severities.length > 0) {
+        const severityMenu = document.getElementById('severityMenu');
+        if (severityMenu) {
+            const checkboxes = severityMenu.querySelectorAll('input[type="checkbox"]');
+            checkboxes.forEach(cb => {
+                cb.checked = filters.severities.includes(cb.value);
+            });
+            if (typeof updateCheckboxDropdownDisplay === 'function') {
+                updateCheckboxDropdownDisplay('severity');
+            }
+        }
+    }
+
+    // Crash types (checkbox dropdown)
+    if (filters.crashTypes && filters.crashTypes.length > 0) {
+        const crashTypeMenu = document.getElementById('crashTypeMenu');
+        if (crashTypeMenu) {
+            const checkboxes = crashTypeMenu.querySelectorAll('input[type="checkbox"]');
+            console.log('Setting crash types to:', filters.crashTypes);
+            console.log('Available crash type options:', Array.from(checkboxes).map(cb => cb.value));
+            checkboxes.forEach(cb => {
+                cb.checked = filters.crashTypes.includes(cb.value);
+            });
+            console.log('Checked crash types:', Array.from(checkboxes).filter(cb => cb.checked).map(cb => cb.value));
+            if (typeof updateCheckboxDropdownDisplay === 'function') {
+                updateCheckboxDropdownDisplay('crashType');
+            }
+        } else {
+            console.warn('crashTypeMenu not found');
+        }
+    }
+
+    // Day/Night
+    if (filters.dayNight) {
+        const dayNightSelect = document.getElementById('dayNight');
+        if (dayNightSelect) {
+            dayNightSelect.value = filters.dayNight;
+        }
+    }
+
+    // DUI
+    if (filters.duiInvolved) {
+        const duiSelect = document.getElementById('duiInvolved');
+        if (duiSelect) {
+            duiSelect.value = filters.duiInvolved;
+        }
+    }
+
+    // Weather
+    if (filters.weather) {
+        const weatherSelect = document.getElementById('weather');
+        if (weatherSelect) {
+            console.log('Setting weather to:', filters.weather);
+            console.log('Available weather options:', Array.from(weatherSelect.options).map(o => o.value));
+            weatherSelect.value = filters.weather;
+            console.log('Weather value after setting:', weatherSelect.value);
+        } else {
+            console.warn('weather select not found');
+        }
+    }
+
+    // Heavy Vehicle
+    if (filters.heavyVehicle) {
+        const hvSelect = document.getElementById('heavyVehicle');
+        if (hvSelect) {
+            console.log('Setting heavy vehicle to:', filters.heavyVehicle);
+            console.log('Available heavy vehicle options:', Array.from(hvSelect.options).map(o => o.value));
+            hvSelect.value = filters.heavyVehicle;
+            console.log('Heavy vehicle value after setting:', hvSelect.value);
+        } else {
+            console.warn('heavyVehicle select not found');
+        }
+    }
+
+    // Road Users (multi-select)
+    if (filters.roadUsers && filters.roadUsers.length > 0) {
+        const roadUserSelect = document.getElementById('roadUserType');
+        if (roadUserSelect) {
+            console.log('Setting road users to:', filters.roadUsers);
+            console.log('Available road user options:', Array.from(roadUserSelect.options).map(o => o.value));
+            Array.from(roadUserSelect.options).forEach(option => {
+                option.selected = filters.roadUsers.includes(option.value);
+            });
+            console.log('Selected road users:', Array.from(roadUserSelect.selectedOptions).map(o => o.value));
+        } else {
+            console.warn('roadUserType select not found');
+        }
+    }
+
+    // Age Groups (multi-select)
+    if (filters.ageGroups && filters.ageGroups.length > 0) {
+        const ageGroupSelect = document.getElementById('ageGroup');
+        if (ageGroupSelect) {
+            console.log('Setting age groups to:', filters.ageGroups);
+            console.log('Available age group options:', Array.from(ageGroupSelect.options).map(o => o.value));
+            Array.from(ageGroupSelect.options).forEach(option => {
+                option.selected = filters.ageGroups.includes(option.value);
+            });
+            console.log('Selected age groups:', Array.from(ageGroupSelect.selectedOptions).map(o => o.value));
+        } else {
+            console.warn('ageGroup select not found');
+        }
+    }
+
+    // Speed Zones (multi-select)
+    if (filters.speedZones && filters.speedZones.length > 0) {
+        const speedZoneSelect = document.getElementById('speedZoneFilter');
+        if (speedZoneSelect) {
+            Array.from(speedZoneSelect.options).forEach(option => {
+                option.selected = filters.speedZones.includes(option.value);
+            });
+        }
+    }
+
+    // Moisture Conditions (multi-select)
+    if (filters.moistureConds && filters.moistureConds.length > 0) {
+        const moistureSelect = document.getElementById('moistureCond');
+        if (moistureSelect) {
+            Array.from(moistureSelect.options).forEach(option => {
+                option.selected = filters.moistureConds.includes(option.value);
+            });
+        }
+    }
+
+        // Apply filters
+        applyFilters();
+
+        // Update active filters display to show applied filters
+        setTimeout(() => {
+            updateActiveFiltersDisplay();
+        }, 100);
+
+        // Show notification
+        showFilterNotification(`Applied preset: ${preset.name}`);
+    }, 500); // Wait 500ms for clearFilters to complete
+}
+
+function showFilterNotification(message) {
+    // Create a temporary toast notification
+    const toast = document.createElement('div');
+    toast.className = 'filter-toast';
+    toast.textContent = message;
+    document.body.appendChild(toast);
+
+    // Trigger animation
+    setTimeout(() => toast.classList.add('show'), 10);
+
+    // Remove after 3 seconds
+    setTimeout(() => {
+        toast.classList.remove('show');
+        setTimeout(() => toast.remove(), 300);
+    }, 3000);
+}
 
 // Heavy vehicle types definition
 const HEAVY_VEHICLE_TYPES = [
@@ -1429,6 +1957,11 @@ function applyFilters() {
 
             // Update URL with current filters
             encodeFiltersToURL();
+
+            // Reset filter change tracking and capture current state as baseline
+            lastAppliedFilterState = captureCurrentFilterState();
+            filtersChanged = false;
+            updateApplyButtonState();
         } catch (error) {
             console.error('Filter error:', error);
             alert('An error occurred while filtering. Please try again.');
@@ -1883,6 +2416,9 @@ function addMarkers(callback) {
 
         for (let i = processedCount; i < endIndex; i++) {
             const row = filteredData[i];
+
+            // Skip if row is undefined or null
+            if (!row) continue;
 
             // Use cached coordinates instead of converting each time
             const coords = row._coords;
@@ -2678,6 +3214,7 @@ function initYearRangeSlider() {
         currentYearRange = [parseInt(values[0]), parseInt(values[1])];
         document.getElementById('yearRangeDisplay').textContent =
             `${currentYearRange[0]} - ${currentYearRange[1]}`;
+        markFiltersChanged();
     });
 }
 
@@ -4235,6 +4772,14 @@ document.addEventListener('DOMContentLoaded', function() {
     setTimeout(() => {
         initMultiSelectEnhancements();
     }, 100);
+
+    // Initialize Apply Filters button state (disabled by default)
+    // Capture initial filter state as baseline after a short delay to ensure all elements are ready
+    setTimeout(() => {
+        lastAppliedFilterState = captureCurrentFilterState();
+        filtersChanged = false;
+        updateApplyButtonState();
+    }, 200);
 
     // Load filters from URL if present (after data loads)
     setTimeout(() => {
