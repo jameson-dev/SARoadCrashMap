@@ -75,6 +75,9 @@
         <div class="panel-header">
             <span>Explorer</span>
             <div class="flex-gap-small">
+                <button class="help-btn" onclick="openTutorial()" title="Open Tutorial">
+                    <span>?</span>
+                </button>
                 <button class="theme-toggle-btn" onclick="toggleTheme()" title="Toggle Light/Dark Mode">
                     <span id="themeIcon">☀️</span>
                 </button>
@@ -239,6 +242,24 @@
             </button>
         </div>
 
+        <!-- Sample Filter Presets -->
+        <div class="filter-group preset-selector-group">
+            <label class="filter-label">📋 Sample Filters</label>
+            <select id="filterPresets" onchange="applyPreset(this.value)" class="preset-select">
+                <option value="">-- Select an Example --</option>
+                <option value="fatal-recent">Fatal Crashes (2023-2024)</option>
+                <option value="motorcycle-night">Rider Crashes at Night</option>
+                <option value="dui-crashes">DUI-Related Crashes</option>
+                <option value="heavy-vehicle">Heavy Vehicle Crashes</option>
+                <option value="pedestrian">Pedestrian Casualties</option>
+                <option value="wet-weather">Wet Weather Crashes</option>
+                <option value="weekend">Weekend Crashes</option>
+                <option value="hit-object">Hit Fixed Object Crashes</option>
+                <option value="young-drivers">Young Driver Crashes (Under 26)</option>
+            </select>
+            <div class="preset-description" id="presetDescription"></div>
+        </div>
+
         <button class="apply-filters-btn" id="applyFilters" onclick="applyFilters()">Apply Filters</button>
 
         <button class="clear-filters-btn" onclick="clearFilters()">Clear Filters</button>
@@ -335,14 +356,14 @@
                 <div id="conditionsTab" class="tab-content active">
                     <div class="filter-group">
                         <label class="filter-label">Weather Condition</label>
-                        <select id="weather">
+                        <select id="weather" onchange="markFiltersChanged()">
                             <option value="all" selected>All Weather</option>
                         </select>
                     </div>
 
                     <div class="filter-group">
                         <label class="filter-label">Day/Night</label>
-                        <select id="dayNight">
+                        <select id="dayNight" onchange="markFiltersChanged()">
                             <option value="all" selected>All</option>
                             <option value="Day">Day</option>
                             <option value="Night">Night</option>
@@ -354,11 +375,11 @@
                         <div class="time-range-container">
                             <div class="time-range-field">
                                 <label class="time-range-label">From:</label>
-                                <input type="time" id="timeFrom">
+                                <input type="time" id="timeFrom" onchange="markFiltersChanged()">
                             </div>
                             <div class="time-range-field">
                                 <label class="time-range-label">To:</label>
-                                <input type="time" id="timeTo">
+                                <input type="time" id="timeTo" onchange="markFiltersChanged()">
                             </div>
                         </div>
                         <div class="help-text-small">Leave empty for all times</div>
@@ -369,11 +390,11 @@
                         <div class="time-range-container">
                             <div class="time-range-field">
                                 <label class="time-range-label">From:</label>
-                                <input type="date" id="dateFrom">
+                                <input type="date" id="dateFrom" onchange="markFiltersChanged()">
                             </div>
                             <div class="time-range-field">
                                 <label class="time-range-label">To:</label>
-                                <input type="date" id="dateTo">
+                                <input type="date" id="dateTo" onchange="markFiltersChanged()">
                             </div>
                         </div>
                         <div class="help-text-small">Leave empty to use year range only</div>
@@ -381,7 +402,7 @@
 
                     <div class="filter-group">
                         <label class="filter-label">DUI Involved</label>
-                        <select id="duiInvolved">
+                        <select id="duiInvolved" onchange="markFiltersChanged()">
                             <option value="all" selected>All</option>
                             <option value="Yes">Yes</option>
                             <option value="No">No</option>
@@ -390,7 +411,7 @@
 
                     <div class="filter-group">
                         <label class="filter-label">Road Surface</label>
-                        <select id="roadSurface" multiple size="4">
+                        <select id="roadSurface" multiple size="4" onchange="markFiltersChanged()">
                             <option value="all" selected>All Surfaces</option>
                         </select>
                         <div class="multi-select-hint">Hold Ctrl (or Cmd) to select multiple</div>
@@ -398,7 +419,7 @@
 
                     <div class="filter-group">
                         <label class="filter-label">Moisture Condition</label>
-                        <select id="moistureCond" multiple size="4">
+                        <select id="moistureCond" multiple size="4" onchange="markFiltersChanged()">
                             <option value="all" selected>All Conditions</option>
                         </select>
                         <div class="multi-select-hint">Hold Ctrl (or Cmd) to select multiple</div>
@@ -406,7 +427,7 @@
 
                     <div class="filter-group">
                         <label class="filter-label">Drugs Involved</label>
-                        <select id="drugsInvolved">
+                        <select id="drugsInvolved" onchange="markFiltersChanged()">
                             <option value="all" selected>All</option>
                             <option value="Yes">Yes</option>
                             <option value="No">No</option>
@@ -415,7 +436,7 @@
 
                     <div class="filter-group">
                         <label class="filter-label">Speed Zone</label>
-                        <select id="speedZoneFilter" multiple size="4">
+                        <select id="speedZoneFilter" multiple size="4" onchange="markFiltersChanged()">
                             <option value="all" selected>All Speed Zones</option>
                         </select>
                         <div class="help-text-small">Speed limit at crash location (km/h)</div>
@@ -423,7 +444,7 @@
 
                     <div class="filter-group">
                         <label class="filter-label">Month of Year</label>
-                        <select id="monthFilter" multiple size="4">
+                        <select id="monthFilter" multiple size="4" onchange="markFiltersChanged()">
                             <option value="all" selected>All Months</option>
                             <option value="1">January</option>
                             <option value="2">February</option>
@@ -445,7 +466,7 @@
                 <div id="casualtiesTab" class="tab-content">
                     <div class="filter-group">
                         <label class="filter-label">Road User Type</label>
-                        <select id="roadUserType" multiple size="4">
+                        <select id="roadUserType" multiple size="4" onchange="markFiltersChanged()">
                             <option value="all" selected>All Road Users</option>
                         </select>
                         <div class="multi-select-hint">Hold Ctrl (or Cmd) to select multiple</div>
@@ -453,7 +474,7 @@
 
                     <div class="filter-group">
                         <label class="filter-label">Age Group</label>
-                        <select id="ageGroup" multiple size="4">
+                        <select id="ageGroup" multiple size="4" onchange="markFiltersChanged()">
                             <option value="all" selected>All Ages</option>
                             <option value="0-17">0-17 (Youth)</option>
                             <option value="18-25">18-25 (Young Adult)</option>
@@ -467,7 +488,7 @@
 
                     <div class="filter-group">
                         <label class="filter-label">Casualty Sex</label>
-                        <select id="casualtySex" multiple size="3">
+                        <select id="casualtySex" multiple size="3" onchange="markFiltersChanged()">
                             <option value="all" selected>All</option>
                             <option value="Male">Male</option>
                             <option value="Female">Female</option>
@@ -477,7 +498,7 @@
 
                     <div class="filter-group">
                         <label class="filter-label">Injury Extent</label>
-                        <select id="injuryExtent" multiple size="4">
+                        <select id="injuryExtent" multiple size="4" onchange="markFiltersChanged()">
                             <option value="all" selected>All Injuries</option>
                             <option value="Fatal">Fatal</option>
                             <option value="Serious injury">Serious Injury</option>
@@ -489,7 +510,7 @@
 
                     <div class="filter-group">
                         <label class="filter-label">Seat Belt Usage</label>
-                        <select id="seatBelt" multiple size="3">
+                        <select id="seatBelt" multiple size="3" onchange="markFiltersChanged()">
                             <option value="all" selected>All</option>
                             <option value="Yes">Worn</option>
                             <option value="No">Not Worn</option>
@@ -499,7 +520,7 @@
 
                     <div class="filter-group">
                         <label class="filter-label">Helmet Usage</label>
-                        <select id="helmet" multiple size="3">
+                        <select id="helmet" multiple size="3" onchange="markFiltersChanged()">
                             <option value="all" selected>All</option>
                             <option value="Worn">Worn</option>
                             <option value="Not Worn">Not Worn</option>
@@ -512,7 +533,7 @@
                 <div id="vehiclesTab" class="tab-content">
                     <div class="filter-group">
                         <label class="filter-label">Heavy Vehicle Involved</label>
-                        <select id="heavyVehicle">
+                        <select id="heavyVehicle" onchange="markFiltersChanged()">
                             <option value="all" selected>All Vehicles</option>
                             <option value="yes">Heavy Vehicles Only</option>
                             <option value="no">No Heavy Vehicles</option>
@@ -524,7 +545,7 @@
 
                     <div class="filter-group">
                         <label class="filter-label">Involved Entities</label>
-                        <select id="vehicleType" multiple size="4">
+                        <select id="vehicleType" multiple size="4" onchange="markFiltersChanged()">
                             <option value="all" selected>All Entities</option>
                         </select>
                         <div class="multi-select-hint">Hold Ctrl (or Cmd) to select multiple</div>
@@ -532,7 +553,7 @@
 
                     <div class="filter-group">
                         <label class="filter-label">Vehicle Year</label>
-                        <select id="vehicleYear" multiple size="4">
+                        <select id="vehicleYear" multiple size="4" onchange="markFiltersChanged()">
                             <option value="all" selected>All Years</option>
                             <option value="pre-2000">Before 2000</option>
                             <option value="2000-2010">2000-2010</option>
@@ -544,7 +565,7 @@
 
                     <div class="filter-group">
                         <label class="filter-label">Number of Occupants</label>
-                        <select id="occupants" multiple size="5">
+                        <select id="occupants" multiple size="5" onchange="markFiltersChanged()">
                             <option value="all" selected>All</option>
                             <option value="1">1 Occupant</option>
                             <option value="2">2 Occupants</option>
@@ -557,7 +578,7 @@
 
                     <div class="filter-group">
                         <label class="filter-label">Towing</label>
-                        <select id="towing">
+                        <select id="towing" onchange="markFiltersChanged()">
                             <option value="all" selected>All</option>
                             <option value="Yes">Towing</option>
                             <option value="No">Not Towing</option>
@@ -566,7 +587,7 @@
 
                     <div class="filter-group">
                         <label class="filter-label">Rollover Involved</label>
-                        <select id="rollover">
+                        <select id="rollover" onchange="markFiltersChanged()">
                             <option value="all" selected>All</option>
                             <option value="Yes">Yes</option>
                             <option value="No">No</option>
@@ -575,7 +596,7 @@
 
                     <div class="filter-group">
                         <label class="filter-label">Fire Involved</label>
-                        <select id="fire">
+                        <select id="fire" onchange="markFiltersChanged()">
                             <option value="all" selected>All</option>
                             <option value="Yes">Yes</option>
                             <option value="No">No</option>
@@ -584,7 +605,7 @@
 
                     <div class="filter-group">
                         <label class="filter-label">License Type</label>
-                        <select id="licenseType" multiple size="4">
+                        <select id="licenseType" multiple size="4" onchange="markFiltersChanged()">
                             <option value="all" selected>All License Types</option>
                         </select>
                         <div class="multi-select-hint">Hold Ctrl (or Cmd) to select multiple</div>
@@ -592,7 +613,7 @@
 
                     <div class="filter-group">
                         <label class="filter-label">Vehicle Reg State</label>
-                        <select id="vehRegState" multiple size="4">
+                        <select id="vehRegState" multiple size="4" onchange="markFiltersChanged()">
                             <option value="all" selected>All States</option>
                         </select>
                         <div class="multi-select-hint">Hold Ctrl (or Cmd) to select multiple</div>
@@ -600,7 +621,7 @@
 
                     <div class="filter-group">
                         <label class="filter-label">Direction of Travel</label>
-                        <select id="directionTravel" multiple size="4">
+                        <select id="directionTravel" multiple size="4" onchange="markFiltersChanged()">
                             <option value="all" selected>All Directions</option>
                         </select>
                         <div class="multi-select-hint">Hold Ctrl (or Cmd) to select multiple</div>
@@ -608,7 +629,7 @@
 
                     <div class="filter-group">
                         <label class="filter-label">Unit Movement</label>
-                        <select id="unitMovement" multiple size="4">
+                        <select id="unitMovement" multiple size="4" onchange="markFiltersChanged()">
                             <option value="all" selected>All Movements</option>
                         </select>
                         <div class="multi-select-hint">Hold Ctrl (or Cmd) to select multiple</div>
@@ -1174,6 +1195,281 @@
         </div>
     </div>
 
+    <!-- Tutorial Modal -->
+    <div id="tutorialModal" class="modal tutorial-modal">
+        <div class="modal-content tutorial-modal-content">
+            <div class="modal-header">
+                <h2>CrashMap Tutorial</h2>
+                <button class="modal-close" onclick="closeTutorial()">&times;</button>
+            </div>
+
+            <div class="modal-tabs">
+                <button class="tab-btn active" onclick="switchTutorialTab('getting-started')">Getting Started</button>
+                <button class="tab-btn" onclick="switchTutorialTab('filtering')">Filtering Data</button>
+                <button class="tab-btn" onclick="switchTutorialTab('analytics')">Analytics</button>
+                <button class="tab-btn" onclick="switchTutorialTab('tools')">Export & Tools</button>
+                <button class="tab-btn" onclick="switchTutorialTab('tips')">Tips & Tricks</button>
+            </div>
+
+            <div class="modal-body tutorial-body">
+                <!-- Getting Started Tab -->
+                <div id="gettingStartedTab" class="tab-content active">
+                    <div class="tutorial-section">
+                        <h3>🗺️ Understanding the Map</h3>
+                        <div class="tutorial-step">
+                            <strong>Step 1: Navigate the Map</strong>
+                            <ul>
+                                <li><strong>Zoom:</strong> Use mouse wheel or +/- buttons to zoom in and out</li>
+                                <li><strong>Pan:</strong> Click and drag to move around the map</li>
+                                <li><strong>Markers:</strong> Click any marker cluster or individual crash point to see details</li>
+                            </ul>
+                        </div>
+
+                        <div class="tutorial-step">
+                            <strong>Step 2: Change Base Maps</strong>
+                            <ul>
+                                <li>Use the <strong>Base Map</strong> dropdown in the control panel</li>
+                                <li>Choose from 6 styles: Dark, Light, Voyager, Street, Satellite, or Terrain</li>
+                                <li>Different maps work better for different analysis tasks</li>
+                            </ul>
+                        </div>
+
+                        <div class="tutorial-step">
+                            <strong>Step 3: Toggle Visualization Layers</strong>
+                            <ul>
+                                <li><strong>Markers:</strong> Individual crash points with clustering (default ON)</li>
+                                <li><strong>Density:</strong> Heat map showing crash concentration hotspots</li>
+                                <li><strong>Choropleth:</strong> Color-coded regions by crash count (LGA or Suburb)</li>
+                            </ul>
+                            <p class="help-text">💡 You can have multiple layers active at once!</p>
+                        </div>
+
+                        <div class="tutorial-step">
+                            <strong>Step 4: Marker Coloring Options</strong>
+                            <ul>
+                                <li><strong>By Severity:</strong> Red (Fatal), Orange (Serious), Yellow (Minor), Gray (PDO)</li>
+                                <li><strong>By Crash Type:</strong> Different colors for Hit Object, Rear-end, Right Turn, etc.</li>
+                                <li><strong>By Day/Night:</strong> Yellow (Day) vs Blue (Night)</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Filtering Data Tab -->
+                <div id="filteringTab" class="tab-content">
+                    <div class="tutorial-section">
+                        <h3>🔍 Filtering Your Data</h3>
+
+                        <div class="tutorial-step">
+                            <strong>Basic Filters (Always Visible)</strong>
+                            <ul>
+                                <li><strong>Year Range:</strong> Drag the slider to select years (2012-2024)</li>
+                                <li><strong>Severity:</strong> Filter by Fatal, Serious Injury, Minor Injury, or Property Damage Only</li>
+                                <li><strong>Crash Type:</strong> Select specific crash types (e.g., Hit Object, Rear-end)</li>
+                                <li><strong>Area (LGA):</strong> Filter by local government area</li>
+                                <li><strong>Suburb:</strong> Filter by suburb name</li>
+                            </ul>
+                        </div>
+
+                        <div class="tutorial-step">
+                            <strong>Spatial Filters</strong>
+                            <ul>
+                                <li><strong>🔍 Search:</strong> Enter a suburb, street, or landmark</li>
+                                <li>Select a radius (0.5 km to 50 km) to filter crashes within that area</li>
+                                <li><strong>✏️ Draw Area:</strong> Click "Draw Rectangle" or "Draw Polygon" to draw a custom area on the map</li>
+                                <li>Only crashes within your drawn area will be shown</li>
+                                <li>Click "Clear Drawn Area" to remove the spatial filter</li>
+                            </ul>
+                        </div>
+
+                        <div class="tutorial-step">
+                            <strong>Advanced Filters</strong>
+                            <p>Click <strong>"Advanced Filters"</strong> to access 3 detailed filter tabs:</p>
+                            <ul>
+                                <li><strong>Crash Conditions:</strong> Weather, Day/Night, Time, Date, DUI, Road Surface, Speed Zone, Month</li>
+                                <li><strong>Casualties:</strong> Road User Type, Age Group, Sex, Injury Extent, Seat Belt, Helmet</li>
+                                <li><strong>Vehicles & Units:</strong> Vehicle Type, Heavy Vehicles, Towing, Rollover, Fire, License Type</li>
+                            </ul>
+                            <p class="help-text">💡 Multiple filters work together using AND logic (all must match)</p>
+                        </div>
+
+                        <div class="tutorial-step">
+                            <strong>Active Filters Badge</strong>
+                            <ul>
+                                <li>The floating badge shows how many filters are active</li>
+                                <li>Hover over it to see a summary of active filters</li>
+                                <li>Click individual chips to quickly remove specific filters</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Analytics Tab -->
+                <div id="analyticsTab" class="tab-content">
+                    <div class="tutorial-section">
+                        <h3>📊 Using Analytics</h3>
+
+                        <div class="tutorial-step">
+                            <strong>Opening the Analytics Panel</strong>
+                            <ul>
+                                <li>Click the <strong>"Analytics"</strong> button at the bottom-left of the map</li>
+                                <li>The panel shows 13+ interactive charts based on your filtered data</li>
+                                <li>Click the expand icon to view charts in fullscreen mode</li>
+                            </ul>
+                        </div>
+
+                        <div class="tutorial-step">
+                            <strong>Available Charts</strong>
+                            <ul>
+                                <li><strong>Crashes Over Time:</strong> Toggle between yearly and monthly views</li>
+                                <li><strong>By Day of Week:</strong> See which days have the most crashes</li>
+                                <li><strong>By Hour of Day:</strong> Identify peak crash times</li>
+                                <li><strong>Severity Distribution:</strong> Pie chart showing crash severity breakdown</li>
+                                <li><strong>Top Crash Types:</strong> Most common crash types in your filtered data</li>
+                                <li><strong>Top Areas/LGAs:</strong> Regions with highest crash counts</li>
+                                <li><strong>Weather Conditions:</strong> Crash distribution by weather</li>
+                                <li><strong>Speed Zone Analysis:</strong> Crashes by speed limit</li>
+                                <li><strong>Casualty Demographics:</strong> Age, sex, and road user type distributions</li>
+                                <li><strong>Day × Hour Heatmap:</strong> When crashes happen most frequently</li>
+                                <li><strong>And more...</strong></li>
+                            </ul>
+                        </div>
+
+                        <div class="tutorial-step">
+                            <strong>Interactive Charts</strong>
+                            <ul>
+                                <li>Click on chart elements (bars, pie slices) to filter the map</li>
+                                <li>For example, click "2020" in the yearly chart to show only 2020 crashes</li>
+                                <li>A banner will appear showing the active filter - click the × to clear it</li>
+                            </ul>
+                            <p class="help-text">💡 Charts update in real-time as you apply filters!</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Export & Tools Tab -->
+                <div id="toolsTab" class="tab-content">
+                    <div class="tutorial-section">
+                        <h3>🛠️ Export & Data Tools</h3>
+
+                        <div class="tutorial-step">
+                            <strong>Viewing Statistics</strong>
+                            <ul>
+                                <li>The statistics panel (top-left) shows real-time counts:</li>
+                                <li><strong>Total Crashes</strong> in your filtered dataset</li>
+                                <li><strong>Fatalities, Serious Injuries, Minor Injuries</strong> - color-coded by severity</li>
+                                <li>These update automatically as you apply filters</li>
+                            </ul>
+                        </div>
+
+                        <div class="tutorial-step">
+                            <strong>Data Table</strong>
+                            <ul>
+                                <li>Click <strong>"Show Table"</strong> to see a detailed table of filtered crashes</li>
+                                <li>Click column headers to sort (e.g., by date, severity, area)</li>
+                                <li>Use pagination controls to browse through large result sets</li>
+                                <li>Each row shows crash details: date, time, location, severity, type, etc.</li>
+                            </ul>
+                        </div>
+
+                        <div class="tutorial-step">
+                            <strong>Export to CSV</strong>
+                            <ul>
+                                <li>Click the <strong>"Export CSV"</strong> button in the data table panel</li>
+                                <li>Downloads your current filtered dataset as a CSV file</li>
+                                <li>Perfect for further analysis in Excel, R, Python, or other tools</li>
+                                <li>Filename includes date range and filter count for easy reference</li>
+                            </ul>
+                        </div>
+
+                        <div class="tutorial-step">
+                            <strong>Clearing Filters</strong>
+                            <ul>
+                                <li>Click <strong>"Clear All Filters"</strong> to reset everything to defaults</li>
+                                <li>Or use the active filters badge to remove specific filters one-by-one</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tips & Tricks Tab -->
+                <div id="tipsTab" class="tab-content">
+                    <div class="tutorial-section">
+                        <h3>💡 Tips & Tricks</h3>
+
+                        <div class="tutorial-step">
+                            <strong>Performance Tips</strong>
+                            <ul>
+                                <li>Filter data before turning on all layers for better performance</li>
+                                <li>Density and Choropleth layers work best with filtered data</li>
+                                <li>On slower devices, use the density layer instead of showing all 190,000+ markers</li>
+                                <li>Zoom in closer to see individual crash markers more clearly</li>
+                            </ul>
+                        </div>
+
+                        <div class="tutorial-step">
+                            <strong>Analysis Workflows</strong>
+                            <ul>
+                                <li><strong>Temporal Analysis:</strong> Use year slider + monthly charts to identify trends</li>
+                                <li><strong>Spatial Analysis:</strong> Use location search or draw area + choropleth layer</li>
+                                <li><strong>Comparative Analysis:</strong> Apply filters, export CSV, repeat with different filters</li>
+                                <li><strong>Hot Spot Identification:</strong> Enable density layer and look for red/orange areas</li>
+                            </ul>
+                        </div>
+
+                        <div class="tutorial-step">
+                            <strong>Understanding the Data</strong>
+                            <ul>
+                                <li>Click <strong>"Data Methodology"</strong> in the footer to understand data processing</li>
+                                <li>Review the <strong>"Disclaimer"</strong> for important data quality notes</li>
+                                <li>Geographic coordinates are approximate - suitable for visualization, not precise location</li>
+                                <li>Some crashes may have incomplete data fields</li>
+                            </ul>
+                        </div>
+
+                        <div class="tutorial-step">
+                            <strong>Keyboard Shortcuts</strong>
+                            <ul>
+                                <li><strong>Escape:</strong> Close any open modal or fullscreen panel</li>
+                                <li><strong>Ctrl/Cmd + Click:</strong> Select multiple items in multi-select dropdowns</li>
+                            </ul>
+                        </div>
+
+                        <div class="tutorial-step">
+                            <strong>Theme & Accessibility</strong>
+                            <ul>
+                                <li>Toggle between <strong>Light</strong> and <strong>Dark</strong> themes using the ☀️/🌙 button</li>
+                                <li>Your preference is saved in your browser</li>
+                                <li>Dark theme is easier on the eyes for extended analysis sessions</li>
+                            </ul>
+                        </div>
+
+                        <div class="tutorial-step">
+                            <strong>Offline Access</strong>
+                            <ul>
+                                <li>This is a Progressive Web App (PWA) - works offline after first load</li>
+                                <li>Data files are cached for faster loading</li>
+                                <li>Perfect for field work or areas with poor connectivity</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal-footer tutorial-footer">
+                <label class="dont-show-again">
+                    <input type="checkbox" id="dontShowTutorial" onchange="updateTutorialPreference()">
+                    Don't show this again
+                </label>
+                <div class="tutorial-nav-buttons">
+                    <button class="btn-secondary" onclick="previousTutorialTab()">Previous</button>
+                    <button class="btn-secondary" onclick="nextTutorialTab()">Next</button>
+                    <button class="btn-primary" onclick="closeTutorial()">Get Started</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Footer -->
     <footer class="page-footer">
         <div class="footer-links">
@@ -1292,6 +1588,12 @@
         function updateCheckboxDropdownDisplay(dropdownId) {
             const menu = document.getElementById(`${dropdownId}Menu`);
             const display = document.getElementById(`${dropdownId}Display`);
+
+            // Add null checks to prevent errors
+            if (!menu || !display) {
+                return;
+            }
+
             const checkboxes = menu.querySelectorAll('input[type="checkbox"]:checked');
 
             if (checkboxes.length === 0 || checkboxes.length === menu.querySelectorAll('input[type="checkbox"]').length) {
@@ -1306,6 +1608,11 @@
                 display.textContent = checkboxes[0].nextElementSibling.textContent;
             } else {
                 display.textContent = `${checkboxes.length} selected`;
+            }
+
+            // Mark filters as changed
+            if (typeof markFiltersChanged === 'function') {
+                markFiltersChanged();
             }
         }
 
