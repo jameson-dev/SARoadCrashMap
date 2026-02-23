@@ -13,6 +13,8 @@ export const YEAR_RANGE = {
 // Data table configuration
 export const DATA_TABLE = {
     PAGE_SIZE: 25,
+    PAGE_SIZE_OPTIONS: [10, 25, 50, 100, 250, 500],
+    DEFAULT_PAGE_SIZE: 25,
     COLUMNS: [
         { key: 'Year', label: 'Year', sortable: true },
         { key: 'Crash Date Time', label: 'Date/Time', sortable: true },
