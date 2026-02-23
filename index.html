@@ -647,7 +647,7 @@
     <div class="loading" id="loading">
         <div class="loading-content">
             <div class="loading-spinner"></div>
-            <div>Loading crash data...</div>
+            <div class="loading-message" id="loadingMessage">Loading crash data...</div>
         </div>
     </div>
 
@@ -681,8 +681,11 @@
     <!-- Service Worker Registration -->
     <script src="sw-register.js"></script>
 
-    <!-- Main Application -->
-    <script src="app.js"></script>
+    <!-- Main Application (Modular ES6) -->
+    <script type="module" src="src/js/main.js"></script>
+
+    <!-- Legacy app.js commented out - remove after testing -->
+    <!-- <script src="app.js"></script> -->
 
     <!-- Analytics Panel -->
     <div class="analytics-panel collapsed" id="analyticsPanel">

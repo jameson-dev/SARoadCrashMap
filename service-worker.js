@@ -1,7 +1,7 @@
 // Service Worker for SA Crash Data Map
 // Implements caching strategies for offline support and performance
 
-const VERSION = '1.0.49';
+const VERSION = '1.0.51';
 const CACHE_NAME = `crash-map-static-v${VERSION}`;
 const DATA_CACHE_NAME = `crash-map-data-v${VERSION}`;
 const RUNTIME_CACHE_NAME = `crash-map-runtime-v${VERSION}`;
@@ -10,12 +10,21 @@ const RUNTIME_CACHE_NAME = `crash-map-runtime-v${VERSION}`;
 const STATIC_ASSETS = [
     './',
     './index.html',
-    './app.js',
     './styles.css',
     './manifest.json',
     './saroadcrashmap-icon.svg',
     './saroadcrashmap-logo.svg',
-    './LICENSE'
+    './LICENSE',
+    // Modularized JavaScript files
+    './src/js/main.js',
+    './src/js/analytics.js',
+    './src/js/config.js',
+    './src/js/data-loader.js',
+    './src/js/filters.js',
+    './src/js/map-renderer.js',
+    './src/js/state.js',
+    './src/js/ui.js',
+    './src/js/utils.js'
 ];
 
 // CDN resources to cache
@@ -69,25 +78,28 @@ self.addEventListener('activate', event => {
     console.log('[Service Worker] Activating version:', VERSION);
 
     event.waitUntil(
-        caches.keys().then(cacheNames => {
-            return Promise.all(
-                cacheNames
-                    .filter(cacheName => {
-                        // Delete old caches
-                        return cacheName.startsWith('crash-map-') &&
-                               cacheName !== CACHE_NAME &&
-                               cacheName !== DATA_CACHE_NAME &&
-                               cacheName !== RUNTIME_CACHE_NAME;
-                    })
-                    .map(cacheName => {
-                        console.log('[Service Worker] Deleting old cache:', cacheName);
-                        return caches.delete(cacheName);
-                    })
-            );
-        }).then(() => {
-            console.log('[Service Worker] Activation complete');
+        Promise.all([
+            // Clean up old caches
+            caches.keys().then(cacheNames => {
+                return Promise.all(
+                    cacheNames
+                        .filter(cacheName => {
+                            // Delete old caches
+                            return cacheName.startsWith('crash-map-') &&
+                                   cacheName !== CACHE_NAME &&
+                                   cacheName !== DATA_CACHE_NAME &&
+                                   cacheName !== RUNTIME_CACHE_NAME;
+                        })
+                        .map(cacheName => {
+                            console.log('[Service Worker] Deleting old cache:', cacheName);
+                            return caches.delete(cacheName);
+                        })
+                );
+            }),
             // Take control of all pages immediately
-            return self.clients.claim();
+            self.clients.claim()
+        ]).then(() => {
+            console.log('[Service Worker] Activation complete');
         })
     );
 });
