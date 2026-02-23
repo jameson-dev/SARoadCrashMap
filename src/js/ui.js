@@ -9,6 +9,96 @@ import { escapeHtml, escapeCSV } from './utils.js';
 import { markFiltersChanged, getFilterValues } from './filters.js';
 
 // ============================================================================
+// UTILITY FUNCTIONS
+// ============================================================================
+
+/**
+ * Debounce utility function
+ * Delays function execution until after a specified wait time has elapsed
+ * @param {Function} func - Function to debounce
+ * @param {number} wait - Wait time in milliseconds
+ * @returns {Function} Debounced function
+ */
+function debounce(func, wait) {
+    let timeout;
+    return function executedFunction(...args) {
+        const later = () => {
+            clearTimeout(timeout);
+            func(...args);
+        };
+        clearTimeout(timeout);
+        timeout = setTimeout(later, wait);
+    };
+}
+
+/**
+ * Show loading overlay on data table
+ */
+function showTableLoading() {
+    const overlay = document.getElementById('dtLoadingOverlay');
+    if (overlay) {
+        overlay.style.display = 'flex';
+    }
+}
+
+/**
+ * Hide loading overlay on data table
+ */
+function hideTableLoading() {
+    const overlay = document.getElementById('dtLoadingOverlay');
+    if (overlay) {
+        overlay.style.display = 'none';
+    }
+}
+
+/**
+ * Show a notification message to the user
+ * @param {string} message - Notification message
+ * @param {string} type - Type of notification ('info', 'warning', 'error', 'success')
+ */
+function showNotification(message, type = 'info') {
+    // Create notification element
+    const notification = document.createElement('div');
+    notification.className = `user-notification user-notification-${type}`;
+    notification.textContent = message;
+    notification.style.cssText = `
+        position: fixed;
+        top: 80px;
+        right: 20px;
+        padding: 12px 20px;
+        border-radius: 8px;
+        background: var(--bg-secondary);
+        border: 1px solid var(--border);
+        box-shadow: var(--shadow-lg);
+        z-index: 10002;
+        font-size: 14px;
+        max-width: 350px;
+        animation: slideInFromRight 0.3s ease-out;
+    `;
+
+    // Add type-specific styling
+    if (type === 'warning') {
+        notification.style.borderLeft = '4px solid #ff9800';
+    } else if (type === 'error') {
+        notification.style.borderLeft = '4px solid #f44336';
+    } else if (type === 'success') {
+        notification.style.borderLeft = '4px solid #4caf50';
+    }
+
+    document.body.appendChild(notification);
+
+    // Auto-remove after 5 seconds
+    setTimeout(() => {
+        notification.style.animation = 'slideOutToRight 0.3s ease-out';
+        setTimeout(() => {
+            if (notification.parentNode) {
+                document.body.removeChild(notification);
+            }
+        }, 300);
+    }, 5000);
+}
+
+// ============================================================================
 // DISCLAIMER & FIRST VISIT
 // ============================================================================
 
@@ -261,16 +351,23 @@ export function toggleDataTable() {
 
     if (panel.style.display === 'none' || panel.style.display === '') {
         panel.style.display = 'flex';
-        renderDataTable();
-        // Restore maximized state if it was saved
-        if (uiState.dtMaximized) {
-            panel.classList.add('dt-maximized');
-            const btn = document.getElementById('dtMaximizeBtn');
-            if (btn) {
-                btn.innerHTML = '&#9635;'; // Minimize icon
-                btn.title = 'Minimize table';
+        showTableLoading();
+
+        // Use setTimeout to allow loading indicator to display
+        setTimeout(() => {
+            renderDataTable();
+            hideTableLoading();
+
+            // Restore maximized state if it was saved
+            if (uiState.dtMaximized) {
+                panel.classList.add('dt-maximized');
+                const btn = document.getElementById('dtMaximizeBtn');
+                if (btn) {
+                    btn.innerHTML = '&#9635;'; // Minimize icon
+                    btn.title = 'Minimize table';
+                }
             }
-        }
+        }, 50);
     } else {
         panel.style.display = 'none';
     }
@@ -378,15 +475,26 @@ export function handlePageJump(event) {
 }
 
 /**
- * Search data table
+ * Internal function to perform the actual search and render
  * @param {string} searchTerm - Search term
  */
-export function searchDataTable(searchTerm) {
+function performSearch(searchTerm) {
     updateUiState({
         dtSearchTerm: searchTerm.toLowerCase(),
         dtCurrentPage: 0  // Reset to first page
     });
     renderDataTable();
+}
+
+// Create debounced version (300ms delay)
+const debouncedSearch = debounce(performSearch, 300);
+
+/**
+ * Search data table (debounced)
+ * @param {string} searchTerm - Search term
+ */
+export function searchDataTable(searchTerm) {
+    debouncedSearch(searchTerm);
 }
 
 /**
@@ -683,6 +791,10 @@ export function saveTablePreferences() {
         }));
     } catch (e) {
         console.warn('Failed to save table preferences:', e);
+        if (e.name === 'QuotaExceededError') {
+            // Show user-friendly notification for storage quota errors
+            showNotification('Unable to save table preferences. Browser storage is full.', 'warning');
+        }
     }
 }
 
@@ -765,6 +877,15 @@ export function initTableKeyboardNav() {
             const searchInput = document.getElementById('dtSearch');
             if (searchInput) searchInput.focus();
         }
+
+        // Enter or Space to activate focused table row
+        if (e.key === 'Enter' || e.key === ' ') {
+            const focusedRow = document.activeElement;
+            if (focusedRow && focusedRow.classList.contains('dt-row-clickable')) {
+                e.preventDefault();
+                focusedRow.click();
+            }
+        }
     });
 }
 
@@ -834,8 +955,9 @@ export function exportFilteredData(exportAll = true) {
         return;
     }
 
-    // Determine which data to export
-    let dataToExport;
+    try {
+        // Determine which data to export
+        let dataToExport;
     if (exportAll) {
         dataToExport = dataState.filteredData;
     } else {
@@ -995,9 +1117,13 @@ export function exportFilteredData(exportAll = true) {
     link.setAttribute('download', `SA_Crash_Data_Export_${timestamp}.csv`);
     link.style.visibility = 'hidden';
 
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    } catch (e) {
+        console.error('Failed to export data:', e);
+        showNotification('Failed to export data. Please try again or reduce the dataset size.', 'error');
+    }
 }
 
 // ============================================================================
