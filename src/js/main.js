@@ -90,6 +90,16 @@ async function setupGlobalHandlers() {
     window.clearAllOptions = ui.clearAllOptions;
     window.removeChip = ui.removeChip;
     window.handleLocationKeydown = ui.handleLocationKeydown;
+    // New data table functions
+    window.changePageSize = ui.changePageSize;
+    window.handlePageJump = ui.handlePageJump;
+    window.searchDataTable = ui.searchDataTable;
+    window.toggleColumnPicker = ui.toggleColumnPicker;
+    window.toggleColumnVisibility = ui.toggleColumnVisibility;
+    window.showCrashDetails = ui.showCrashDetails;
+    window.highlightMarkerFromTable = ui.highlightMarkerFromTable;
+    window.unhighlightMarkerFromTable = ui.unhighlightMarkerFromTable;
+    window.toggleDataTableMaximize = ui.toggleDataTableMaximize;
 
     const filters = await import('./filters.js');
     window.applyFilters = filters.applyFilters;

@@ -60,7 +60,23 @@ export const uiState = {
     currentTutorialTab: 'getting-started',
     dtCurrentPage: 0,
     dtSortField: 'Year',
-    dtSortAsc: false
+    dtSortAsc: false,
+    dtPageSize: 25,
+    dtSearchTerm: '',
+    dtVisibleColumns: {
+        'Year': true,
+        'Crash Date Time': true,
+        'Suburb': true,
+        'LGA': true,
+        'CSEF Severity': true,
+        'Crash Type': true,
+        'Area Speed': true,
+        'Total Fats': true,
+        'Total SI': true,
+        'Total MI': true
+    },
+    dtHoveredRow: null,
+    dtMaximized: false
 };
 
 // Cache state

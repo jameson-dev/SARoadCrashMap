@@ -262,9 +262,50 @@ export function toggleDataTable() {
     if (panel.style.display === 'none' || panel.style.display === '') {
         panel.style.display = 'flex';
         renderDataTable();
+        // Restore maximized state if it was saved
+        if (uiState.dtMaximized) {
+            panel.classList.add('dt-maximized');
+            const btn = document.getElementById('dtMaximizeBtn');
+            if (btn) {
+                btn.innerHTML = '&#9635;'; // Minimize icon
+                btn.title = 'Minimize table';
+            }
+        }
     } else {
         panel.style.display = 'none';
     }
+}
+
+/**
+ * Toggle data table maximize/minimize
+ */
+export function toggleDataTableMaximize() {
+    const panel = document.getElementById('dataTablePanel');
+    const btn = document.getElementById('dtMaximizeBtn');
+    if (!panel || !btn) return;
+
+    const isMaximized = !uiState.dtMaximized;
+    updateUiState({ dtMaximized: isMaximized });
+
+    if (isMaximized) {
+        panel.classList.add('dt-maximized');
+        btn.innerHTML = '&#9635;'; // Minimize icon
+        btn.title = 'Minimize table';
+        btn.setAttribute('aria-label', 'Minimize table');
+    } else {
+        panel.classList.remove('dt-maximized');
+        btn.innerHTML = '&#9744;'; // Maximize icon
+        btn.title = 'Maximize table';
+        btn.setAttribute('aria-label', 'Maximize table');
+    }
+
+    // Re-initialize column resizing after maximize state change
+    setTimeout(() => {
+        initColumnResizing();
+    }, 100);
+
+    // Save preference
+    saveTablePreferences();
 }
 
 /**
@@ -287,10 +328,178 @@ export function dtSort(field) {
  */
 export function dtChangePage(delta) {
     const sorted = getDtSorted();
-    const maxPage = Math.max(0, Math.ceil(sorted.length / DATA_TABLE.PAGE_SIZE) - 1);
+    const pageSize = uiState.dtPageSize;
+    const maxPage = Math.max(0, Math.ceil(sorted.length / pageSize) - 1);
     const newPage = Math.max(0, Math.min(uiState.dtCurrentPage + delta, maxPage));
     updateUiState({ dtCurrentPage: newPage });
     renderDataTable();
+}
+
+/**
+ * Change page size
+ * @param {string} newSize - New page size
+ */
+export function changePageSize(newSize) {
+    updateUiState({
+        dtPageSize: parseInt(newSize),
+        dtCurrentPage: 0  // Reset to first page
+    });
+    renderDataTable();
+    saveTablePreferences();
+}
+
+/**
+ * Handle page jump input
+ * @param {KeyboardEvent} event - Keyboard event
+ */
+export function handlePageJump(event) {
+    if (event.key === 'Enter') {
+        const input = event.target;
+        const pageNum = parseInt(input.value);
+
+        if (isNaN(pageNum) || pageNum < 1) {
+            input.value = '';
+            return;
+        }
+
+        const sorted = getDtSorted();
+        const pageSize = uiState.dtPageSize;
+        const maxPage = Math.ceil(sorted.length / pageSize);
+
+        // Clamp to valid range
+        const targetPage = Math.max(1, Math.min(pageNum, maxPage));
+
+        updateUiState({ dtCurrentPage: targetPage - 1 });  // 0-indexed
+        renderDataTable();
+
+        input.value = '';
+        input.blur();
+    }
+}
+
+/**
+ * Search data table
+ * @param {string} searchTerm - Search term
+ */
+export function searchDataTable(searchTerm) {
+    updateUiState({
+        dtSearchTerm: searchTerm.toLowerCase(),
+        dtCurrentPage: 0  // Reset to first page
+    });
+    renderDataTable();
+}
+
+/**
+ * Toggle column picker visibility
+ */
+export function toggleColumnPicker() {
+    const picker = document.getElementById('columnPicker');
+    if (!picker) return;
+
+    if (picker.style.display === 'none') {
+        // Populate checkboxes
+        const list = document.getElementById('columnPickerList');
+        list.innerHTML = DATA_TABLE.COLUMNS.map(col => `
+            <label class="column-picker-item">
+                <input type="checkbox"
+                       ${uiState.dtVisibleColumns[col.key] ? 'checked' : ''}
+                       onchange="toggleColumnVisibility('${col.key}')">
+                <span>${col.label}</span>
+            </label>
+        `).join('');
+        picker.style.display = 'block';
+    } else {
+        picker.style.display = 'none';
+    }
+}
+
+/**
+ * Toggle column visibility
+ * @param {string} columnKey - Column key to toggle
+ */
+export function toggleColumnVisibility(columnKey) {
+    uiState.dtVisibleColumns[columnKey] = !uiState.dtVisibleColumns[columnKey];
+    renderDataTable();
+    saveTablePreferences();
+}
+
+/**
+ * Show crash details on map from table row click
+ * @param {number} crashIndex - Index of crash in filtered data
+ */
+export function showCrashDetails(crashIndex) {
+    const crash = dataState.filteredData[crashIndex];
+    if (!crash) return;
+
+    // Import map state
+    import('./state.js').then(({ mapState }) => {
+        // Zoom to crash location
+        if (crash._coords && mapState.map) {
+            mapState.map.setView(crash._coords, 16, { animate: true });
+
+            // Find and open the marker popup
+            setTimeout(() => {
+                if (mapState.markersLayer) {
+                    mapState.markersLayer.eachLayer(layer => {
+                        if (layer.options && layer.options.crash === crash) {
+                            layer.openPopup();
+                        }
+                    });
+                }
+            }, 500);  // Delay for zoom animation
+        }
+    });
+}
+
+/**
+ * Highlight marker from table row hover
+ * @param {number} crashIndex - Index of crash in filtered data
+ */
+export function highlightMarkerFromTable(crashIndex) {
+    const crash = dataState.filteredData[crashIndex];
+    if (!crash || !crash._marker) return;
+
+    updateUiState({ dtHoveredRow: crashIndex });
+
+    // Highlight on map
+    if (crash._marker) {
+        crash._marker.setZIndexOffset(1000);
+        const icon = crash._marker.getIcon();
+        if (icon && icon.options) {
+            const originalClass = icon.options.className || '';
+            crash._marker._originalIconClass = originalClass;
+            crash._marker.setIcon(L.divIcon({
+                ...icon.options,
+                className: originalClass + ' marker-highlighted'
+            }));
+        }
+    }
+}
+
+/**
+ * Unhighlight marker from table row hover
+ * @param {number} crashIndex - Index of crash in filtered data
+ */
+export function unhighlightMarkerFromTable(crashIndex) {
+    const crash = dataState.filteredData[crashIndex];
+    if (!crash || !crash._marker) return;
+
+    updateUiState({ dtHoveredRow: null });
+
+    // Remove highlight
+    if (crash._marker && crash._marker._originalIconClass) {
+        const icon = crash._marker.getIcon();
+        if (icon && icon.options) {
+            crash._marker.setIcon(L.divIcon({
+                ...icon.options,
+                className: crash._marker._originalIconClass
+            }));
+        }
+        delete crash._marker._originalIconClass;
+    }
+    if (crash._marker) {
+        crash._marker.setZIndexOffset(0);
+    }
 }
 
 /**
@@ -298,7 +507,21 @@ export function dtChangePage(delta) {
  * @returns {Array} Sorted crash data
  */
 export function getDtSorted() {
-    const data = dataState.filteredData.slice();
+    let data = dataState.filteredData.slice();
+
+    // Apply search filter
+    if (uiState.dtSearchTerm) {
+        const term = uiState.dtSearchTerm;
+        data = data.filter(row => {
+            // Search across all displayed columns
+            return DATA_TABLE.COLUMNS.some(col => {
+                const value = String(row[col.key] || '').toLowerCase();
+                return value.includes(term);
+            });
+        });
+    }
+
+    // Sort
     data.sort(function(a, b) {
         let va = a[uiState.dtSortField] ?? '';
         let vb = b[uiState.dtSortField] ?? '';
@@ -328,28 +551,42 @@ export function renderDataTable() {
     const info = document.getElementById('dataTableInfo');
     const prevBtn = document.getElementById('dtPrevBtn');
     const nextBtn = document.getElementById('dtNextBtn');
+    const jumpInput = document.getElementById('dtJumpPage');
     if (!tbody) return;
 
     const sorted = getDtSorted();
     const total = sorted.length;
-    const maxPage = Math.max(0, Math.ceil(total / DATA_TABLE.PAGE_SIZE) - 1);
+    const pageSize = uiState.dtPageSize;
+    const maxPage = Math.max(0, Math.ceil(total / pageSize) - 1);
     const currentPage = Math.min(uiState.dtCurrentPage, maxPage);
     updateUiState({ dtCurrentPage: currentPage });
 
-    const start = currentPage * DATA_TABLE.PAGE_SIZE;
-    const pageRows = sorted.slice(start, start + DATA_TABLE.PAGE_SIZE);
+    const start = currentPage * pageSize;
+    const pageRows = sorted.slice(start, start + pageSize);
 
     // Update info text and nav buttons
     if (info) {
-        info.textContent = total.toLocaleString() + ' crashes  |  Page ' + (currentPage + 1) + ' of ' + (maxPage + 1);
+        const searchInfo = uiState.dtSearchTerm ? ` (filtered)` : '';
+        info.textContent = total.toLocaleString() + ' crashes' + searchInfo + '  |  Page ' + (currentPage + 1) + ' of ' + (maxPage + 1);
     }
     if (prevBtn) prevBtn.disabled = currentPage === 0;
     if (nextBtn) nextBtn.disabled = currentPage >= maxPage;
 
-    // Update sort icons in header
+    // Update jump input placeholder
+    if (jumpInput) {
+        jumpInput.placeholder = (currentPage + 1).toString();
+        jumpInput.max = maxPage + 1;
+    }
+
+    // Update sort icons and column visibility in header
     DATA_TABLE.COLUMNS.forEach(function(col) {
         const th = document.getElementById('dt-th-' + col.key.replace(/\s+/g, '_'));
         if (!th) return;
+
+        // Update visibility
+        th.style.display = uiState.dtVisibleColumns[col.key] ? '' : 'none';
+
+        // Update sort icons
         const icon = th.querySelector('.dt-sort-icon');
         if (!icon) return;
 
@@ -370,7 +607,7 @@ export function renderDataTable() {
         '4: Fatal': '<span class="dt-sev dt-sev-fatal">Fatal</span>'
     };
 
-    tbody.innerHTML = pageRows.map(function(row) {
+    tbody.innerHTML = pageRows.map(function(row, pageIndex) {
         const sev = row['CSEF Severity'] || '';
         const sevCell = sevMap[sev] || escapeHtml(sev);
         const speed = row['Area Speed'] ? row['Area Speed'] + ' km/h' : '';
@@ -378,19 +615,209 @@ export function renderDataTable() {
         const si = parseInt(row['Total SI']) || 0;
         const mi = parseInt(row['Total MI']) || 0;
 
-        return '<tr>' +
-            '<td>' + escapeHtml(String(row['Year'] || '')) + '</td>' +
-            '<td>' + escapeHtml(String(row['Crash Date Time'] || '')) + '</td>' +
-            '<td>' + escapeHtml(String(row['Suburb'] || '')) + '</td>' +
-            '<td>' + escapeHtml(String(row['LGA'] || '')) + '</td>' +
-            '<td>' + sevCell + '</td>' +
-            '<td>' + escapeHtml(String(row['Crash Type'] || '')) + '</td>' +
-            '<td>' + escapeHtml(speed) + '</td>' +
-            '<td class="dt-num">' + (fats > 0 ? '<strong>' + fats + '</strong>' : '–') + '</td>' +
-            '<td class="dt-num">' + (si > 0 ? si : '–') + '</td>' +
-            '<td class="dt-num">' + (mi > 0 ? mi : '–') + '</td>' +
-            '</tr>';
+        // Store crash index for click handler
+        const crashIndex = dataState.filteredData.indexOf(row);
+        const suburb = escapeHtml(String(row['Suburb'] || 'unknown location'));
+
+        // Build row cells based on visible columns
+        const cells = [];
+
+        if (uiState.dtVisibleColumns['Year']) {
+            cells.push('<td>' + escapeHtml(String(row['Year'] || '')) + '</td>');
+        }
+        if (uiState.dtVisibleColumns['Crash Date Time']) {
+            cells.push('<td>' + escapeHtml(String(row['Crash Date Time'] || '')) + '</td>');
+        }
+        if (uiState.dtVisibleColumns['Suburb']) {
+            cells.push('<td>' + suburb + '</td>');
+        }
+        if (uiState.dtVisibleColumns['LGA']) {
+            cells.push('<td>' + escapeHtml(String(row['LGA'] || '')) + '</td>');
+        }
+        if (uiState.dtVisibleColumns['CSEF Severity']) {
+            cells.push('<td>' + sevCell + '</td>');
+        }
+        if (uiState.dtVisibleColumns['Crash Type']) {
+            cells.push('<td>' + escapeHtml(String(row['Crash Type'] || '')) + '</td>');
+        }
+        if (uiState.dtVisibleColumns['Area Speed']) {
+            cells.push('<td>' + escapeHtml(speed) + '</td>');
+        }
+        if (uiState.dtVisibleColumns['Total Fats']) {
+            cells.push('<td class="dt-num">' + (fats > 0 ? '<strong>' + fats + '</strong>' : '–') + '</td>');
+        }
+        if (uiState.dtVisibleColumns['Total SI']) {
+            cells.push('<td class="dt-num">' + (si > 0 ? si : '–') + '</td>');
+        }
+        if (uiState.dtVisibleColumns['Total MI']) {
+            cells.push('<td class="dt-num">' + (mi > 0 ? mi : '–') + '</td>');
+        }
+
+        return `<tr class="dt-row-clickable"
+                    onclick="showCrashDetails(${crashIndex})"
+                    onmouseenter="highlightMarkerFromTable(${crashIndex})"
+                    onmouseleave="unhighlightMarkerFromTable(${crashIndex})"
+                    role="button"
+                    tabindex="0"
+                    aria-label="View details for crash in ${suburb}">
+            ${cells.join('')}
+        </tr>`;
     }).join('');
+}
+
+// ============================================================================
+// TABLE PREFERENCES & PERSISTENCE
+// ============================================================================
+
+/**
+ * Save table preferences to localStorage
+ */
+export function saveTablePreferences() {
+    try {
+        localStorage.setItem('dt-preferences', JSON.stringify({
+            pageSize: uiState.dtPageSize,
+            visibleColumns: uiState.dtVisibleColumns,
+            sortField: uiState.dtSortField,
+            sortAsc: uiState.dtSortAsc,
+            maximized: uiState.dtMaximized
+        }));
+    } catch (e) {
+        console.warn('Failed to save table preferences:', e);
+    }
+}
+
+/**
+ * Load table preferences from localStorage
+ */
+export function loadTablePreferences() {
+    try {
+        const prefs = localStorage.getItem('dt-preferences');
+        if (prefs) {
+            const parsed = JSON.parse(prefs);
+            updateUiState({
+                dtPageSize: parsed.pageSize || 25,
+                dtVisibleColumns: parsed.visibleColumns || uiState.dtVisibleColumns,
+                dtSortField: parsed.sortField || 'Year',
+                dtSortAsc: parsed.sortAsc !== undefined ? parsed.sortAsc : false,
+                dtMaximized: parsed.maximized || false
+            });
+
+            // Update page size select
+            const pageSizeSelect = document.getElementById('dtPageSize');
+            if (pageSizeSelect) {
+                pageSizeSelect.value = parsed.pageSize || 25;
+            }
+        }
+    } catch (e) {
+        console.warn('Failed to load table preferences:', e);
+    }
+}
+
+// ============================================================================
+// KEYBOARD NAVIGATION
+// ============================================================================
+
+/**
+ * Initialize keyboard navigation for data table
+ */
+export function initTableKeyboardNav() {
+    document.addEventListener('keydown', (e) => {
+        // Only when table is visible and focus isn't in an input
+        const table = document.getElementById('dataTablePanel');
+        if (!table || table.style.display === 'none') return;
+        if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
+
+        // Ctrl/Cmd + Arrow keys for page navigation
+        if (e.ctrlKey || e.metaKey) {
+            if (e.key === 'ArrowLeft') {
+                e.preventDefault();
+                dtChangePage(-1);
+            } else if (e.key === 'ArrowRight') {
+                e.preventDefault();
+                dtChangePage(1);
+            } else if (e.key === 'Home') {
+                e.preventDefault();
+                updateUiState({ dtCurrentPage: 0 });
+                renderDataTable();
+            } else if (e.key === 'End') {
+                e.preventDefault();
+                const sorted = getDtSorted();
+                const pageSize = uiState.dtPageSize;
+                const maxPage = Math.max(0, Math.ceil(sorted.length / pageSize) - 1);
+                updateUiState({ dtCurrentPage: maxPage });
+                renderDataTable();
+            }
+        }
+
+        // Escape to close table
+        if (e.key === 'Escape') {
+            const columnPicker = document.getElementById('columnPicker');
+            if (columnPicker && columnPicker.style.display !== 'none') {
+                toggleColumnPicker();
+            } else {
+                toggleDataTable();
+            }
+        }
+
+        // '/' to focus search
+        if (e.key === '/' && !e.ctrlKey && !e.metaKey) {
+            e.preventDefault();
+            const searchInput = document.getElementById('dtSearch');
+            if (searchInput) searchInput.focus();
+        }
+    });
+}
+
+// ============================================================================
+// COLUMN RESIZING
+// ============================================================================
+
+/**
+ * Initialize column resizing functionality
+ */
+export function initColumnResizing() {
+    const table = document.getElementById('dataTable');
+    if (!table) return;
+
+    const thead = table.querySelector('thead');
+    if (!thead) return;
+
+    thead.querySelectorAll('.column-resizer').forEach(resizer => {
+        let isResizing = false;
+        let startX = 0;
+        let startWidth = 0;
+        let th = null;
+
+        resizer.addEventListener('mousedown', (e) => {
+            e.stopPropagation(); // Prevent sort trigger
+            isResizing = true;
+            th = resizer.parentElement;
+            startX = e.pageX;
+            startWidth = th.offsetWidth;
+
+            document.addEventListener('mousemove', doResize);
+            document.addEventListener('mouseup', stopResize);
+
+            // Add resizing class to table
+            table.classList.add('dt-resizing');
+        });
+
+        function doResize(e) {
+            if (!isResizing || !th) return;
+            const width = startWidth + (e.pageX - startX);
+            if (width > 50) { // Minimum width
+                th.style.width = width + 'px';
+                th.style.minWidth = width + 'px';
+            }
+        }
+
+        function stopResize() {
+            isResizing = false;
+            document.removeEventListener('mousemove', doResize);
+            document.removeEventListener('mouseup', stopResize);
+            table.classList.remove('dt-resizing');
+        }
+    });
 }
 
 // ============================================================================
@@ -399,11 +826,24 @@ export function renderDataTable() {
 
 /**
  * Export filtered crash data to CSV with metadata
+ * @param {boolean} exportAll - If true, exports all filtered data. If false, exports only current table page
  */
-export function exportFilteredData() {
+export function exportFilteredData(exportAll = true) {
     if (!dataState.filteredData || dataState.filteredData.length === 0) {
         alert('No data to export. Please apply filters first.');
         return;
+    }
+
+    // Determine which data to export
+    let dataToExport;
+    if (exportAll) {
+        dataToExport = dataState.filteredData;
+    } else {
+        // Export only current page
+        const sorted = getDtSorted();
+        const pageSize = uiState.dtPageSize;
+        const start = uiState.dtCurrentPage * pageSize;
+        dataToExport = sorted.slice(start, start + pageSize);
     }
 
     // Create CSV content
@@ -411,7 +851,9 @@ export function exportFilteredData() {
 
     // Add export metadata
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
-    const totalCrashes = dataState.filteredData.length;
+    const totalCrashes = dataToExport.length;
+    const exportType = exportAll ? 'All Filtered' : `Page ${uiState.dtCurrentPage + 1}`;
+    csv += `Export Type: ${exportType}\n`;
 
     // Count casualties
     let totalFatalities = 0;
@@ -419,7 +861,7 @@ export function exportFilteredData() {
     let totalMinor = 0;
     let totalCasualties = 0;
 
-    dataState.filteredData.forEach(crash => {
+    dataToExport.forEach(crash => {
         const casualties = crash._casualties || [];
         totalCasualties += casualties.length;
         casualties.forEach(c => {
@@ -501,7 +943,7 @@ export function exportFilteredData() {
     csv += headers.join(',') + '\n';
 
     // Add data rows
-    dataState.filteredData.forEach(crash => {
+    dataToExport.forEach(crash => {
         const casualties = crash._casualties || [];
         const units = crash._units || [];
 
@@ -885,6 +1327,15 @@ export function initUI() {
     // Check first visit on page load
     checkFirstVisit();
 
+    // Initialize data table features
+    loadTablePreferences();
+    initTableKeyboardNav();
+
+    // Initialize column resizing when table is opened
+    setTimeout(() => {
+        initColumnResizing();
+    }, 100);
+
     // Close tutorial modal when clicking outside
     window.addEventListener('click', function(event) {
         const modal = document.getElementById('tutorialModal');
@@ -903,6 +1354,18 @@ export function initUI() {
             event.target !== input) {
             suggestionsDiv.classList.remove('show');
             updateSearchState({ selectedSuggestionIndex: -1 });
+        }
+    });
+
+    // Close column picker when clicking outside
+    document.addEventListener('click', function(event) {
+        const columnPicker = document.getElementById('columnPicker');
+        const columnBtn = document.querySelector('.data-table-column-btn');
+
+        if (columnPicker && columnPicker.style.display !== 'none' &&
+            !columnPicker.contains(event.target) &&
+            event.target !== columnBtn) {
+            columnPicker.style.display = 'none';
         }
     });
 }

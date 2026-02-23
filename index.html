@@ -850,28 +850,115 @@
     <!-- Data Table Panel -->
     <div id="dataTablePanel" class="data-table-panel" style="display:none;">
         <div class="data-table-header">
-            <span class="data-table-title">Crash Data Table</span>
-            <div class="data-table-controls">
-                <span id="dataTableInfo" class="data-table-info"></span>
-                <button class="data-table-nav-btn" id="dtPrevBtn" onclick="dtChangePage(-1)">&#8249; Prev</button>
-                <button class="data-table-nav-btn" id="dtNextBtn" onclick="dtChangePage(1)">Next &#8250;</button>
-                <button class="data-table-close-btn" onclick="toggleDataTable()">&#10005;</button>
+            <!-- Top Row: Title, Search, Actions -->
+            <div class="data-table-header-top">
+                <div class="data-table-title-row">
+                    <span class="data-table-title">Crash Data Table</span>
+                    <span id="dataTableInfo" class="data-table-info"></span>
+                </div>
+
+                <!-- Search Input -->
+                <input type="text"
+                       id="dtSearch"
+                       class="data-table-search"
+                       placeholder="Search table..."
+                       oninput="searchDataTable(this.value)"
+                       aria-label="Search within table data">
+
+                <div class="data-table-actions">
+                    <!-- Column Picker Button -->
+                    <button class="data-table-column-btn"
+                            onclick="toggleColumnPicker()"
+                            title="Show or hide columns"
+                            aria-label="Show or hide columns">
+                        <span class="dt-btn-icon">&#9881;</span>
+                        <span class="dt-btn-text">Columns</span>
+                    </button>
+
+                    <!-- Export Page Button -->
+                    <button class="data-table-export-btn"
+                            onclick="exportFilteredData(false)"
+                            title="Export current page to CSV"
+                            aria-label="Export current page to CSV">
+                        <span class="dt-btn-icon">&#8595;</span>
+                        <span class="dt-btn-text">Export</span>
+                    </button>
+
+                    <!-- Maximize/Minimize Button -->
+                    <button class="data-table-maximize-btn"
+                            id="dtMaximizeBtn"
+                            onclick="toggleDataTableMaximize()"
+                            title="Maximize table"
+                            aria-label="Maximize table">
+                        &#9744;
+                    </button>
+
+                    <button class="data-table-close-btn" onclick="toggleDataTable()" aria-label="Close data table">&#10005;</button>
+                </div>
+            </div>
+
+            <!-- Bottom Row: Pagination Controls -->
+            <div class="data-table-header-bottom">
+                <div class="data-table-pagination">
+                    <span class="dt-pagination-label">Rows per page:</span>
+                    <select id="dtPageSize" class="data-table-page-size" onchange="changePageSize(this.value)" aria-label="Rows per page">
+                        <option value="10">10</option>
+                        <option value="25" selected>25</option>
+                        <option value="50">50</option>
+                        <option value="100">100</option>
+                        <option value="250">250</option>
+                        <option value="500">500</option>
+                    </select>
+                </div>
+
+                <div class="data-table-navigation">
+                    <!-- Jump to Page -->
+                    <div class="data-table-jump">
+                        <span class="dt-jump-label">Page:</span>
+                        <input type="number"
+                               id="dtJumpPage"
+                               class="dt-jump-input"
+                               min="1"
+                               placeholder="1"
+                               onkeypress="handlePageJump(event)"
+                               aria-label="Jump to page number">
+                    </div>
+
+                    <button class="data-table-nav-btn" id="dtPrevBtn" onclick="dtChangePage(-1)" aria-label="Previous page">
+                        <span>&#8249;</span>
+                    </button>
+                    <button class="data-table-nav-btn" id="dtNextBtn" onclick="dtChangePage(1)" aria-label="Next page">
+                        <span>&#8250;</span>
+                    </button>
+                </div>
             </div>
         </div>
+
+        <!-- Column Picker Dropdown -->
+        <div id="columnPicker" class="column-picker" style="display: none;">
+            <div class="column-picker-header">
+                <span>Show/Hide Columns</span>
+                <button onclick="toggleColumnPicker()" aria-label="Close column picker">&#10005;</button>
+            </div>
+            <div class="column-picker-list" id="columnPickerList">
+                <!-- Populated by JavaScript -->
+            </div>
+        </div>
+
         <div class="data-table-scroll">
             <table id="dataTable" class="data-table">
                 <thead>
                     <tr>
-                        <th id="dt-th-Year" onclick="dtSort('Year')" class="dt-sortable">Year <span class="dt-sort-icon">&#8597;</span></th>
-                        <th id="dt-th-Crash_Date_Time" onclick="dtSort('Crash Date Time')" class="dt-sortable">Date/Time <span class="dt-sort-icon">&#8597;</span></th>
-                        <th id="dt-th-Suburb" onclick="dtSort('Suburb')" class="dt-sortable">Suburb <span class="dt-sort-icon">&#8597;</span></th>
-                        <th id="dt-th-LGA" onclick="dtSort('LGA')" class="dt-sortable">LGA <span class="dt-sort-icon">&#8597;</span></th>
-                        <th id="dt-th-CSEF_Severity" onclick="dtSort('CSEF Severity')" class="dt-sortable">Severity <span class="dt-sort-icon">&#8597;</span></th>
-                        <th id="dt-th-Crash_Type" onclick="dtSort('Crash Type')" class="dt-sortable">Crash Type <span class="dt-sort-icon">&#8597;</span></th>
-                        <th id="dt-th-Area_Speed" onclick="dtSort('Area Speed')" class="dt-sortable">Speed Zone <span class="dt-sort-icon">&#8597;</span></th>
-                        <th id="dt-th-Total_Fats" onclick="dtSort('Total Fats')" class="dt-sortable">Fatal <span class="dt-sort-icon">&#8597;</span></th>
-                        <th id="dt-th-Total_SI" onclick="dtSort('Total SI')" class="dt-sortable">SI <span class="dt-sort-icon">&#8597;</span></th>
-                        <th id="dt-th-Total_MI" onclick="dtSort('Total MI')" class="dt-sortable">MI <span class="dt-sort-icon">&#8597;</span></th>
+                        <th id="dt-th-Year" onclick="dtSort('Year')" class="dt-sortable" tabindex="0" role="button" aria-label="Sort by Year">Year <span class="dt-sort-icon">&#8597;</span><div class="column-resizer"></div></th>
+                        <th id="dt-th-Crash_Date_Time" onclick="dtSort('Crash Date Time')" class="dt-sortable" tabindex="0" role="button" aria-label="Sort by Date/Time">Date/Time <span class="dt-sort-icon">&#8597;</span><div class="column-resizer"></div></th>
+                        <th id="dt-th-Suburb" onclick="dtSort('Suburb')" class="dt-sortable" tabindex="0" role="button" aria-label="Sort by Suburb">Suburb <span class="dt-sort-icon">&#8597;</span><div class="column-resizer"></div></th>
+                        <th id="dt-th-LGA" onclick="dtSort('LGA')" class="dt-sortable" tabindex="0" role="button" aria-label="Sort by LGA">LGA <span class="dt-sort-icon">&#8597;</span><div class="column-resizer"></div></th>
+                        <th id="dt-th-CSEF_Severity" onclick="dtSort('CSEF Severity')" class="dt-sortable" tabindex="0" role="button" aria-label="Sort by Severity">Severity <span class="dt-sort-icon">&#8597;</span><div class="column-resizer"></div></th>
+                        <th id="dt-th-Crash_Type" onclick="dtSort('Crash Type')" class="dt-sortable" tabindex="0" role="button" aria-label="Sort by Crash Type">Crash Type <span class="dt-sort-icon">&#8597;</span><div class="column-resizer"></div></th>
+                        <th id="dt-th-Area_Speed" onclick="dtSort('Area Speed')" class="dt-sortable" tabindex="0" role="button" aria-label="Sort by Speed Zone">Speed Zone <span class="dt-sort-icon">&#8597;</span><div class="column-resizer"></div></th>
+                        <th id="dt-th-Total_Fats" onclick="dtSort('Total Fats')" class="dt-sortable" tabindex="0" role="button" aria-label="Sort by Fatalities">Fatal <span class="dt-sort-icon">&#8597;</span><div class="column-resizer"></div></th>
+                        <th id="dt-th-Total_SI" onclick="dtSort('Total SI')" class="dt-sortable" tabindex="0" role="button" aria-label="Sort by Serious Injuries">SI <span class="dt-sort-icon">&#8597;</span><div class="column-resizer"></div></th>
+                        <th id="dt-th-Total_MI" onclick="dtSort('Total MI')" class="dt-sortable" tabindex="0" role="button" aria-label="Sort by Minor Injuries">MI <span class="dt-sort-icon">&#8597;</span><div class="column-resizer"></div></th>
                     </tr>
                 </thead>
                 <tbody id="dataTableBody"></tbody>
