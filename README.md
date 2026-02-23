@@ -63,8 +63,22 @@ An interactive web-based map visualization tool for exploring South Australian c
 - **Search by Address/Suburb**: Find crashes near any SA location
 - **Radius Filtering**: Set custom search radius (1-50km)
 
+#### Interactive Data Table
+- **Sortable Columns**: Click any column header to sort data (Year, Date/Time, Suburb, LGA, Severity, Type, Speed, Casualties)
+- **Flexible Pagination**: Choose to display 10, 25, 50, 100, 250, or 500 rows per page
+- **Quick Navigation**: Jump directly to any page number or use Previous/Next buttons
+- **Real-time Search**: Filter table data instantly by typing in the search box - searches across all columns
+- **Column Management**: Show or hide specific columns using the column picker
+- **Resizable Columns**: Drag column borders to adjust widths to your preference
+- **Click to Explore**: Click any row to zoom to that crash location on the map and view full details
+- **Map Sync**: Hover over rows to highlight corresponding markers on the map
+- **Maximize View**: Expand table to full screen for detailed analysis
+- **Data Export**: Export current page or all filtered data to CSV format
+- **Persistent Settings**: Your table preferences (page size, column visibility, sort order) are saved automatically
+
 #### Data Export
-- **CSV Export**: Export filtered crash data to CSV format
+- **CSV Export**: Export filtered crash data to CSV format from Statistics panel or directly from the data table
+- **Export Options**: Choose to export all filtered data or just the current page view
 - **Summary Statistics**: Includes totals for crashes, casualties, and injuries
 - **Filter Documentation**: Active filters are documented in the export
 - **Comprehensive Data**: Includes crash details, location, casualties, and units involved
@@ -117,7 +131,25 @@ Click on any marker to see comprehensive crash information:
 - **Units Involved**: All units in the crash including vehicles (with type, year, occupants), pedestrians, and fixed objects struck
 - **DUI Involvement**: Clearly marked if alcohol was involved
 
-### 5. **Share & Bookmark**
+### 5. **Use the Data Table**
+1. Click "View Data Table" button in the Statistics panel
+2. Use the search box to filter results across all columns
+3. Click column headers to sort data
+4. Adjust page size (10-500 rows) based on your preference
+5. Click any row to jump to that crash on the map
+6. Hover over rows to see markers highlighted on the map
+7. Use the column picker (⚙️) to show/hide specific columns
+8. Export current page or all data to CSV
+
+**Keyboard Shortcuts (when table is open):**
+- `Ctrl/Cmd + ←` - Previous page
+- `Ctrl/Cmd + →` - Next page
+- `Ctrl/Cmd + Home` - First page
+- `Ctrl/Cmd + End` - Last page
+- `/` - Focus search box
+- `Escape` - Close table or column picker
+
+### 6. **Share & Bookmark**
 - Filters are encoded in URL - copy the URL to share your exact view
 - Bookmark specific filter combinations
 - Send filtered views to colleagues/friends
@@ -155,12 +187,15 @@ LGA assignments are pre-computed using Python geospatial scripts (`scripts/add_l
 **Coverage:** 98% of crashes (187,017 out of 190,910) have pre-assigned LGAs.
 
 ### Performance Optimizations
-- **Progressive Marker Loading**: 190K+ markers loaded in chunks of 2000 with progress indicator
+- **Progressive Marker Loading**: 190K+ markers loaded in chunks of 20,000 with progress indicator
 - **Icon Caching**: Reuses marker icons instead of creating duplicates
 - **Batch Processing**: Adds markers to cluster in batches for faster rendering
 - **Dynamic Clustering**: More aggressive clustering at lower zoom levels
 - **Lazy Popup Generation**: Crash details only generated when popup is opened
 - **Service Worker Caching**: Caches 200MB+ of data files for offline access
+- **Efficient Table Rendering**: Data table uses virtual pagination and only renders visible rows
+- **Filter Result Caching**: Previously used filter combinations are cached for instant re-application
+- **Client-side Persistence**: User preferences (table settings, theme) stored locally for instant restoration
 
 ## Development
 
