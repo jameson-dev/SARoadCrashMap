@@ -59,7 +59,7 @@
         </div>
     </div>
 
-    <button class="toggle-panel-btn" onclick="togglePanel()">☰ Filters</button>
+    <button class="toggle-panel-btn" onclick="togglePanel()" aria-label="Open filters panel">☰ Filters</button>
 
     <!-- Active Filters Badge -->
     <div class="active-filters-bar" id="activeFiltersBar">
@@ -102,11 +102,12 @@
                             autocomplete="off"
                             oninput="handleLocationInput(this.value)"
                             onkeydown="handleLocationKeydown(event)"
+                            aria-label="Search for crashes by location"
                             class="location-search-input">
                         <div class="location-suggestions" id="locationSuggestions"></div>
                         <div class="radius-container">
-                            <label class="radius-label">Radius:</label>
-                            <select id="searchRadius" class="radius-select">
+                            <label class="radius-label" for="searchRadius">Radius:</label>
+                            <select id="searchRadius" class="radius-select" aria-label="Search radius in kilometers">
                                 <option value="0.5">0.5 km</option>
                                 <option value="1">1 km</option>
                                 <option value="2" selected>2 km</option>
@@ -121,8 +122,8 @@
                             </select>
                         </div>
                         <div class="button-row">
-                            <button onclick="searchByLocation()" class="apply-filters-btn button-row-item">Search</button>
-                            <button onclick="clearLocationSearch()" class="clear-filters-btn button-row-item">Clear</button>
+                            <button onclick="searchByLocation()" class="apply-filters-btn button-row-item" aria-label="Search for crashes within radius">Search</button>
+                            <button onclick="clearLocationSearch()" class="clear-filters-btn button-row-item" aria-label="Clear location search">Clear</button>
                         </div>
                         <div id="searchResults" class="search-results-box hidden"></div>
                     </div>
@@ -327,10 +328,10 @@
                 <span>Minor Injuries:</span>
                 <span class="stat-value" id="totalMinor">0</span>
             </div>
-            <button class="export-btn" onclick="exportFilteredData()" title="Export filtered crash data to CSV">
+            <button class="export-btn" onclick="exportFilteredData()" title="Export filtered crash data to CSV" aria-label="Export filtered crash data to CSV file">
                 Export to CSV
             </button>
-            <button class="export-btn" onclick="toggleDataTable()" title="View filtered crashes as a sortable table" style="margin-top:6px;background:var(--bg-secondary);color:var(--text-primary);border:1px solid var(--border);">
+            <button class="export-btn" onclick="toggleDataTable()" title="View filtered crashes as a sortable table" aria-label="Open data table to view and sort filtered crashes" style="margin-top:6px;background:var(--bg-secondary);color:var(--text-primary);border:1px solid var(--border);">
                 View Data Table
             </button>
         </div>
@@ -946,6 +947,12 @@
         </div>
 
         <div class="data-table-scroll">
+            <!-- Loading Overlay -->
+            <div id="dtLoadingOverlay" class="dt-loading-overlay" style="display: none;">
+                <div class="dt-loading-spinner"></div>
+                <div class="dt-loading-text">Loading...</div>
+            </div>
+
             <table id="dataTable" class="data-table">
                 <thead>
                     <tr>
