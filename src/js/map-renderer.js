@@ -35,6 +35,29 @@ import {
 } from './utils.js';
 
 import { updateStatistics } from './analytics.js';
+import { showNotification } from './ui.js';
+
+// ============================================================================
+// UTILITY FUNCTIONS
+// ============================================================================
+
+/**
+ * Debounce utility function
+ * @param {Function} func - Function to debounce
+ * @param {number} wait - Wait time in milliseconds
+ * @returns {Function} Debounced function
+ */
+function debounce(func, wait) {
+    let timeout;
+    return function executedFunction(...args) {
+        const later = () => {
+            clearTimeout(timeout);
+            func(...args);
+        };
+        clearTimeout(timeout);
+        timeout = setTimeout(later, wait);
+    };
+}
 
 // ============================================================================
 // MAP INITIALIZATION
@@ -853,7 +876,7 @@ export function addChoroplethBySuburb() {
     // Check if suburb boundaries are available
     if (!dataState.suburbBoundaries || !dataState.suburbBoundaries.features) {
         console.warn('Suburb boundaries not loaded. Cannot display suburb choropleth.');
-        alert('Suburb boundaries (GeoJSON) not loaded. Please upload suburb GeoJSON file to use suburb view.');
+        showNotification('Suburb boundaries not available. Suburb view cannot be displayed.', 'warning');
         return;
     }
 
@@ -1237,9 +1260,10 @@ export function highlightMatch(text, search) {
 }
 
 /**
- * Handle location input and show suggestions
+ * Internal function to process location input and show suggestions
+ * @param {string} value - Input value
  */
-export function handleLocationInput(value) {
+function processLocationInput(value) {
     const suggestionsDiv = document.getElementById('locationSuggestions');
 
     if (!value || value.trim() === '') {
@@ -1275,15 +1299,22 @@ export function handleLocationInput(value) {
         grouped[loc.category].push(loc);
     });
 
-    // Build HTML
+    // Build HTML with accessibility attributes
     let html = '';
     let itemIndex = 0;
     Object.keys(grouped).forEach(category => {
         if (grouped[category].length > 0) {
-            html += `<div class="suggestion-category">${category}</div>`;
+            html += `<div class="suggestion-category" role="presentation">${category}</div>`;
             grouped[category].forEach(loc => {
                 const highlightedName = highlightMatch(loc.name, value);
-                html += `<div class="suggestion-item" data-index="${itemIndex}" onclick="selectSuggestion('${loc.name.replace(/'/g, "\\'")}')">
+                const escapedName = loc.name.replace(/'/g, "\\'");
+                html += `<div class="suggestion-item"
+                    data-index="${itemIndex}"
+                    role="option"
+                    tabindex="0"
+                    aria-label="Select ${loc.name}"
+                    onclick="selectSuggestion('${escapedName}')"
+                    onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();selectSuggestion('${escapedName}');}">
                     ${highlightedName}
                 </div>`;
                 itemIndex++;
@@ -1294,9 +1325,17 @@ export function handleLocationInput(value) {
     if (suggestionsDiv) {
         suggestionsDiv.innerHTML = html;
         suggestionsDiv.classList.add('show');
+        suggestionsDiv.setAttribute('role', 'listbox');
+        suggestionsDiv.setAttribute('aria-label', 'Location suggestions');
     }
     searchState.selectedSuggestionIndex = -1;
 }
+
+/**
+ * Handle location input and show suggestions (debounced)
+ * Debounced to improve performance and reduce DOM updates
+ */
+export const handleLocationInput = debounce(processLocationInput, 200);
 
 /**
  * Select a suggestion
@@ -1345,7 +1384,7 @@ export async function searchByLocation() {
     const query = searchInput?.value.trim();
 
     if (!query) {
-        alert('Please enter a location to search');
+        showNotification('Please enter a location to search', 'warning');
         return;
     }
 
@@ -1367,7 +1406,7 @@ export async function searchByLocation() {
 
         if (results.length === 0) {
             hideLoading();
-            alert('Location not found. Try searching for a suburb in South Australia.');
+            showNotification('Location not found. Try searching for a suburb in South Australia.', 'warning');
             return;
         }
 
@@ -1437,7 +1476,7 @@ export async function searchByLocation() {
     } catch (error) {
         console.error('Location search error:', error);
         hideLoading();
-        alert('Error searching location. Please try again.');
+        showNotification('Error searching location. Please try again.', 'error');
     }
 }
 

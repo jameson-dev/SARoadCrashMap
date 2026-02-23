@@ -51,19 +51,45 @@ function hideTableLoading() {
     }
 }
 
+// Notification queue management
+let notificationQueue = [];
+let activeNotifications = [];
+const MAX_VISIBLE_NOTIFICATIONS = 3;
+
 /**
- * Show a notification message to the user
+ * Show a notification message to the user with queue management
  * @param {string} message - Notification message
  * @param {string} type - Type of notification ('info', 'warning', 'error', 'success')
+ * @param {number} duration - Duration in ms (default 5000)
  */
-function showNotification(message, type = 'info') {
+function showNotification(message, type = 'info', duration = 5000) {
+    // Add to queue
+    notificationQueue.push({ message, type, duration });
+    processNotificationQueue();
+}
+
+/**
+ * Process notification queue
+ */
+function processNotificationQueue() {
+    // If we've hit the max, wait for current notifications to clear
+    if (activeNotifications.length >= MAX_VISIBLE_NOTIFICATIONS || notificationQueue.length === 0) {
+        return;
+    }
+
+    const { message, type, duration } = notificationQueue.shift();
+
     // Create notification element
     const notification = document.createElement('div');
     notification.className = `user-notification user-notification-${type}`;
     notification.textContent = message;
+
+    // Calculate position based on existing notifications
+    const topPosition = 80 + (activeNotifications.length * 70);
+
     notification.style.cssText = `
         position: fixed;
-        top: 80px;
+        top: ${topPosition}px;
         right: 20px;
         padding: 12px 20px;
         border-radius: 8px;
@@ -74,6 +100,7 @@ function showNotification(message, type = 'info') {
         font-size: 14px;
         max-width: 350px;
         animation: slideInFromRight 0.3s ease-out;
+        transition: top 0.3s ease-out;
     `;
 
     // Add type-specific styling
@@ -83,20 +110,44 @@ function showNotification(message, type = 'info') {
         notification.style.borderLeft = '4px solid #f44336';
     } else if (type === 'success') {
         notification.style.borderLeft = '4px solid #4caf50';
+    } else {
+        notification.style.borderLeft = '4px solid #2196f3';
     }
 
     document.body.appendChild(notification);
+    activeNotifications.push(notification);
 
-    // Auto-remove after 5 seconds
+    // Auto-remove after duration
     setTimeout(() => {
         notification.style.animation = 'slideOutToRight 0.3s ease-out';
         setTimeout(() => {
             if (notification.parentNode) {
                 document.body.removeChild(notification);
             }
+            // Remove from active list
+            const index = activeNotifications.indexOf(notification);
+            if (index > -1) {
+                activeNotifications.splice(index, 1);
+            }
+            // Reposition remaining notifications
+            repositionNotifications();
+            // Process next in queue
+            processNotificationQueue();
         }, 300);
-    }, 5000);
+    }, duration);
 }
+
+/**
+ * Reposition active notifications after one is removed
+ */
+function repositionNotifications() {
+    activeNotifications.forEach((notif, index) => {
+        notif.style.top = `${80 + (index * 70)}px`;
+    });
+}
+
+// Export notification function for use in other modules
+export { showNotification };
 
 // ============================================================================
 // DISCLAIMER & FIRST VISIT

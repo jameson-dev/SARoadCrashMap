@@ -20,10 +20,29 @@ import {
 } from './state.js';
 import { updateStatistics } from './analytics.js';
 import { showLoading, hideLoading, updateLoadingMessage } from './utils.js';
+import { showNotification } from './ui.js';
 
 // Module-level variables
 let yearRangeSlider = null;
 let currentYearRange = [...YEAR_RANGE.DEFAULT];
+
+/**
+ * Debounce utility function
+ * @param {Function} func - Function to debounce
+ * @param {number} wait - Wait time in milliseconds
+ * @returns {Function} Debounced function
+ */
+function debounce(func, wait) {
+    let timeout;
+    return function executedFunction(...args) {
+        const later = () => {
+            clearTimeout(timeout);
+            func(...args);
+        };
+        clearTimeout(timeout);
+        timeout = setTimeout(later, wait);
+    };
+}
 
 // ============================================================================
 // FILTER STATE & TRACKING
@@ -211,8 +230,8 @@ export function buildCheckboxDropdown(id, items) {
     const controls = document.createElement('div');
     controls.className = 'checkbox-dropdown-controls';
     controls.innerHTML = `
-        <button class="checkbox-select-all" onclick="selectAllDropdownItems('${id}')">Select All</button>
-        <button class="checkbox-clear-all" onclick="clearAllDropdownItems('${id}')">Clear All</button>
+        <button class="checkbox-select-all" onclick="selectAllDropdownItems('${id}')" aria-label="Select all items">Select All</button>
+        <button class="checkbox-clear-all" onclick="clearAllDropdownItems('${id}')" aria-label="Clear all items">Clear All</button>
     `;
     menu.appendChild(controls);
 }
@@ -810,8 +829,8 @@ export async function applyFilters() {
                 await updateMapLayers();
             }
 
-            // Update URL with current filters
-            encodeFiltersToURL();
+            // Update URL with current filters (debounced)
+            encodeFiltersToURLDebounced();
 
             // Reset filter change tracking
             updateFilterState({
@@ -823,7 +842,7 @@ export async function applyFilters() {
             hideLoading();
         } catch (error) {
             console.error('❌ applyFilters() error:', error);
-            alert('An error occurred while filtering. Please try again.');
+            showNotification('An error occurred while filtering. Please try again.', 'error');
             hideLoading();
         }
     }, 0);
@@ -1197,9 +1216,9 @@ export function setYearRange(range) {
 // ============================================================================
 
 /**
- * Encode current filters to URL parameters
+ * Encode current filters to URL parameters (internal function)
  */
-export function encodeFiltersToURL() {
+function encodeFiltersToURLInternal() {
     const filters = getFilterValues();
     const params = new URLSearchParams();
 
@@ -1230,6 +1249,20 @@ export function encodeFiltersToURL() {
     // Update URL without reloading page
     const newURL = params.toString() ? `${window.location.pathname}?${params.toString()}` : window.location.pathname;
     window.history.replaceState({}, '', newURL);
+}
+
+/**
+ * Encode current filters to URL parameters (debounced version)
+ * Debounced to reduce history API calls
+ */
+const encodeFiltersToURLDebounced = debounce(encodeFiltersToURLInternal, 300);
+
+/**
+ * Encode current filters to URL parameters (public function)
+ * For immediate encoding (e.g., when sharing URL)
+ */
+export function encodeFiltersToURL() {
+    encodeFiltersToURLInternal();
 }
 
 /**
@@ -1351,7 +1384,7 @@ export function shareCurrentView() {
 
     if (navigator.clipboard) {
         navigator.clipboard.writeText(url).then(() => {
-            alert('Link copied to clipboard! Share this URL to show others your current view.');
+            showNotification('Link copied to clipboard! Share this URL to show others your current view.', 'success');
         }).catch(err => {
             prompt('Copy this link to share your current view:', url);
         });
