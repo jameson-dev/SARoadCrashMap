@@ -559,28 +559,27 @@ export function showCrashDetails(crashIndex) {
     });
 }
 
+// Marker highlighting RAF management
+let highlightRafId = null;
+let pendingHighlight = null;
+
 /**
  * Highlight marker from table row hover
  * @param {number} crashIndex - Index of crash in filtered data
  */
 export function highlightMarkerFromTable(crashIndex) {
+    // Skip if already highlighting this marker
+    if (uiState.dtHoveredRow === crashIndex) return;
+
     const crash = dataState.filteredData[crashIndex];
     if (!crash || !crash._marker) return;
 
-    updateUiState({ dtHoveredRow: crashIndex });
+    // Store pending operation
+    pendingHighlight = { crashIndex, highlight: true };
 
-    // Highlight on map
-    if (crash._marker) {
-        crash._marker.setZIndexOffset(1000);
-        const icon = crash._marker.getIcon();
-        if (icon && icon.options) {
-            const originalClass = icon.options.className || '';
-            crash._marker._originalIconClass = originalClass;
-            crash._marker.setIcon(L.divIcon({
-                ...icon.options,
-                className: originalClass + ' marker-highlighted'
-            }));
-        }
+    // Schedule highlight update if not already scheduled
+    if (!highlightRafId) {
+        highlightRafId = requestAnimationFrame(performMarkerHighlight);
     }
 }
 
@@ -592,20 +591,57 @@ export function unhighlightMarkerFromTable(crashIndex) {
     const crash = dataState.filteredData[crashIndex];
     if (!crash || !crash._marker) return;
 
-    updateUiState({ dtHoveredRow: null });
+    // Store pending operation
+    pendingHighlight = { crashIndex, highlight: false };
 
-    // Remove highlight
-    if (crash._marker && crash._marker._originalIconClass) {
+    // Schedule highlight update if not already scheduled
+    if (!highlightRafId) {
+        highlightRafId = requestAnimationFrame(performMarkerHighlight);
+    }
+}
+
+/**
+ * Perform the actual marker highlight/unhighlight operation
+ */
+function performMarkerHighlight() {
+    highlightRafId = null;
+
+    if (!pendingHighlight) return;
+
+    const { crashIndex, highlight } = pendingHighlight;
+    pendingHighlight = null;
+
+    const crash = dataState.filteredData[crashIndex];
+    if (!crash || !crash._marker) return;
+
+    if (highlight) {
+        updateUiState({ dtHoveredRow: crashIndex });
+
+        // Highlight on map
+        crash._marker.setZIndexOffset(1000);
         const icon = crash._marker.getIcon();
         if (icon && icon.options) {
+            const originalClass = icon.options.className || '';
+            crash._marker._originalIconClass = originalClass;
             crash._marker.setIcon(L.divIcon({
                 ...icon.options,
-                className: crash._marker._originalIconClass
+                className: originalClass + ' marker-highlighted'
             }));
         }
-        delete crash._marker._originalIconClass;
-    }
-    if (crash._marker) {
+    } else {
+        updateUiState({ dtHoveredRow: null });
+
+        // Remove highlight
+        if (crash._marker._originalIconClass) {
+            const icon = crash._marker.getIcon();
+            if (icon && icon.options) {
+                crash._marker.setIcon(L.divIcon({
+                    ...icon.options,
+                    className: crash._marker._originalIconClass
+                }));
+            }
+            delete crash._marker._originalIconClass;
+        }
         crash._marker.setZIndexOffset(0);
     }
 }
@@ -654,6 +690,13 @@ export function getDtSorted() {
 /**
  * Render data table with current page and sort
  */
+// Cache for tracking render state to avoid unnecessary updates
+let lastRenderState = {
+    sortField: null,
+    sortAsc: null,
+    visibleColumns: null
+};
+
 export function renderDataTable() {
     const tbody = document.getElementById('dataTableBody');
     const info = document.getElementById('dataTableInfo');
@@ -686,26 +729,43 @@ export function renderDataTable() {
         jumpInput.max = maxPage + 1;
     }
 
-    // Update sort icons and column visibility in header
-    DATA_TABLE.COLUMNS.forEach(function(col) {
-        const th = document.getElementById('dt-th-' + col.key.replace(/\s+/g, '_'));
-        if (!th) return;
+    // Only update headers if sort or visibility changed
+    const sortChanged = lastRenderState.sortField !== uiState.dtSortField ||
+                        lastRenderState.sortAsc !== uiState.dtSortAsc;
+    const visibilityChanged = JSON.stringify(lastRenderState.visibleColumns) !==
+                               JSON.stringify(uiState.dtVisibleColumns);
 
-        // Update visibility
-        th.style.display = uiState.dtVisibleColumns[col.key] ? '' : 'none';
+    if (sortChanged || visibilityChanged) {
+        // Update sort icons and column visibility in header
+        DATA_TABLE.COLUMNS.forEach(function(col) {
+            const th = document.getElementById('dt-th-' + col.key.replace(/\s+/g, '_'));
+            if (!th) return;
 
-        // Update sort icons
-        const icon = th.querySelector('.dt-sort-icon');
-        if (!icon) return;
+            // Update visibility only if changed
+            if (visibilityChanged) {
+                th.style.display = uiState.dtVisibleColumns[col.key] ? '' : 'none';
+            }
 
-        if (uiState.dtSortField === col.key) {
-            icon.textContent = uiState.dtSortAsc ? ' ↑' : ' ↓';
-            th.classList.add('dt-active-sort');
-        } else {
-            icon.textContent = ' ↕';
-            th.classList.remove('dt-active-sort');
-        }
-    });
+            // Update sort icons only if changed
+            if (sortChanged) {
+                const icon = th.querySelector('.dt-sort-icon');
+                if (!icon) return;
+
+                if (uiState.dtSortField === col.key) {
+                    icon.textContent = uiState.dtSortAsc ? ' ↑' : ' ↓';
+                    th.classList.add('dt-active-sort');
+                } else {
+                    icon.textContent = ' ↕';
+                    th.classList.remove('dt-active-sort');
+                }
+            }
+        });
+
+        // Update cache
+        lastRenderState.sortField = uiState.dtSortField;
+        lastRenderState.sortAsc = uiState.dtSortAsc;
+        lastRenderState.visibleColumns = { ...uiState.dtVisibleColumns };
+    }
 
     // Severity label map
     const sevMap = {
@@ -908,24 +968,39 @@ export function initColumnResizing() {
         let startX = 0;
         let startWidth = 0;
         let th = null;
+        let currentX = 0;
+        let rafId = null;
 
         resizer.addEventListener('mousedown', (e) => {
             e.stopPropagation(); // Prevent sort trigger
             isResizing = true;
             th = resizer.parentElement;
             startX = e.pageX;
+            currentX = e.pageX;
             startWidth = th.offsetWidth;
 
-            document.addEventListener('mousemove', doResize);
+            document.addEventListener('mousemove', onMouseMove);
             document.addEventListener('mouseup', stopResize);
 
             // Add resizing class to table
             table.classList.add('dt-resizing');
         });
 
-        function doResize(e) {
+        function onMouseMove(e) {
+            if (!isResizing) return;
+            currentX = e.pageX;
+
+            // Schedule resize update if not already scheduled
+            if (!rafId) {
+                rafId = requestAnimationFrame(doResize);
+            }
+        }
+
+        function doResize() {
+            rafId = null;
             if (!isResizing || !th) return;
-            const width = startWidth + (e.pageX - startX);
+
+            const width = startWidth + (currentX - startX);
             if (width > 50) { // Minimum width
                 th.style.width = width + 'px';
                 th.style.minWidth = width + 'px';
@@ -934,9 +1009,15 @@ export function initColumnResizing() {
 
         function stopResize() {
             isResizing = false;
-            document.removeEventListener('mousemove', doResize);
+            document.removeEventListener('mousemove', onMouseMove);
             document.removeEventListener('mouseup', stopResize);
             table.classList.remove('dt-resizing');
+
+            // Cancel any pending animation frame
+            if (rafId) {
+                cancelAnimationFrame(rafId);
+                rafId = null;
+            }
         }
     });
 }
