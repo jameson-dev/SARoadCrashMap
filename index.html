@@ -711,6 +711,8 @@
                 </div>
                 <div class="chart-wrapper">
                     <canvas id="crashesOverTimeChart"></canvas>
+                    <div class="chart-loading-overlay"><div class="chart-loading-spinner"></div></div>
+                    <div class="chart-empty-state"><div class="chart-empty-state-content"><div class="chart-empty-state-icon">📊</div><div class="chart-empty-state-message">No data available</div><div class="chart-empty-state-hint">Try adjusting your filters to see results</div></div></div>
                 </div>
             </div>
             <div class="chart-container">
@@ -719,6 +721,8 @@
                 </div>
                 <div class="chart-wrapper">
                     <canvas id="crashesByDayChart"></canvas>
+                    <div class="chart-loading-overlay"><div class="chart-loading-spinner"></div></div>
+                    <div class="chart-empty-state"><div class="chart-empty-state-content"><div class="chart-empty-state-icon">📊</div><div class="chart-empty-state-message">No data available</div><div class="chart-empty-state-hint">Try adjusting your filters to see results</div></div></div>
                 </div>
             </div>
             <div class="chart-container">
@@ -727,6 +731,8 @@
                 </div>
                 <div class="chart-wrapper">
                     <canvas id="crashesByHourChart"></canvas>
+                    <div class="chart-loading-overlay"><div class="chart-loading-spinner"></div></div>
+                    <div class="chart-empty-state"><div class="chart-empty-state-content"><div class="chart-empty-state-icon">📊</div><div class="chart-empty-state-message">No data available</div><div class="chart-empty-state-hint">Try adjusting your filters to see results</div></div></div>
                 </div>
             </div>
             <div class="chart-container">
@@ -735,6 +741,8 @@
                 </div>
                 <div class="chart-wrapper">
                     <canvas id="severityDistributionChart"></canvas>
+                    <div class="chart-loading-overlay"><div class="chart-loading-spinner"></div></div>
+                    <div class="chart-empty-state"><div class="chart-empty-state-content"><div class="chart-empty-state-icon">📊</div><div class="chart-empty-state-message">No data available</div><div class="chart-empty-state-hint">Try adjusting your filters to see results</div></div></div>
                 </div>
                 <p class="chart-click-hint">Click a segment to filter by severity</p>
             </div>
@@ -745,6 +753,8 @@
                 </div>
                 <div class="chart-wrapper chart-wrapper--tall">
                     <canvas id="crashTypeChart"></canvas>
+                    <div class="chart-loading-overlay"><div class="chart-loading-spinner"></div></div>
+                    <div class="chart-empty-state"><div class="chart-empty-state-content"><div class="chart-empty-state-icon">📊</div><div class="chart-empty-state-message">No data available</div><div class="chart-empty-state-hint">Try adjusting your filters to see results</div></div></div>
                 </div>
                 <p class="chart-click-hint">Click a bar to filter by crash type</p>
             </div>
@@ -755,6 +765,8 @@
                 </div>
                 <div class="chart-wrapper chart-wrapper--tall">
                     <canvas id="topLGAChart"></canvas>
+                    <div class="chart-loading-overlay"><div class="chart-loading-spinner"></div></div>
+                    <div class="chart-empty-state"><div class="chart-empty-state-content"><div class="chart-empty-state-icon">📊</div><div class="chart-empty-state-message">No data available</div><div class="chart-empty-state-hint">Try adjusting your filters to see results</div></div></div>
                 </div>
                 <p class="chart-click-hint">Click a bar to filter by LGA</p>
             </div>
@@ -765,6 +777,8 @@
                 </div>
                 <div class="chart-wrapper chart-wrapper--tall">
                     <canvas id="weatherChart"></canvas>
+                    <div class="chart-loading-overlay"><div class="chart-loading-spinner"></div></div>
+                    <div class="chart-empty-state"><div class="chart-empty-state-content"><div class="chart-empty-state-icon">📊</div><div class="chart-empty-state-message">No data available</div><div class="chart-empty-state-hint">Try adjusting your filters to see results</div></div></div>
                 </div>
                 <p class="chart-click-hint">Click a bar to filter by weather</p>
             </div>
@@ -782,6 +796,8 @@
                 </div>
                 <div class="chart-wrapper">
                     <canvas id="severityTrendChart"></canvas>
+                    <div class="chart-loading-overlay"><div class="chart-loading-spinner"></div></div>
+                    <div class="chart-empty-state"><div class="chart-empty-state-content"><div class="chart-empty-state-icon">📊</div><div class="chart-empty-state-message">No data available</div><div class="chart-empty-state-hint">Try adjusting your filters to see results</div></div></div>
                 </div>
             </div>
 
@@ -1897,10 +1913,50 @@
             const value = context.raw;
             const total = context.dataset.data.reduce(function(a, b) { return a + b; }, 0);
             const pct = total > 0 ? ((value / total) * 100).toFixed(1) : '0.0';
-            return ' ' + value.toLocaleString() + ' crashes (' + pct + '%)';
+            const allDataSum = context.chart.data.datasets[0].data.reduce(function(a, b) { return a + b; }, 0);
+            return ' ' + value.toLocaleString() + ' crashes (' + pct + '% of total shown: ' + allDataSum.toLocaleString() + ')';
+        }
+
+        // Number formatter for Y-axis - adds thousand separators
+        function formatAxisNumber(value) {
+            return value.toLocaleString();
         }
 
         const MONTH_ABBR = ['','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+        // Chart loading and empty state helpers
+        function showChartLoading(chartId) {
+            const wrapper = document.getElementById(chartId)?.closest('.chart-wrapper');
+            if (wrapper) {
+                const overlay = wrapper.querySelector('.chart-loading-overlay');
+                if (overlay) overlay.classList.add('active');
+            }
+        }
+
+        function hideChartLoading(chartId) {
+            const wrapper = document.getElementById(chartId)?.closest('.chart-wrapper');
+            if (wrapper) {
+                const overlay = wrapper.querySelector('.chart-loading-overlay');
+                if (overlay) overlay.classList.remove('active');
+            }
+        }
+
+        function showChartEmpty(chartId, isEmpty) {
+            const wrapper = document.getElementById(chartId)?.closest('.chart-wrapper');
+            if (wrapper) {
+                const emptyState = wrapper.querySelector('.chart-empty-state');
+                const canvas = wrapper.querySelector('canvas');
+                if (emptyState && canvas) {
+                    if (isEmpty) {
+                        emptyState.classList.add('active');
+                        canvas.style.opacity = '0';
+                    } else {
+                        emptyState.classList.remove('active');
+                        canvas.style.opacity = '1';
+                    }
+                }
+            }
+        }
 
         // Initialize charts
         function initializeCharts() {
@@ -1928,7 +1984,14 @@
                     borderWidth: 1
                 }
             };
-            const baseScales  = { y: { beginAtZero: true } };
+            const baseScales  = {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        callback: formatAxisNumber
+                    }
+                }
+            };
 
             // Crashes Over Time - line chart (click point in yearly mode → jump to that year)
             const ctxTime = document.getElementById('crashesOverTimeChart');
@@ -2013,6 +2076,10 @@
                                             { text: 'Weekend', fillStyle: '#ffa726', strokeStyle: '#ffa726', lineWidth: 0 }
                                         ];
                                     }
+                                },
+                                onClick: function(e, legendItem, legend) {
+                                    // This legend is informational only, so we don't toggle datasets
+                                    return;
                                 }
                             },
                             ...tooltipPlugin
@@ -2082,7 +2149,16 @@
                     responsive: true, maintainAspectRatio: false,
                     indexAxis: 'y',
                     plugins: { legend: { display: false }, tooltip: { callbacks: { label: function(ctx) { return ' ' + ctx.raw.toLocaleString() + ' crashes'; } } } },
-                    scales: { x: { beginAtZero: true, ticks: { font: { size: 10 } } }, y: { ticks: { font: { size: 10 } } } },
+                    scales: {
+                        x: {
+                            beginAtZero: true,
+                            ticks: {
+                                font: { size: 10 },
+                                callback: formatAxisNumber
+                            }
+                        },
+                        y: { ticks: { font: { size: 10 } } }
+                    },
                     onHover: function(event) { event.native.target.style.cursor = 'pointer'; },
                     onClick: function(event, elements, chart) {
                         if (elements.length === 0) return;
@@ -2152,10 +2228,29 @@
                     options: {
                         responsive: true, maintainAspectRatio: false,
                         plugins: {
-                            legend: { display: true, position: 'top', labels: { font: { size: 10 }, boxWidth: 12 } },
+                            legend: {
+                                display: true,
+                                position: 'top',
+                                labels: { font: { size: 10 }, boxWidth: 12 },
+                                onClick: function(e, legendItem, legend) {
+                                    const index = legendItem.datasetIndex;
+                                    const chart = legend.chart;
+                                    const meta = chart.getDatasetMeta(index);
+                                    meta.hidden = meta.hidden === null ? !chart.data.datasets[index].hidden : null;
+                                    chart.update();
+                                }
+                            },
                             tooltip: { callbacks: { label: function(ctx) { return ' ' + ctx.dataset.label + ': ' + ctx.raw.toLocaleString() + ' crashes'; } } }
                         },
-                        scales: { x: { ticks: { font: { size: 10 } } }, y: { beginAtZero: true } }
+                        scales: {
+                            x: { ticks: { font: { size: 10 } } },
+                            y: {
+                                beginAtZero: true,
+                                ticks: {
+                                    callback: formatAxisNumber
+                                }
+                            }
+                        }
                     }
                 });
             }
@@ -2287,9 +2382,28 @@
 
         // Update charts with filtered data (called from app.js)
         function updateChartsWithData(crashData) {
-            if (!crashData || crashData.length === 0) return;
+            if (!crashData) crashData = [];
             window._lastCrashData = crashData; // cache for toggle re-render
             updateYearChip(); // keep chip in sync with current slider state
+
+            // Show loading indicators for all charts
+            const chartIds = ['crashesOverTimeChart', 'crashesByDayChart', 'crashesByHourChart',
+                'severityDistributionChart', 'crashTypeChart', 'topLGAChart', 'weatherChart', 'severityTrendChart'];
+            chartIds.forEach(function(id) { showChartLoading(id); });
+
+            // Use setTimeout to allow loading indicators to render before heavy processing
+            setTimeout(function() {
+                try {
+                    updateChartsInternal(crashData);
+                } finally {
+                    // Hide all loading indicators
+                    chartIds.forEach(function(id) { hideChartLoading(id); });
+                }
+            }, 10);
+        }
+
+        function updateChartsInternal(crashData) {
+            const hasData = crashData && crashData.length > 0;
 
             // ── Crashes Over Time ─────────────────────────────────────────────
             if (crashesOverTimeMode === 'yearly') {
@@ -2299,10 +2413,15 @@
                     if (y) yearCounts[y] = (yearCounts[y] || 0) + 1;
                 });
                 var sortedYears = Object.keys(yearCounts).sort();
-                if (charts.crashesOverTime && sortedYears.length > 0) {
-                    charts.crashesOverTime.data.labels = sortedYears;
-                    charts.crashesOverTime.data.datasets[0].data = sortedYears.map(function(y) { return yearCounts[y]; });
-                    charts.crashesOverTime.update();
+                if (charts.crashesOverTime) {
+                    if (sortedYears.length > 0) {
+                        charts.crashesOverTime.data.labels = sortedYears;
+                        charts.crashesOverTime.data.datasets[0].data = sortedYears.map(function(y) { return yearCounts[y]; });
+                        charts.crashesOverTime.update();
+                        showChartEmpty('crashesOverTimeChart', false);
+                    } else {
+                        showChartEmpty('crashesOverTimeChart', true);
+                    }
                 }
             } else {
                 // Monthly - zero-pad month so "2012-01" sorts before "2012-10"
@@ -2322,10 +2441,15 @@
                     var p = k.split('-');
                     return MONTH_ABBR[parseInt(p[1])] + " '" + p[0].slice(2);
                 });
-                if (charts.crashesOverTime && sortedKeys.length > 0) {
-                    charts.crashesOverTime.data.labels = labels;
-                    charts.crashesOverTime.data.datasets[0].data = sortedKeys.map(function(k) { return monthCounts[k]; });
-                    charts.crashesOverTime.update();
+                if (charts.crashesOverTime) {
+                    if (sortedKeys.length > 0) {
+                        charts.crashesOverTime.data.labels = labels;
+                        charts.crashesOverTime.data.datasets[0].data = sortedKeys.map(function(k) { return monthCounts[k]; });
+                        charts.crashesOverTime.update();
+                        showChartEmpty('crashesOverTimeChart', false);
+                    } else {
+                        showChartEmpty('crashesOverTimeChart', true);
+                    }
                 }
             }
 
@@ -2338,10 +2462,12 @@
                 if (d && dayNameToIndex.hasOwnProperty(d)) dayCounts[dayNameToIndex[d]]++;
             });
             if (charts.crashesByDay) {
+                var totalDayCrashes = dayCounts.reduce(function(a,b){return a+b;},0);
                 charts.crashesByDay.data.datasets[0].data = dayCounts;
-                var dayAvg = Math.round(dayCounts.reduce(function(a,b){return a+b;},0) / 7);
+                var dayAvg = Math.round(totalDayCrashes / 7);
                 charts.crashesByDay.data.datasets[1].data = Array(7).fill(dayAvg);
                 charts.crashesByDay.update();
+                showChartEmpty('crashesByDayChart', totalDayCrashes === 0);
             }
 
             // ── Crashes by Hour — gradient blue→red ──────────────────────────
@@ -2357,11 +2483,13 @@
                 }
             });
             if (charts.crashesByHour) {
+                var totalHourCrashes = hourCounts.reduce(function(a,b){return a+b;},0);
                 charts.crashesByHour.data.datasets[0].data = hourCounts;
                 charts.crashesByHour.data.datasets[0].backgroundColor = gradientColors(hourCounts, '#4a90e2', '#ef5350');
-                var hourAvg = Math.round(hourCounts.reduce(function(a,b){return a+b;},0) / 24);
+                var hourAvg = Math.round(totalHourCrashes / 24);
                 charts.crashesByHour.data.datasets[1].data = Array(24).fill(hourAvg);
                 charts.crashesByHour.update();
+                showChartEmpty('crashesByHourChart', totalHourCrashes === 0);
             }
 
             // ── Severity Distribution ─────────────────────────────────────────
@@ -2374,8 +2502,10 @@
                 else if (s.includes('Fatal') || s.includes('4:')) sev.Fatal++;
             });
             if (charts.severityDistribution) {
+                var sevTotal = sev.PDO + sev.Minor + sev.Serious + sev.Fatal;
                 charts.severityDistribution.data.datasets[0].data = [sev.PDO, sev.Minor, sev.Serious, sev.Fatal];
                 charts.severityDistribution.update();
+                showChartEmpty('severityDistributionChart', sevTotal === 0);
             }
 
             // ── Top Crash Types ───────────────────────────────────────────────
@@ -2390,6 +2520,7 @@
                 charts.crashType.data.datasets[0].data = sortedTypes.map(function(t) { return typeCounts[t]; });
                 charts.crashType.data.datasets[0].backgroundColor = gradientColors(sortedTypes.map(function(t) { return typeCounts[t]; }), '#90caf9', '#1565c0');
                 charts.crashType.update();
+                showChartEmpty('crashTypeChart', sortedTypes.length === 0);
             }
 
             // ── Top LGAs ─────────────────────────────────────────────────────
@@ -2404,6 +2535,7 @@
                 charts.topLGA.data.datasets[0].data = sortedLGAs.map(function(l) { return lgaCounts[l]; });
                 charts.topLGA.data.datasets[0].backgroundColor = gradientColors(sortedLGAs.map(function(l) { return lgaCounts[l]; }), '#80deea', '#006064');
                 charts.topLGA.update();
+                showChartEmpty('topLGAChart', sortedLGAs.length === 0);
             }
 
             // ── Weather Conditions ────────────────────────────────────────────
@@ -2418,6 +2550,7 @@
                 charts.weather.data.datasets[0].data = sortedWx.map(function(w) { return wxCounts[w]; });
                 charts.weather.data.datasets[0].backgroundColor = gradientColors(sortedWx.map(function(w) { return wxCounts[w]; }), '#a5d6a7', '#1b5e20');
                 charts.weather.update();
+                showChartEmpty('weatherChart', sortedWx.length === 0);
             }
 
             // ── Day × Hour Heatmap ────────────────────────────────────────────
@@ -2475,6 +2608,7 @@
                 charts.severityTrend.data.datasets[1].data = sortedYears.map(function(y) { return yearSI[y]    || 0; });
                 charts.severityTrend.data.datasets[2].data = sortedYears.map(function(y) { return yearMI[y]    || 0; });
                 charts.severityTrend.update();
+                showChartEmpty('severityTrendChart', sortedYears.length === 0);
             })();
 
             // ── Crashes by Speed Zone ─────────────────────────────────────────
