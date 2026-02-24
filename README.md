@@ -78,10 +78,30 @@ An interactive web-based map visualization tool for exploring South Australian c
 
 #### Data Export
 - **CSV Export**: Export filtered crash data to CSV format from Statistics panel or directly from the data table
-- **Export Options**: Choose to export all filtered data or just the current page view
-- **Summary Statistics**: Includes totals for crashes, casualties, and injuries
-- **Filter Documentation**: Active filters are documented in the export
-- **Comprehensive Data**: Includes crash details, location, casualties, and units involved
+  - Export Options: Choose to export all filtered data or just the current page view
+  - Summary Statistics: Includes totals for crashes, casualties, and injuries
+  - Filter Documentation: Active filters are documented in the export
+  - Comprehensive Data: Includes crash details, location, casualties, and units involved
+
+- **PDF Export**: Generate professional PDF reports with customizable content
+  - **Cover Page**: Report title with generation timestamp and crash count
+  - **Statistics Summary**: Total crashes, fatalities, serious injuries, and minor injuries
+  - **Active Filters**: Documentation of all applied filters
+  - **Interactive Charts**: Full-page, high-resolution charts including:
+    - Crashes Over Time (yearly/monthly trends)
+    - Crashes by Day of Week
+    - Crashes by Hour
+    - Severity Distribution
+    - Top Crash Types
+    - Top Areas (LGA)
+    - Weather Conditions
+    - Severity Trend Over Time
+  - **Data Table**: Detailed crash records with customizable row count (10-500 rows, or all data)
+  - **Flexible Layout**: Portrait or landscape orientation
+  - **Smart Compression**: Automatic JPEG/PNG selection for optimal quality and file size
+  - **High Quality**: Charts rendered at 2400×1200 resolution with 3x scaling for crisp output
+  - **Large, Readable Fonts**: All chart legends and labels scaled for easy reading
+  - **Progress Tracking**: Real-time progress bar during generation
 
 #### Filter Management
 - **Active Filters Bar**: See all active filters at a glance
@@ -149,7 +169,34 @@ Click on any marker to see comprehensive crash information:
 - `/` - Focus search box
 - `Escape` - Close table or column picker
 
-### 6. **Share & Bookmark**
+### 6. **Export Data**
+
+#### Export to CSV
+1. Click "Export to CSV" button in the Statistics panel
+2. Choose export scope (all filtered data or current table page)
+3. File downloads with crash details, casualties, and filter documentation
+
+#### Export to PDF
+1. Click "Export to PDF" button in the Statistics panel
+2. Choose a preset:
+   - **Quick Summary**: Stats + top 3 charts (fast, small file)
+   - **Full Analytics**: All charts without data table (recommended)
+   - **Custom**: Select exactly what you want
+3. Customize your report:
+   - **Include/Exclude**: Cover page, statistics, filters, charts, data table
+   - **Select Charts**: Choose which charts to include (or select all/none)
+   - **Table Rows**: Choose how many rows to include (10-500, or all)
+   - **Orientation**: Portrait or Landscape (landscape recommended for charts)
+   - **File Name**: Customize the filename
+4. Click "Generate PDF" and wait for the progress bar to complete
+5. PDF downloads automatically with timestamp appended to filename
+
+**Tips for Best PDFs:**
+- Use "Full Analytics" preset for comprehensive visual reports
+- Landscape orientation works best for charts
+- For large datasets, limit table rows to 100-200 for faster generation
+
+### 7. **Share & Bookmark**
 - Filters are encoded in URL - copy the URL to share your exact view
 - Bookmark specific filter combinations
 - Send filtered views to colleagues/friends
@@ -173,7 +220,9 @@ The application uses crash data from the `data/` folder:
 - **Leaflet.js** - Interactive mapping
 - **Leaflet.markercluster** - Marker clustering with chunked loading
 - **Leaflet.heat** - Heatmap visualization
+- **Chart.js** - Interactive analytics charts and visualizations
 - **PapaParse** - CSV file parsing
+- **jsPDF** - Client-side PDF generation with jsPDF-AutoTable for tables
 - **Proj4js** - Coordinate system conversion (EPSG:3107 to WGS84)
 - **Service Worker API** - Offline caching and PWA support
 - **IndexedDB** (future) - Client-side data caching
@@ -290,7 +339,9 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 A: 2% of crashes have invalid or missing coordinates in the dataset.
 
 **Q: Can I export filtered data?**
-A: Yes. Click the "Export to CSV" button in the Statistics panel (at the bottom of the Explorer). The export includes all filtered crash data with summary statistics, active filters, and comprehensive crash details including casualties and units involved.
+A: Yes, in two formats:
+- **CSV Export**: Click "Export to CSV" in the Statistics panel. Includes all filtered crash data with summary statistics, active filters, and comprehensive crash details including casualties and units involved.
+- **PDF Export**: Click "📄 Export to PDF" in the Statistics panel. Generate professional reports with statistics, high-resolution charts, and data tables. Choose from Quick Summary, Full Analytics, or Custom presets.
 
 **Q: How often is the data updated?**
 A: Data is sourced from Data.SA and updated when new datasets are published. This involves cleansing & aggregating the data which can take time.
