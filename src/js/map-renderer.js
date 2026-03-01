@@ -38,6 +38,13 @@ import { updateStatistics } from './analytics.js';
 import { showNotification } from './ui.js';
 
 // ============================================================================
+// CANVAS RENDERER FOR PDF EXPORT
+// ============================================================================
+// Create a canvas renderer for GeoJSON layers to ensure they can be captured
+// by leaflet-image (which cannot capture SVG layers, only canvas/raster)
+const canvasRenderer = L.canvas();
+
+// ============================================================================
 // UTILITY FUNCTIONS
 // ============================================================================
 
@@ -88,30 +95,36 @@ export function initMap() {
         "Dark": L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
             attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
             subdomains: 'abcd',
-            maxZoom: 19
+            maxZoom: 19,
+            crossOrigin: 'anonymous'
         }),
         "Light": L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
             attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
             subdomains: 'abcd',
-            maxZoom: 19
+            maxZoom: 19,
+            crossOrigin: 'anonymous'
         }),
         "Voyager": L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
             attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
             subdomains: 'abcd',
-            maxZoom: 19
+            maxZoom: 19,
+            crossOrigin: 'anonymous'
         }),
         "Street": L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-            maxZoom: 19
+            maxZoom: 19,
+            crossOrigin: 'anonymous'
         }),
         "Satellite": L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
             attribution: '&copy; <a href="https://www.esri.com/">Esri</a>',
-            maxZoom: 19
+            maxZoom: 19,
+            crossOrigin: 'anonymous'
         }),
         "Terrain": L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
             attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, <a href="http://viewfinderpanoramas.org">SRTM</a> | &copy; <a href="https://opentopomap.org">OpenTopoMap</a>',
             subdomains: 'abc',
-            maxZoom: 17
+            maxZoom: 17,
+            crossOrigin: 'anonymous'
         })
     };
 
@@ -773,6 +786,7 @@ export function addChoropleth() {
     // Use real LGA boundaries if available
     if (dataState.lgaBoundaries && dataState.lgaBoundaries.features) {
         mapState.choroplethLayer = L.geoJSON(dataState.lgaBoundaries, {
+            renderer: canvasRenderer, // Use canvas renderer for PDF export compatibility
             style: function(feature) {
                 const lgaName = getLGAName(feature.properties);
                 const normalizedName = normalizeLGAName(lgaName);
@@ -896,6 +910,7 @@ export function addChoroplethBySuburb() {
 
     // Render suburb boundaries
     mapState.choroplethLayer = L.geoJSON(dataState.suburbBoundaries, {
+        renderer: canvasRenderer, // Use canvas renderer for PDF export compatibility
         style: function(feature) {
             // Get suburb name from GeoJSON properties (adjust property name as needed)
             const suburbName = feature.properties.suburb || feature.properties.SUBURB || feature.properties.name;
