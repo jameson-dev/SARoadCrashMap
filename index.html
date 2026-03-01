@@ -331,6 +331,9 @@
             <button class="export-btn" onclick="exportFilteredData()" title="Export filtered crash data to CSV" aria-label="Export filtered crash data to CSV file">
                 Export to CSV
             </button>
+            <button class="export-btn" onclick="openPdfExportModal()" title="Export customizable PDF report with charts and statistics" aria-label="Export PDF report" style="margin-top:6px;">
+                Export to PDF
+            </button>
             <button class="export-btn" onclick="toggleDataTable()" title="View filtered crashes as a sortable table" aria-label="Open data table to view and sort filtered crashes" style="margin-top:6px;background:var(--bg-secondary);color:var(--text-primary);border:1px solid var(--border);">
                 View Data Table
             </button>
@@ -664,6 +667,12 @@
     <!-- Leaflet Draw (for draw-area spatial filter) -->
     <script src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js"></script>
 
+    <!-- Leaflet Image (for PDF map export) -->
+    <script src="https://cdn.jsdelivr.net/npm/leaflet-image@0.4.0/leaflet-image.js"></script>
+
+    <!-- HTML2Canvas (fallback for map capture) -->
+    <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+
     <!-- noUiSlider JS -->
     <script src="https://unpkg.com/nouislider@15.7.1/dist/nouislider.min.js"></script>
 
@@ -678,6 +687,10 @@
 
     <!-- Chart.js for analytics -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
+    <!-- jsPDF for PDF generation -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 
     <!-- Service Worker Registration -->
     <script src="sw-register.js"></script>
@@ -1488,10 +1501,36 @@
                         <div class="tutorial-step">
                             <strong>Export to CSV</strong>
                             <ul>
-                                <li>Click the <strong>"Export CSV"</strong> button in the data table panel</li>
+                                <li>Click the <strong>"Export CSV"</strong> button in the data table panel or Statistics panel</li>
                                 <li>Downloads your current filtered dataset as a CSV file</li>
                                 <li>Perfect for further analysis in Excel, R, Python, or other tools</li>
                                 <li>Filename includes date range and filter count for easy reference</li>
+                            </ul>
+                        </div>
+
+                        <div class="tutorial-step">
+                            <strong>Export to PDF</strong>
+                            <ul>
+                                <li>Click the <strong>"Export to PDF"</strong> button in the Statistics panel</li>
+                                <li><strong>Choose a preset:</strong>
+                                    <ul style="margin-top: 8px;">
+                                        <li><strong>Quick Summary:</strong> Stats + top 3 charts (fast, smaller file)</li>
+                                        <li><strong>Full Analytics:</strong> All charts without data table (recommended)</li>
+                                        <li><strong>Custom:</strong> Select exactly what you want to include</li>
+                                    </ul>
+                                </li>
+                                <li><strong>Customize your report:</strong>
+                                    <ul style="margin-top: 8px;">
+                                        <li>Include/exclude: Cover page, statistics, filters, charts, data table</li>
+                                        <li>Select specific charts or use Select All/None buttons</li>
+                                        <li>Choose table row count (10-500 rows, or all data)</li>
+                                        <li>Select orientation: Portrait or Landscape (landscape recommended for charts)</li>
+                                        <li>Customize the filename</li>
+                                    </ul>
+                                </li>
+                                <li>Watch the progress bar as your PDF generates</li>
+                                <li>PDF automatically downloads with timestamp appended to filename</li>
+                                <li><strong>Tips:</strong> Use "Full Analytics" for visual reports, landscape orientation works best, limit table to 100-200 rows for faster generation</li>
                             </ul>
                         </div>
 
@@ -1580,6 +1619,307 @@
                     <button class="btn-primary" onclick="closeTutorial()">Get Started</button>
                 </div>
             </div>
+        </div>
+    </div>
+
+    <!-- PDF Export Modal -->
+    <div id="pdfExportModal" class="modal">
+        <div class="modal-content pdf-export-modal-content">
+            <div class="modal-header">
+                <h2>📄 Export PDF Report</h2>
+                <button class="modal-close" onclick="closePdfExportModal()" aria-label="Close PDF Export dialog">&times;</button>
+            </div>
+
+            <div class="modal-body pdf-export-body">
+                <div class="pdf-data-summary">
+                    <strong>Filtered Data:</strong> <span id="pdfModalCrashCount">0</span> crashes
+                </div>
+
+                <!-- Preset Templates -->
+                <div class="pdf-preset-section">
+                    <label class="section-label">Quick Presets:</label>
+                    <div class="pdf-preset-buttons">
+                        <button class="pdf-preset-btn" onclick="applyPdfPreset(event, 'quick')" title="Statistics + top 3 charts only">
+                            ⚡ Quick Summary
+                        </button>
+                        <button class="pdf-preset-btn" onclick="applyPdfPreset(event, 'full')" title="All charts + statistics">
+                            📊 Full Analytics
+                        </button>
+                        <button class="pdf-preset-btn active" onclick="applyPdfPreset(event, 'custom')" title="Customize what to include">
+                            🎨 Custom
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Include in Report -->
+                <div class="pdf-options-section">
+                    <label class="section-label">Include in Report:</label>
+
+                    <div class="pdf-option-group">
+                        <label class="pdf-checkbox-label">
+                            <input type="checkbox" id="pdfIncludeCover" checked>
+                            <span>Cover Page</span>
+                            <small>Report title, date, filter summary</small>
+                        </label>
+                    </div>
+
+                    <div class="pdf-option-group">
+                        <label class="pdf-checkbox-label">
+                            <input type="checkbox" id="pdfIncludeStats" checked>
+                            <span>Statistics Summary</span>
+                            <small>Total crashes, fatalities, injuries</small>
+                        </label>
+                    </div>
+
+                    <div class="pdf-option-group">
+                        <label class="pdf-checkbox-label">
+                            <input type="checkbox" id="pdfIncludeCharts" checked onchange="toggleChartOptions()">
+                            <span>Charts & Visualizations</span>
+                        </label>
+
+                        <div id="pdfChartOptions" class="pdf-sub-options">
+                            <div class="pdf-chart-selection-header">
+                                <div>
+                                    <button class="pdf-link-btn" onclick="selectAllCharts()">Select All</button>
+                                    <span>|</span>
+                                    <button class="pdf-link-btn" onclick="selectNoCharts()">Select None</button>
+                                </div>
+                                <small style="color: #666; font-style: italic;">Drag to reorder</small>
+                            </div>
+                            <div id="pdfChartCheckboxes" class="pdf-chart-checkboxes pdf-draggable-list">
+                                <div class="pdf-draggable-item" draggable="true" data-chart-id="pdfChart1">
+                                    <span class="drag-handle">⋮⋮</span>
+                                    <label><input type="checkbox" id="pdfChart1" class="pdf-chart-cb" checked> Crashes Over Time</label>
+                                </div>
+                                <div class="pdf-draggable-item" draggable="true" data-chart-id="pdfChart2">
+                                    <span class="drag-handle">⋮⋮</span>
+                                    <label><input type="checkbox" id="pdfChart2" class="pdf-chart-cb" checked> Crashes by Day of Week</label>
+                                </div>
+                                <div class="pdf-draggable-item" draggable="true" data-chart-id="pdfChart3">
+                                    <span class="drag-handle">⋮⋮</span>
+                                    <label><input type="checkbox" id="pdfChart3" class="pdf-chart-cb" checked> Crashes by Hour</label>
+                                </div>
+                                <div class="pdf-draggable-item" draggable="true" data-chart-id="pdfChart4">
+                                    <span class="drag-handle">⋮⋮</span>
+                                    <label><input type="checkbox" id="pdfChart4" class="pdf-chart-cb" checked> Severity Distribution</label>
+                                </div>
+                                <div class="pdf-draggable-item" draggable="true" data-chart-id="pdfChart5">
+                                    <span class="drag-handle">⋮⋮</span>
+                                    <label><input type="checkbox" id="pdfChart5" class="pdf-chart-cb" checked> Top Crash Types</label>
+                                </div>
+                                <div class="pdf-draggable-item" draggable="true" data-chart-id="pdfChart6">
+                                    <span class="drag-handle">⋮⋮</span>
+                                    <label><input type="checkbox" id="pdfChart6" class="pdf-chart-cb" checked> Top Areas (LGA)</label>
+                                </div>
+                                <div class="pdf-draggable-item" draggable="true" data-chart-id="pdfChart7">
+                                    <span class="drag-handle">⋮⋮</span>
+                                    <label><input type="checkbox" id="pdfChart7" class="pdf-chart-cb" checked> Weather Conditions</label>
+                                </div>
+                                <div class="pdf-draggable-item" draggable="true" data-chart-id="pdfChart8">
+                                    <span class="drag-handle">⋮⋮</span>
+                                    <label><input type="checkbox" id="pdfChart8" class="pdf-chart-cb" checked> Severity Trend Over Time</label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="pdf-option-group">
+                        <label class="pdf-checkbox-label">
+                            <input type="checkbox" id="pdfIncludeTable" onchange="toggleTableOptions()">
+                            <span>Data Table</span>
+                        </label>
+
+                        <div id="pdfTableOptions" class="pdf-sub-options" style="display: none;">
+                            <label class="pdf-table-rows-label">Rows to include:</label>
+                            <div class="pdf-radio-group">
+                                <label><input type="radio" name="pdfTableRows" value="50" checked> First 50 rows</label>
+                                <label><input type="radio" name="pdfTableRows" value="100"> First 100 rows</label>
+                                <label><input type="radio" name="pdfTableRows" value="200"> First 200 rows</label>
+                                <label><input type="radio" name="pdfTableRows" value="500"> First 500 rows</label>
+                                <label><input type="radio" name="pdfTableRows" value="all"> All rows <span class="pdf-warning-text" id="pdfTableWarning" style="display: none;">⚠ May be large</span></label>
+                            </div>
+
+                            <div style="margin-top: 12px;">
+                                <div class="pdf-chart-selection-header">
+                                    <label class="pdf-table-rows-label">Columns to include:</label>
+                                    <div>
+                                        <button class="pdf-link-btn" onclick="selectAllTableColumns()">Select All</button>
+                                        <span>|</span>
+                                        <button class="pdf-link-btn" onclick="selectDefaultTableColumns()">Default</button>
+                                    </div>
+                                </div>
+                                <div class="pdf-chart-checkboxes" style="max-height: 150px; overflow-y: auto; border: 1px solid #ddd; padding: 8px; border-radius: 4px;">
+                                    <label><input type="checkbox" class="pdf-table-col-cb" value="Date" checked> Date</label>
+                                    <label><input type="checkbox" class="pdf-table-col-cb" value="Time"> Time</label>
+                                    <label><input type="checkbox" class="pdf-table-col-cb" value="CSEF Severity" checked> Severity</label>
+                                    <label><input type="checkbox" class="pdf-table-col-cb" value="Crash Type" checked> Crash Type</label>
+                                    <label><input type="checkbox" class="pdf-table-col-cb" value="LGA" checked> LGA</label>
+                                    <label><input type="checkbox" class="pdf-table-col-cb" value="Suburb"> Suburb</label>
+                                    <label><input type="checkbox" class="pdf-table-col-cb" value="Total Fats"> Fatalities</label>
+                                    <label><input type="checkbox" class="pdf-table-col-cb" value="Total SI"> Serious Injuries</label>
+                                    <label><input type="checkbox" class="pdf-table-col-cb" value="Total MI"> Minor Injuries</label>
+                                    <label><input type="checkbox" class="pdf-table-col-cb" value="Speed Limit"> Speed Limit</label>
+                                    <label><input type="checkbox" class="pdf-table-col-cb" value="Road Surface"> Road Surface</label>
+                                    <label><input type="checkbox" class="pdf-table-col-cb" value="Moisture Condition"> Moisture</label>
+                                    <label><input type="checkbox" class="pdf-table-col-cb" value="Weather Condition"> Weather</label>
+                                    <label><input type="checkbox" class="pdf-table-col-cb" value="DayNight"> Day/Night</label>
+                                    <label><input type="checkbox" class="pdf-table-col-cb" value="Unit Count"> Units</label>
+                                    <label><input type="checkbox" class="pdf-table-col-cb" value="Latitude"> Latitude</label>
+                                    <label><input type="checkbox" class="pdf-table-col-cb" value="Longitude"> Longitude</label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="pdf-option-group">
+                        <label class="pdf-checkbox-label">
+                            <input type="checkbox" id="pdfIncludeExecutiveSummary" checked>
+                            <span>Executive Summary</span>
+                            <small>Automated insights and key findings from the data</small>
+                        </label>
+                    </div>
+
+                    <div class="pdf-option-group">
+                        <label class="pdf-checkbox-label">
+                            <input type="checkbox" id="pdfIncludeFilters">
+                            <span>Active Filters Summary</span>
+                            <small>List of currently applied filters</small>
+                        </label>
+                    </div>
+
+                    <div class="pdf-option-group">
+                        <label class="pdf-checkbox-label">
+                            <input type="checkbox" id="pdfIncludeMap" checked>
+                            <span>Crash Density Map</span>
+                            <small>Heat map showing crash concentration at current zoom/position</small>
+                        </label>
+                        <button type="button" class="position-map-btn" id="positionMapBtn" onclick="enterMapPositioningMode()">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+                                <circle cx="12" cy="10" r="3"></circle>
+                            </svg>
+                            Configure Map
+                        </button>
+                    </div>
+
+                    <div class="pdf-option-group">
+                        <label class="pdf-checkbox-label">
+                            <input type="checkbox" id="pdfIncludeNotes" onchange="toggleNotesOptions()">
+                            <span>Custom Notes/Comments</span>
+                            <small>Add custom text sections to the report</small>
+                        </label>
+
+                        <div id="pdfNotesOptions" class="pdf-sub-options" style="display: none;">
+                            <div id="pdfNotesContainer" style="margin-top: 10px;">
+                                <!-- Notes will be added here dynamically -->
+                            </div>
+                            <button type="button" class="pdf-link-btn" onclick="addPdfNote()" style="margin-top: 8px;">+ Add Note Section</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Report Format -->
+                <div class="pdf-format-section">
+                    <label class="section-label">Report Format:</label>
+                    <div class="pdf-radio-group">
+                        <label><input type="radio" name="pdfOrientation" value="portrait"> Portrait (A4)</label>
+                        <label><input type="radio" name="pdfOrientation" value="landscape" checked> Landscape (A4) - Better for charts</label>
+                    </div>
+                </div>
+
+                <!-- File Name -->
+                <div class="pdf-filename-section">
+                    <label class="section-label" for="pdfFilename">File Name:</label>
+                    <input type="text" id="pdfFilename" class="pdf-filename-input" value="SA_Crash_Report_{date}" placeholder="e.g., Report_{date}_{count}_crashes">
+                    <small class="pdf-filename-hint">
+                        Available variables: {date}, {year_range}, {count}, {time}
+                        <br>Preview: <span id="pdfFilenamePreview" style="font-weight: 600; color: var(--primary-color);">SA_Crash_Report_2024-02-28.pdf</span>
+                    </small>
+                </div>
+            </div>
+
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="closePdfExportModal()">Cancel</button>
+                <button class="btn-secondary" onclick="showPdfPreview()" style="margin-right: auto;">📋 Preview</button>
+                <button class="btn-primary" onclick="generatePdfReport()">Generate PDF</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- PDF Preview Modal -->
+    <div id="pdfPreviewModal" class="modal" style="display: none;">
+        <div class="modal-content pdf-preview-modal-content">
+            <div class="modal-header">
+                <h2>📋 PDF Report Preview</h2>
+                <button class="modal-close" onclick="closePdfPreview()" aria-label="Close Preview">&times;</button>
+            </div>
+
+            <div class="modal-body" style="padding: 20px;">
+                <div class="pdf-preview-summary">
+                    <h3 style="margin-top: 0;">Report Summary</h3>
+                    <div id="pdfPreviewContent" style="line-height: 1.8;"></div>
+                </div>
+
+                <div class="pdf-preview-estimated" style="margin-top: 20px; padding: 15px; background: var(--bg-panel); border-radius: 6px; border-left: 4px solid var(--accent);">
+                    <strong>Estimated Pages:</strong> <span id="pdfPreviewPages">~5-10 pages</span>
+                </div>
+            </div>
+
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="closePdfPreview()">Close</button>
+                <button class="btn-primary" onclick="closePdfPreview(); generatePdfReport();">Generate PDF</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Hidden Chart Rendering Container for PDF Export -->
+    <div id="pdfChartRenderingContainer" style="position: absolute; left: -9999px; top: -9999px; width: 1200px; height: 800px; visibility: hidden; pointer-events: none;" aria-hidden="true">
+        <!-- Charts can be temporarily cloned here for high-quality rendering -->
+    </div>
+
+    <!-- PDF Generation Loading Overlay -->
+    <div id="pdfLoadingOverlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.8); z-index: 10000; justify-content: center; align-items: center;">
+        <div style="background: white; padding: 30px 40px; border-radius: 8px; text-align: center; min-width: 300px; box-shadow: 0 10px 40px rgba(0,0,0,0.3);">
+            <h3 style="margin: 0 0 20px 0; color: #333; font-size: 20px;">Generating PDF Report</h3>
+            <div style="width: 100%; height: 8px; background: #e0e0e0; border-radius: 4px; overflow: hidden; margin-bottom: 15px;">
+                <div id="pdfProgressBar" style="width: 0%; height: 100%; background: linear-gradient(90deg, #4a90e2, #63a4ff); transition: width 0.3s ease;"></div>
+            </div>
+            <p id="pdfLoadingMessage" style="margin: 0; color: #666; font-size: 14px;">Preparing charts...</p>
+            <p id="pdfLoadingPercent" style="margin: 10px 0 0 0; color: #4a90e2; font-size: 16px; font-weight: bold;">0%</p>
+        </div>
+    </div>
+
+    <!-- Map Positioning Overlay -->
+    <div id="mapPositioningOverlay" class="map-positioning-overlay" style="display: none;">
+        <div class="positioning-banner">
+            <div class="positioning-content">
+                <div class="positioning-message">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+                        <circle cx="12" cy="10" r="3"></circle>
+                    </svg>
+                    <span><strong>Configure the map</strong> - Pan and zoom to your desired view</span>
+                </div>
+                <div class="positioning-layer-toggles">
+                    <label class="layer-toggle-label">
+                        <input type="checkbox" id="positionDensityToggle" checked onchange="togglePositioningLayer('density', this.checked)">
+                        <span>Density Map</span>
+                    </label>
+                    <label class="layer-toggle-label">
+                        <input type="checkbox" id="positionMarkersToggle" onchange="togglePositioningLayer('markers', this.checked)">
+                        <span>Markers</span>
+                    </label>
+                    <label class="layer-toggle-label">
+                        <input type="checkbox" id="positionChoroplethToggle" onchange="togglePositioningLayer('choropleth', this.checked)">
+                        <span>Choropleth</span>
+                    </label>
+                    <select id="choroplethModeSelect" class="choropleth-mode-select" onchange="changeChoroplethMode(this.value)" style="display: none;">
+                        <option value="lga">LGA</option>
+                        <option value="suburb">Suburb</option>
+                    </select>
+                </div>
+            </div>
+            <button type="button" class="btn-primary" id="donePositioningBtn" onclick="exitMapPositioningMode()">Done</button>
         </div>
     </div>
 
@@ -2876,6 +3216,52 @@
         // Make functions available globally for app.js
         window.updateChartsWithData = updateChartsWithData;
         window.updateResultCount = updateResultCount;
+    </script>
+
+    <!-- PDF Generator Module -->
+    <script type="module">
+        import {
+            openPdfExportModal,
+            closePdfExportModal,
+            applyPdfPreset,
+            toggleChartOptions,
+            toggleTableOptions,
+            toggleNotesOptions,
+            addPdfNote,
+            removePdfNote,
+            selectAllCharts,
+            selectNoCharts,
+            selectAllTableColumns,
+            selectDefaultTableColumns,
+            generatePdfReport,
+            enterMapPositioningMode,
+            exitMapPositioningMode,
+            togglePositioningLayer,
+            changeChoroplethMode,
+            showPdfPreview,
+            closePdfPreview
+        } from './src/js/pdf-generator.js';
+
+        // Make PDF functions globally available
+        window.openPdfExportModal = openPdfExportModal;
+        window.closePdfExportModal = closePdfExportModal;
+        window.applyPdfPreset = applyPdfPreset;
+        window.toggleChartOptions = toggleChartOptions;
+        window.toggleTableOptions = toggleTableOptions;
+        window.toggleNotesOptions = toggleNotesOptions;
+        window.addPdfNote = addPdfNote;
+        window.removePdfNote = removePdfNote;
+        window.selectAllCharts = selectAllCharts;
+        window.selectNoCharts = selectNoCharts;
+        window.selectAllTableColumns = selectAllTableColumns;
+        window.selectDefaultTableColumns = selectDefaultTableColumns;
+        window.generatePdfReport = generatePdfReport;
+        window.enterMapPositioningMode = enterMapPositioningMode;
+        window.exitMapPositioningMode = exitMapPositioningMode;
+        window.togglePositioningLayer = togglePositioningLayer;
+        window.changeChoroplethMode = changeChoroplethMode;
+        window.showPdfPreview = showPdfPreview;
+        window.closePdfPreview = closePdfPreview;
     </script>
 </body>
 </html>

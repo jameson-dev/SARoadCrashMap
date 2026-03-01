@@ -675,7 +675,7 @@ export function matchesCasualtyFilters(row, filters) {
         }
 
         // Helmet filter
-        if (hasHelmetFilter && !helmetSet.has(casualty.HELMET)) {
+        if (hasHelmetFilter && !helmetSet.has(casualty.Helmet)) {
             return false;
         }
 
@@ -717,7 +717,7 @@ export function matchesUnitsFilters(row, filters) {
     // Handle Towing filter
     if (filters.towing !== 'all') {
         if (units.length === 0) return filters.towing !== 'Yes';
-        const hasTowing = units.some(u => u.TOWING && u.TOWING.trim() !== '');
+        const hasTowing = units.some(u => u.Towing && u.Towing.trim() !== '');
         if (filters.towing === 'Yes' && !hasTowing) return false;
         if (filters.towing === 'No' && hasTowing) return false;
     }
