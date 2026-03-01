@@ -5,6 +5,7 @@
 
 import { dataState, updateDataState } from './state.js';
 import { convertCoordinates, normalizeLGAName, getLGAName, showLoading, updateLoadingMessage, hideLoading } from './utils.js';
+import { dbCache, perfMonitor, fetchWithProgress } from './performance.js';
 
 /**
  * Link casualty and units data to crashes by REPORT_ID
@@ -63,29 +64,52 @@ export function linkCrashData() {
 }
 
 /**
- * Load units data
+ * Load units data with caching
  */
 export async function loadUnitsData() {
     showLoading('Loading units data...');
 
     try {
-        const response = await fetch('data/2012-2024_DATA_SA_Units.json.gz');
+        // Try cache first
+        const cached = await dbCache.getFresh('crashData', 'units-2012-2024', 7 * 24 * 60 * 60 * 1000);
 
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
+        if (cached) {
+            console.log('✅ Using cached units data');
+            updateDataState({ unitsData: cached });
+            linkCrashData();
+
+            const { populateFilterOptions } = await import('./filters.js');
+            const { updateMarkerColorLegend } = await import('./map-renderer.js');
+
+            populateFilterOptions();
+            updateMarkerColorLegend();
+            await loadLGABoundaries();
+
+            return cached;
         }
 
-        const compressedData = await response.arrayBuffer();
-        const decompressed = pako.inflate(new Uint8Array(compressedData), { to: 'string' });
+        // Fetch with progress
+        const compressedData = await fetchWithProgress('data/2012-2024_DATA_SA_Units.json.gz', (percent) => {
+            updateLoadingMessage(`Loading units data... ${percent}%`);
+        });
+
+        const decompressed = pako.inflate(compressedData, { to: 'string' });
         const unitsData = JSON.parse(decompressed);
 
         updateDataState({ unitsData });
+
+        // Cache the data
+        try {
+            await dbCache.put('crashData', 'units-2012-2024', unitsData);
+            await dbCache.put('metadata', 'units-2012-2024', { timestamp: Date.now() });
+        } catch (cacheError) {
+            console.warn('Failed to cache units data:', cacheError);
+        }
 
         // Link data together
         linkCrashData();
 
         // After linking, populate filter options and load boundaries
-        // Import these functions dynamically to avoid circular dependencies
         const { populateFilterOptions } = await import('./filters.js');
         const { updateMarkerColorLegend } = await import('./map-renderer.js');
 
@@ -106,23 +130,39 @@ export async function loadUnitsData() {
 }
 
 /**
- * Load casualty data
+ * Load casualty data with caching
  */
 export async function loadCasualtyData() {
     showLoading('Loading casualty data...');
 
     try {
-        const response = await fetch('data/2012-2024_DATA_SA_Casualty.json.gz');
+        // Try cache first
+        const cached = await dbCache.getFresh('crashData', 'casualty-2012-2024', 7 * 24 * 60 * 60 * 1000);
 
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
+        if (cached) {
+            console.log('✅ Using cached casualty data');
+            updateDataState({ casualtyData: cached });
+            await loadUnitsData();
+            return cached;
         }
 
-        const compressedData = await response.arrayBuffer();
-        const decompressed = pako.inflate(new Uint8Array(compressedData), { to: 'string' });
+        // Fetch with progress
+        const compressedData = await fetchWithProgress('data/2012-2024_DATA_SA_Casualty.json.gz', (percent) => {
+            updateLoadingMessage(`Loading casualty data... ${percent}%`);
+        });
+
+        const decompressed = pako.inflate(compressedData, { to: 'string' });
         const casualtyData = JSON.parse(decompressed);
 
         updateDataState({ casualtyData });
+
+        // Cache the data
+        try {
+            await dbCache.put('crashData', 'casualty-2012-2024', casualtyData);
+            await dbCache.put('metadata', 'casualty-2012-2024', { timestamp: Date.now() });
+        } catch (cacheError) {
+            console.warn('Failed to cache casualty data:', cacheError);
+        }
 
         // Load units data next
         await loadUnitsData();
@@ -138,27 +178,40 @@ export async function loadCasualtyData() {
 }
 
 /**
- * Load and decompress crash data
+ * Load and decompress crash data with caching
  */
 export async function loadCrashData() {
     showLoading('Loading crash data...');
 
     try {
-        // Fetch gzipped data
-        const response = await fetch('data/2012-2024_DATA_SA_Crash.json.gz');
+        // Try to load from IndexedDB cache first
+        const cached = await dbCache.getFresh('crashData', 'crash-2012-2024', 7 * 24 * 60 * 60 * 1000); // 7 days
 
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
+        if (cached) {
+            console.log('✅ Using cached crash data');
+            updateDataState({ crashData: cached });
+
+            // Load casualty data next
+            await loadCasualtyData();
+            return cached;
         }
 
-        // Get compressed bytes
-        const compressedData = await response.arrayBuffer();
+        // Fetch with progress tracking
+        const compressedData = await perfMonitor.measureAsync('Fetch crash data', async () => {
+            return await fetchWithProgress('data/2012-2024_DATA_SA_Crash.json.gz', (percent) => {
+                updateLoadingMessage(`Loading crash data... ${percent}%`);
+            });
+        });
 
         // Decompress with pako.js
-        const decompressed = pako.inflate(new Uint8Array(compressedData), { to: 'string' });
+        const decompressed = perfMonitor.measure('Decompress crash data', () => {
+            return pako.inflate(compressedData, { to: 'string' });
+        });
 
         // Parse JSON
-        const allCrashData = JSON.parse(decompressed);
+        const allCrashData = perfMonitor.measure('Parse crash JSON', () => {
+            return JSON.parse(decompressed);
+        });
 
         // Filter crashes with valid coordinates
         const crashData = allCrashData.filter(row => {
@@ -167,6 +220,16 @@ export async function loadCrashData() {
         });
 
         updateDataState({ crashData });
+
+        // Cache the data for future visits
+        try {
+            await dbCache.put('crashData', 'crash-2012-2024', crashData);
+            await dbCache.put('metadata', 'crash-2012-2024', { timestamp: Date.now() });
+            console.log('✅ Cached crash data to IndexedDB');
+        } catch (cacheError) {
+            console.warn('Failed to cache crash data:', cacheError);
+            // Non-fatal, continue anyway
+        }
 
         // Load casualty data next
         await loadCasualtyData();

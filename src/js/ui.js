@@ -7,6 +7,7 @@ import { TUTORIAL_TABS, TUTORIAL_TAB_CONTENT_MAP, DATA_TABLE } from './config.js
 import { uiState, updateUiState, dataState, cacheState, updateCacheState, searchState, updateSearchState } from './state.js';
 import { escapeHtml, escapeCSV } from './utils.js';
 import { markFiltersChanged, getFilterValues } from './filters.js';
+import { domCache, batchDOMUpdate, perfMonitor } from './performance.js';
 
 // ============================================================================
 // UTILITY FUNCTIONS
@@ -739,7 +740,7 @@ export function getDtSorted() {
 }
 
 /**
- * Render data table with current page and sort
+ * Render data table with current page and sort (optimized with DOM caching and batching)
  */
 // Cache for tracking render state to avoid unnecessary updates
 let lastRenderState = {
@@ -749,11 +750,14 @@ let lastRenderState = {
 };
 
 export function renderDataTable() {
-    const tbody = document.getElementById('dataTableBody');
-    const info = document.getElementById('dataTableInfo');
-    const prevBtn = document.getElementById('dtPrevBtn');
-    const nextBtn = document.getElementById('dtNextBtn');
-    const jumpInput = document.getElementById('dtJumpPage');
+    perfMonitor.start('Render data table');
+
+    // Use cached DOM references
+    const tbody = domCache.get('dataTableBody');
+    const info = domCache.get('dataTableInfo');
+    const prevBtn = domCache.get('dtPrevBtn');
+    const nextBtn = domCache.get('dtNextBtn');
+    const jumpInput = domCache.get('dtJumpPage');
     if (!tbody) return;
 
     const sorted = getDtSorted();
@@ -826,7 +830,9 @@ export function renderDataTable() {
         '4: Fatal': '<span class="dt-sev dt-sev-fatal">Fatal</span>'
     };
 
-    tbody.innerHTML = pageRows.map(function(row, pageIndex) {
+    // Build rows using DocumentFragment for better performance
+    const fragment = document.createDocumentFragment();
+    const rowsHTML = pageRows.map(function(row, pageIndex) {
         const sev = row['CSEF Severity'] || '';
         const sevCell = sevMap[sev] || escapeHtml(sev);
         const speed = row['Area Speed'] ? row['Area Speed'] + ' km/h' : '';
@@ -882,6 +888,11 @@ export function renderDataTable() {
             ${cells.join('')}
         </tr>`;
     }).join('');
+
+    // Single DOM update using innerHTML (faster than createElement for bulk inserts)
+    tbody.innerHTML = rowsHTML;
+
+    perfMonitor.end('Render data table');
 }
 
 // ============================================================================

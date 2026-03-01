@@ -21,6 +21,7 @@ import {
 import { updateStatistics } from './analytics.js';
 import { showLoading, hideLoading, updateLoadingMessage } from './utils.js';
 import { showNotification } from './ui.js';
+import { filterCache, perfMonitor } from './performance.js';
 
 // Module-level variables
 let yearRangeSlider = null;
@@ -90,6 +91,39 @@ export function captureCurrentFilterState() {
         unitMovement: getSelectValues('unitMovement')
     };
     return state;
+}
+
+/**
+ * Apply filters with caching
+ * Returns cached results if the same filters were used before
+ * @param {Array} crashData - Full crash dataset
+ * @param {Object} filters - Filter values
+ * @returns {Array} Filtered crash data
+ */
+export function applyFiltersWithCache(crashData, filters) {
+    perfMonitor.start('Apply filters');
+
+    // Check if we have cached results for these exact filters
+    if (filterCache.has(filters)) {
+        const cachedResults = filterCache.get(filters);
+        console.log('✅ Using cached filter results');
+        perfMonitor.end('Apply filters');
+        return cachedResults;
+    }
+
+    // Apply filters (no cache hit)
+    const filteredData = crashData.filter(row => {
+        return matchesBasicFilters(row, filters) &&
+               matchesDateTimeFilters(row, filters) &&
+               matchesCasualtyFilters(row, filters) &&
+               matchesUnitsFilters(row, filters);
+    });
+
+    // Cache the results
+    filterCache.set(filters, filteredData);
+
+    perfMonitor.end('Apply filters');
+    return filteredData;
 }
 
 /**

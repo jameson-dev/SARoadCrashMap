@@ -4,48 +4,169 @@
  */
 
 import { dataState } from './state.js';
+import { domCache, perfMonitor } from './performance.js';
 
 /**
  * Update crash statistics display
+ * @param {Array} data - Crash data array
+ * @returns {Object} All analytics data
+ */
+export function computeAllAnalytics(data = dataState.filteredData) {
+    const stats = {
+        totalCrashes: data.length,
+        totalFatalities: 0,
+        totalSerious: 0,
+        totalMinor: 0,
+        byYear: {},
+        bySeverity: {},
+        byType: {},
+        byMonth: {},
+        byDayOfWeek: {
+            'Sunday': 0, 'Monday': 0, 'Tuesday': 0, 'Wednesday': 0,
+            'Thursday': 0, 'Friday': 0, 'Saturday': 0
+        },
+        byHour: {},
+        byArea: {},
+        byWeather: {}
+    };
+
+    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+                       'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+    // Initialize months
+    monthNames.forEach(name => {
+        stats.byMonth[name] = 0;
+    });
+
+    // Initialize hours
+    for (let i = 0; i < 24; i++) {
+        stats.byHour[i] = 0;
+    }
+
+    // Single pass through all data
+    data.forEach(crash => {
+        // Casualties
+        stats.totalFatalities += parseInt(crash['Total Fats'] || 0);
+        stats.totalSerious += parseInt(crash['Total SI'] || 0);
+        stats.totalMinor += parseInt(crash['Total MI'] || 0);
+
+        // Year
+        const year = parseInt(crash.Year);
+        if (!isNaN(year)) {
+            stats.byYear[year] = (stats.byYear[year] || 0) + 1;
+        }
+
+        // Severity
+        const severity = crash['CSEF Severity'];
+        if (severity) {
+            stats.bySeverity[severity] = (stats.bySeverity[severity] || 0) + 1;
+        }
+
+        // Crash Type
+        const type = crash['Crash Type'];
+        if (type && type !== 'N/A') {
+            stats.byType[type] = (stats.byType[type] || 0) + 1;
+        }
+
+        // Area
+        const area = crash.LGA;
+        if (area && area !== 'N/A') {
+            stats.byArea[area] = (stats.byArea[area] || 0) + 1;
+        }
+
+        // Weather
+        const weather = crash['Weather Cond'];
+        if (weather) {
+            stats.byWeather[weather] = (stats.byWeather[weather] || 0) + 1;
+        }
+
+        // Date/Time parsing (month, day, hour)
+        const dt = crash['Crash Date Time'];
+        if (dt) {
+            const parts = dt.split(' ');
+            if (parts.length >= 2) {
+                const datePart = parts[0];
+                const timePart = parts[1];
+
+                // Parse date
+                const dateParts = datePart.split('/');
+                if (dateParts.length === 3) {
+                    const day = parseInt(dateParts[0]);
+                    const month = parseInt(dateParts[1]) - 1; // 0-indexed
+                    const year = parseInt(dateParts[2]);
+
+                    // Month
+                    if (month >= 0 && month < 12) {
+                        stats.byMonth[monthNames[month]]++;
+                    }
+
+                    // Day of week
+                    const date = new Date(year, month, day);
+                    const dayOfWeek = date.getDay();
+                    if (dayOfWeek >= 0 && dayOfWeek < 7) {
+                        stats.byDayOfWeek[dayNames[dayOfWeek]]++;
+                    }
+                }
+
+                // Parse time (hour)
+                const timeParts = timePart.split(':');
+                if (timeParts.length >= 1) {
+                    const hour = parseInt(timeParts[0]);
+                    if (hour >= 0 && hour < 24) {
+                        stats.byHour[hour]++;
+                    }
+                }
+            }
+        }
+    });
+
+    return stats;
+}
+
+/**
+ * Update crash statistics display (optimized)
  * Calculates totals from filtered data and updates the statistics dashboard
  */
 export function updateStatistics() {
-    const totalCrashes = dataState.filteredData.length;
-    let totalFatalities = 0;
-    let totalSerious = 0;
-    let totalMinor = 0;
-
-    dataState.filteredData.forEach(row => {
-        totalFatalities += parseInt(row['Total Fats'] || 0);
-        totalSerious += parseInt(row['Total SI'] || 0);
-        totalMinor += parseInt(row['Total MI'] || 0);
+    const stats = perfMonitor.measure('Compute statistics', () => {
+        return computeAllAnalytics(dataState.filteredData);
     });
 
-    // Update DOM elements
-    const crashesEl = document.getElementById('totalCrashes');
-    const fatalitiesEl = document.getElementById('totalFatalities');
-    const seriousEl = document.getElementById('totalSerious');
-    const minorEl = document.getElementById('totalMinor');
+    // Cache DOM elements for faster access
+    const crashesEl = domCache.get('totalCrashes');
+    const fatalitiesEl = domCache.get('totalFatalities');
+    const seriousEl = domCache.get('totalSerious');
+    const minorEl = domCache.get('totalMinor');
 
-    if (crashesEl) crashesEl.textContent = totalCrashes.toLocaleString();
-    if (fatalitiesEl) fatalitiesEl.textContent = totalFatalities.toLocaleString();
-    if (seriousEl) seriousEl.textContent = totalSerious.toLocaleString();
-    if (minorEl) minorEl.textContent = totalMinor.toLocaleString();
+    // Update DOM elements
+    if (crashesEl) crashesEl.textContent = stats.totalCrashes.toLocaleString();
+    if (fatalitiesEl) fatalitiesEl.textContent = stats.totalFatalities.toLocaleString();
+    if (seriousEl) seriousEl.textContent = stats.totalSerious.toLocaleString();
+    if (minorEl) minorEl.textContent = stats.totalMinor.toLocaleString();
+
+    // Store in global state for charts to use
+    dataState.analyticsCache = stats;
 
     return {
-        totalCrashes,
-        totalFatalities,
-        totalSerious,
-        totalMinor
+        totalCrashes: stats.totalCrashes,
+        totalFatalities: stats.totalFatalities,
+        totalSerious: stats.totalSerious,
+        totalMinor: stats.totalMinor
     };
 }
 
 /**
- * Get crash counts by year
+ * Get crash counts by year (optimized - uses cache if available)
  * @param {Array} data - Crash data array
  * @returns {Object} Year-to-count mapping
  */
 export function getCrashCountsByYear(data = dataState.filteredData) {
+    // Use cached analytics if available and data matches
+    if (dataState.analyticsCache && data === dataState.filteredData) {
+        return dataState.analyticsCache.byYear;
+    }
+
     const yearCounts = {};
 
     data.forEach(crash => {
@@ -59,11 +180,15 @@ export function getCrashCountsByYear(data = dataState.filteredData) {
 }
 
 /**
- * Get crash counts by severity
+ * Get crash counts by severity (optimized - uses cache if available)
  * @param {Array} data - Crash data array
  * @returns {Object} Severity-to-count mapping
  */
 export function getCrashCountsBySeverity(data = dataState.filteredData) {
+    if (dataState.analyticsCache && data === dataState.filteredData) {
+        return dataState.analyticsCache.bySeverity;
+    }
+
     const severityCounts = {};
 
     data.forEach(crash => {
@@ -77,11 +202,15 @@ export function getCrashCountsBySeverity(data = dataState.filteredData) {
 }
 
 /**
- * Get crash counts by crash type
+ * Get crash counts by crash type (optimized - uses cache if available)
  * @param {Array} data - Crash data array
  * @returns {Object} CrashType-to-count mapping
  */
 export function getCrashCountsByCrashType(data = dataState.filteredData) {
+    if (dataState.analyticsCache && data === dataState.filteredData) {
+        return dataState.analyticsCache.byType;
+    }
+
     const typeCounts = {};
 
     data.forEach(crash => {
