@@ -341,7 +341,7 @@ A: 2% of crashes have invalid or missing coordinates in the dataset.
 **Q: Can I export filtered data?**
 A: Yes, in two formats:
 - **CSV Export**: Click "Export to CSV" in the Statistics panel. Includes all filtered crash data with summary statistics, active filters, and comprehensive crash details including casualties and units involved.
-- **PDF Export**: Click "📄 Export to PDF" in the Statistics panel. Generate professional reports with statistics, high-resolution charts, and data tables. Choose from Quick Summary, Full Analytics, or Custom presets.
+- **PDF Export**: Click "Export to PDF" in the Statistics panel. Generate professional reports with statistics, high-resolution charts, and data tables. Choose from Quick Summary, Full Analytics, or Custom presets.
 
 **Q: How often is the data updated?**
 A: Data is sourced from Data.SA and updated when new datasets are published. This involves cleansing & aggregating the data which can take time.
