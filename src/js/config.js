@@ -52,12 +52,11 @@ export const CRASH_TYPE_PALETTE = [
 
 // Heavy vehicle types
 export const HEAVY_VEHICLE_TYPES = [
-    '05: Light Goods Vehicle',
-    '06: Rigid Truck',
-    '07: Articulated Truck',
-    '08: Prime Mover (No Trailer/Semi-trailer)',
-    '09: Bus',
-    '10: Other Truck'
+    'RIGID TRUCK LGE GE 4.5T',
+    'SEMI TRAILER',
+    'BDOUBLE - ROAD TRAIN',
+    'OMNIBUS',
+    'Light Truck LT 4.5T'
 ];
 
 // Tutorial tabs
