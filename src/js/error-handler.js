@@ -3,7 +3,6 @@
  * Provides centralised error handling and recovery mechanisms
  */
 
-import { logger } from './logger.js';
 import { showNotification } from './ui.js';
 
 /**
@@ -35,14 +34,14 @@ class ErrorHandler {
     setupGlobalHandlers() {
         // Handle unhandled promise rejections
         window.addEventListener('unhandledrejection', (event) => {
-            logger.error('Unhandled promise rejection:', event.reason);
+            console.error('Unhandled promise rejection:', event.reason);
             this.handleError(event.reason, ERROR_TYPES.UNKNOWN, 'Unhandled Promise');
             event.preventDefault();
         });
 
         // Handle global errors
         window.addEventListener('error', (event) => {
-            logger.error('Global error:', event.error || event.message);
+            console.error('Global error:', event.error || event.message);
             this.handleError(
                 event.error || new Error(event.message),
                 ERROR_TYPES.UNKNOWN,
@@ -74,7 +73,7 @@ class ErrorHandler {
         }
 
         // Log error
-        logger.error(`[${type}] ${context}:`, error);
+        console.error(`[${type}] ${context}:`, error);
 
         // Show user notification if needed
         if (showUser) {

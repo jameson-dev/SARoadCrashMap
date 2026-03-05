@@ -3,7 +3,7 @@
  * General purpose utility functions for the CrashMap application
  */
 
-import { COORDINATE_SYSTEMS } from './config.js';
+import { COORDINATE_SYSTEMS, SA_BOUNDS } from './config.js';
 
 // Define EPSG:3107 projection for proj4
 // GDA94 / SA Lambert (Lambert Conformal Conic)
@@ -32,8 +32,10 @@ export function convertCoordinates(x, y) {
 
         const [lng, lat] = proj4(COORDINATE_SYSTEMS.SOURCE, COORDINATE_SYSTEMS.TARGET, [xNum, yNum]);
 
-        // Validate the converted coordinates (South Australia: lat -38 to -26, lng 129 to 141)
-        if (isNaN(lat) || isNaN(lng) || lat < -39 || lat > -25 || lng < 128 || lng > 142) {
+        // Validate the converted coordinates using SA bounds from config
+        if (isNaN(lat) || isNaN(lng) ||
+            lat < SA_BOUNDS.LAT_MIN || lat > SA_BOUNDS.LAT_MAX ||
+            lng < SA_BOUNDS.LNG_MIN || lng > SA_BOUNDS.LNG_MAX) {
             console.warn('Converted coordinates out of bounds:', { x, y, lat, lng });
             return null;
         }
@@ -339,27 +341,19 @@ export function highlightMatch(text, search) {
  * @param {string} message - Loading message
  */
 export function showLoading(message = 'Loading...') {
-    // Use the existing loading element from HTML
-    let loadingOverlay = document.getElementById('loading');
+    const loadingOverlay = document.getElementById('loading');
 
     if (!loadingOverlay) {
-        // Fallback: create if doesn't exist
-        loadingOverlay = document.createElement('div');
-        loadingOverlay.id = 'loading';
-        loadingOverlay.className = 'loading';
-        loadingOverlay.innerHTML = `
-            <div class="loading-content">
-                <div class="loading-spinner"></div>
-                <div class="loading-message" id="loadingMessage">${message}</div>
-            </div>
-        `;
-        document.body.appendChild(loadingOverlay);
+        console.error('Loading overlay element (#loading) not found in DOM');
+        return;
     }
 
-    // Update message if element exists
+    // Update message
     const messageEl = loadingOverlay.querySelector('.loading-message') || document.getElementById('loadingMessage');
     if (messageEl) {
         messageEl.textContent = message;
+    } else {
+        console.warn('Loading message element not found');
     }
 
     loadingOverlay.style.display = 'flex';
@@ -371,11 +365,14 @@ export function showLoading(message = 'Loading...') {
  */
 export function updateLoadingMessage(message) {
     const loadingOverlay = document.getElementById('loading');
-    if (loadingOverlay) {
-        const messageEl = loadingOverlay.querySelector('.loading-message') || document.getElementById('loadingMessage');
-        if (messageEl) {
-            messageEl.textContent = message;
-        }
+    if (!loadingOverlay) {
+        console.warn('Loading overlay not found');
+        return;
+    }
+
+    const messageEl = loadingOverlay.querySelector('.loading-message') || document.getElementById('loadingMessage');
+    if (messageEl) {
+        messageEl.textContent = message;
     }
 }
 

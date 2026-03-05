@@ -14,6 +14,8 @@ import {
     loadFiltersFromURL
 } from './filters.js';
 import { updateDataState, updateFilterState } from './state.js';
+import { errorHandler, ERROR_TYPES } from './error-handler.js';
+import { initInlineHandlers } from './inline-handlers.js';
 
 /**
  * Initialize the application
@@ -36,6 +38,7 @@ async function initializeApp() {
         // 5. Try to load suburb boundaries (optional - enables suburb choropleth)
         loadSuburbBoundaries().catch(err => {
             console.warn('Suburb boundaries not available:', err);
+            errorHandler.handleError(err, ERROR_TYPES.DATA_LOAD, 'Suburb Boundaries', false);
         });
 
         // 6. Initialize dual-handle year range slider
@@ -60,8 +63,12 @@ async function initializeApp() {
         // 10. Initialize UI components and event listeners
         initUI();
 
+        // 11. Initialize inline handlers (extracted from HTML)
+        initInlineHandlers();
+
     } catch (error) {
         console.error('❌ Fatal error during initialization:', error);
+        errorHandler.handleError(error, ERROR_TYPES.UNKNOWN, 'Application Initialization', true);
         alert('Failed to initialize the application. Please refresh the page or check the console for details.');
     }
 }
@@ -76,9 +83,13 @@ async function setupGlobalHandlers() {
     window.acknowledgeDisclaimer = ui.acknowledgeDisclaimer;
     window.openTutorial = ui.openTutorial;
     window.closeTutorial = ui.closeTutorial;
+    window.openInfoModal = ui.openInfoModal;
+    window.closeInfoModal = ui.closeInfoModal;
     window.switchTutorialTab = ui.switchTutorialTab;
     window.nextTutorialTab = ui.nextTutorialTab;
     window.previousTutorialTab = ui.previousTutorialTab;
+    window.toggleTutorialStep = ui.toggleTutorialStep;
+    window.searchTutorial = ui.searchTutorial;
     window.toggleTheme = ui.toggleTheme;
     window.togglePanel = ui.togglePanel;
     window.togglePanelCollapse = ui.togglePanelCollapse;

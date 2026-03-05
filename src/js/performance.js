@@ -3,6 +3,8 @@
  * Provides utilities for caching, performance monitoring, and optimization
  */
 
+import { TIMEOUTS, CACHE_CONFIG } from './config.js';
+
 // ============================================================================
 // LRU CACHE IMPLEMENTATION
 // ============================================================================
@@ -270,7 +272,7 @@ export const perfMonitor = new PerformanceMonitor();
  * Optimized debounce implementation
  * Creates a single timeout-based debounced function
  */
-export function debounce(func, wait = 300) {
+export function debounce(func, wait = TIMEOUTS.DEBOUNCE_DEFAULT) {
     let timeoutId;
 
     const debounced = function(...args) {
@@ -289,7 +291,7 @@ export function debounce(func, wait = 300) {
 /**
  * Throttle function - ensures function is called at most once per interval
  */
-export function throttle(func, limit = 300) {
+export function throttle(func, limit = TIMEOUTS.THROTTLE_DEFAULT) {
     let inThrottle;
 
     return function(...args) {
@@ -419,11 +421,42 @@ export function processInIdle(array, processFn, onComplete, chunkSize = 100) {
 // ============================================================================
 
 /**
- * Filter results cache with LRU eviction
+ * Filter results cache with LRU eviction and IndexedDB persistence
  */
 export class FilterCache {
-    constructor(limit = 50) {
+    constructor(limit = CACHE_CONFIG.FILTER_CACHE_SIZE) {
         this.cache = new LRUCache(limit);
+        this.dbName = 'CrashMapFilterCache';
+        this.storeName = 'filters';
+        this.db = null;
+        this.initDB();
+    }
+
+    /**
+     * Initialize IndexedDB for persistent filter cache
+     */
+    async initDB() {
+        try {
+            return new Promise((resolve, reject) => {
+                const request = indexedDB.open(this.dbName, 1);
+
+                request.onerror = () => reject(request.error);
+                request.onsuccess = () => {
+                    this.db = request.result;
+                    resolve(this.db);
+                };
+
+                request.onupgradeneeded = (event) => {
+                    const db = event.target.result;
+                    if (!db.objectStoreNames.contains(this.storeName)) {
+                        const store = db.createObjectStore(this.storeName);
+                        store.createIndex('timestamp', 'timestamp', { unique: false });
+                    }
+                };
+            });
+        } catch (error) {
+            console.warn('Failed to init filter cache DB:', error);
+        }
     }
 
     /**
@@ -435,23 +468,81 @@ export class FilterCache {
     }
 
     /**
-     * Get cached filter results
+     * Get cached filter results (checks memory first, then IndexedDB)
      */
-    get(filters) {
+    async get(filters) {
         const key = this.generateKey(filters);
-        return this.cache.get(key);
+
+        // Check memory cache first (fast)
+        const memoryResult = this.cache.get(key);
+        if (memoryResult) {
+            return memoryResult;
+        }
+
+        // Check persistent cache (slower)
+        try {
+            if (!this.db) await this.initDB();
+            if (!this.db) return undefined;
+
+            return new Promise((resolve) => {
+                const transaction = this.db.transaction([this.storeName], 'readonly');
+                const store = transaction.objectStore(this.storeName);
+                const request = store.get(key);
+
+                request.onsuccess = () => {
+                    const cached = request.result;
+                    if (cached) {
+                        // Check if cache is still valid (24 hours)
+                        const age = Date.now() - cached.timestamp;
+                        if (age < 24 * 60 * 60 * 1000) {
+                            // Restore to memory cache for fast access
+                            this.cache.set(key, cached.results);
+                            resolve(cached.results);
+                        } else {
+                            // Expired
+                            resolve(undefined);
+                        }
+                    } else {
+                        resolve(undefined);
+                    }
+                };
+
+                request.onerror = () => resolve(undefined);
+            });
+        } catch (error) {
+            console.warn('Filter cache get error:', error);
+            return undefined;
+        }
     }
 
     /**
-     * Cache filter results
+     * Cache filter results (both memory and IndexedDB)
      */
-    set(filters, results) {
+    async set(filters, results) {
         const key = this.generateKey(filters);
+
+        // Store in memory cache (fast access)
         this.cache.set(key, results);
+
+        // Store in persistent cache (survives page reloads)
+        try {
+            if (!this.db) await this.initDB();
+            if (!this.db) return;
+
+            const transaction = this.db.transaction([this.storeName], 'readwrite');
+            const store = transaction.objectStore(this.storeName);
+
+            store.put({
+                results: results,
+                timestamp: Date.now()
+            }, key);
+        } catch (error) {
+            console.warn('Filter cache set error:', error);
+        }
     }
 
     /**
-     * Check if filters are cached
+     * Check if filters are cached (memory only for speed)
      */
     has(filters) {
         const key = this.generateKey(filters);
@@ -459,15 +550,26 @@ export class FilterCache {
     }
 
     /**
-     * Clear cache
+     * Clear both memory and persistent cache
      */
-    clear() {
+    async clear() {
         this.cache.clear();
+
+        try {
+            if (!this.db) await this.initDB();
+            if (!this.db) return;
+
+            const transaction = this.db.transaction([this.storeName], 'readwrite');
+            const store = transaction.objectStore(this.storeName);
+            store.clear();
+        } catch (error) {
+            console.warn('Filter cache clear error:', error);
+        }
     }
 }
 
 // Create singleton instance
-export const filterCache = new FilterCache(50);
+export const filterCache = new FilterCache();
 
 // ============================================================================
 // PARALLEL FETCH WITH PROGRESS

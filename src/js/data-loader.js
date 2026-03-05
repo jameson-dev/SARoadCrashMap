@@ -64,11 +64,9 @@ export function linkCrashData() {
 }
 
 /**
- * Load units data with caching
+ * Load units data with caching (standalone version for parallel loading)
  */
-export async function loadUnitsData() {
-    showLoading('Loading units data...');
-
+async function loadUnitsDataOnly() {
     try {
         // Try cache first
         const cached = await dbCache.getFresh('crashData', 'units-2012-2024', 7 * 24 * 60 * 60 * 1000);
@@ -76,15 +74,6 @@ export async function loadUnitsData() {
         if (cached) {
             console.log('✅ Using cached units data');
             updateDataState({ unitsData: cached });
-            linkCrashData();
-
-            const { populateFilterOptions } = await import('./filters.js');
-            const { updateMarkerColorLegend } = await import('./map-renderer.js');
-
-            populateFilterOptions();
-            updateMarkerColorLegend();
-            await loadLGABoundaries();
-
             return cached;
         }
 
@@ -106,6 +95,24 @@ export async function loadUnitsData() {
             console.warn('Failed to cache units data:', cacheError);
         }
 
+        return unitsData;
+
+    } catch (error) {
+        console.error('Error loading units data:', error);
+        throw error;
+    }
+}
+
+/**
+ * Load units data with caching (legacy - kept for compatibility)
+ * @deprecated Use loadData() instead for parallel loading
+ */
+export async function loadUnitsData() {
+    showLoading('Loading units data...');
+
+    try {
+        const unitsData = await loadUnitsDataOnly();
+
         // Link data together
         linkCrashData();
 
@@ -122,7 +129,6 @@ export async function loadUnitsData() {
         return unitsData;
 
     } catch (error) {
-        console.error('Error loading units data:', error);
         hideLoading();
         alert('Error loading units data. Please check your connection and try again.');
         throw error;
@@ -130,11 +136,9 @@ export async function loadUnitsData() {
 }
 
 /**
- * Load casualty data with caching
+ * Load casualty data with caching (standalone version for parallel loading)
  */
-export async function loadCasualtyData() {
-    showLoading('Loading casualty data...');
-
+async function loadCasualtyDataOnly() {
     try {
         // Try cache first
         const cached = await dbCache.getFresh('crashData', 'casualty-2012-2024', 7 * 24 * 60 * 60 * 1000);
@@ -142,7 +146,6 @@ export async function loadCasualtyData() {
         if (cached) {
             console.log('✅ Using cached casualty data');
             updateDataState({ casualtyData: cached });
-            await loadUnitsData();
             return cached;
         }
 
@@ -164,13 +167,26 @@ export async function loadCasualtyData() {
             console.warn('Failed to cache casualty data:', cacheError);
         }
 
-        // Load units data next
-        await loadUnitsData();
-
         return casualtyData;
 
     } catch (error) {
         console.error('Error loading casualty data:', error);
+        throw error;
+    }
+}
+
+/**
+ * Load casualty data with caching (legacy - kept for compatibility)
+ * @deprecated Use loadData() instead for parallel loading
+ */
+export async function loadCasualtyData() {
+    showLoading('Loading casualty data...');
+
+    try {
+        await loadCasualtyDataOnly();
+        // Load units data next
+        await loadUnitsData();
+    } catch (error) {
         hideLoading();
         alert('Error loading casualty data. Please check your connection and try again.');
         throw error;
@@ -178,11 +194,9 @@ export async function loadCasualtyData() {
 }
 
 /**
- * Load and decompress crash data with caching
+ * Load and decompress crash data with caching (standalone version for parallel loading)
  */
-export async function loadCrashData() {
-    showLoading('Loading crash data...');
-
+async function loadCrashDataOnly() {
     try {
         // Try to load from IndexedDB cache first
         const cached = await dbCache.getFresh('crashData', 'crash-2012-2024', 7 * 24 * 60 * 60 * 1000); // 7 days
@@ -190,9 +204,6 @@ export async function loadCrashData() {
         if (cached) {
             console.log('✅ Using cached crash data');
             updateDataState({ crashData: cached });
-
-            // Load casualty data next
-            await loadCasualtyData();
             return cached;
         }
 
@@ -231,13 +242,26 @@ export async function loadCrashData() {
             // Non-fatal, continue anyway
         }
 
-        // Load casualty data next
-        await loadCasualtyData();
-
         return crashData;
 
     } catch (error) {
         console.error('Error loading crash data:', error);
+        throw error;
+    }
+}
+
+/**
+ * Load and decompress crash data with caching (legacy - kept for compatibility)
+ * @deprecated Use loadData() instead for parallel loading
+ */
+export async function loadCrashData() {
+    showLoading('Loading crash data...');
+
+    try {
+        await loadCrashDataOnly();
+        // Load casualty data next
+        await loadCasualtyData();
+    } catch (error) {
         hideLoading();
         alert('Error loading crash data. Please check your connection and try again.');
         throw error;
@@ -364,12 +388,34 @@ export function precomputeLGAAssignments() {
 }
 
 /**
- * Main data loading function
+ * Main data loading function - parallelized for faster loading
  */
 export async function loadData() {
     try {
-        await loadCrashData();
-        // Casualty and units data are loaded in sequence by loadCrashData
+        // Load all three datasets in parallel for faster performance
+        showLoading('Loading crash data (1/3)...');
+
+        const [crashDataResult, casualtyDataResult, unitsDataResult] = await Promise.all([
+            loadCrashDataOnly(),
+            loadCasualtyDataOnly(),
+            loadUnitsDataOnly()
+        ]);
+
+        console.log('✅ All datasets loaded in parallel');
+
+        // Link data together after all loaded
+        linkCrashData();
+
+        // After linking, populate filter options and load boundaries
+        const { populateFilterOptions } = await import('./filters.js');
+        const { updateMarkerColorLegend } = await import('./map-renderer.js');
+
+        populateFilterOptions();
+        updateMarkerColorLegend();
+
+        // Load LGA boundaries (which will trigger initial filter application)
+        await loadLGABoundaries();
+
     } catch (error) {
         console.error('Failed to load data:', error);
     }

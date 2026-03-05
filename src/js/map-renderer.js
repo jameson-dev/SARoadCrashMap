@@ -354,12 +354,13 @@ export function getMarkerIcon(row) {
 }
 
 /**
- * Add markers to map with progressive loading
+ * Add markers to map with progressive loading using requestIdleCallback
  */
 export function addMarkers(callback) {
     mapState.markersLayer.clearLayers();
 
-    const chunkSize = MARKER_CONFIG.CHUNK_SIZE;
+    // Reduce chunk size for better responsiveness (was 20000, now 5000)
+    const chunkSize = 5000;
     const totalMarkers = dataState.filteredData.length;
     let processedCount = 0;
 
@@ -368,60 +369,69 @@ export function addMarkers(callback) {
         mapState.map.addLayer(mapState.markersLayer);
     }
 
-    // Process markers in chunks to avoid blocking UI
-    function processChunk() {
+    // Process markers in chunks during idle time to avoid blocking UI
+    function processChunk(deadline) {
         const markers = [];
-        const endIndex = Math.min(processedCount + chunkSize, totalMarkers);
 
-        for (let i = processedCount; i < endIndex; i++) {
-            const row = dataState.filteredData[i];
+        // Process as many markers as we can during this idle period
+        while (processedCount < totalMarkers && (deadline.timeRemaining() > 0 || deadline.didTimeout)) {
+            const endIndex = Math.min(processedCount + chunkSize, totalMarkers);
 
-            // Skip if row is undefined or null
-            if (!row) continue;
+            for (let i = processedCount; i < endIndex; i++) {
+                const row = dataState.filteredData[i];
 
-            // Use cached coordinates instead of converting each time
-            const coords = row._coords;
-            if (!coords) continue;
+                // Skip if row is undefined or null
+                if (!row) continue;
 
-            const markerIcon = getMarkerIcon(row);
+                // Use cached coordinates instead of converting each time
+                const coords = row._coords;
+                if (!coords) continue;
 
-            const marker = L.marker(coords, { icon: markerIcon });
+                const markerIcon = getMarkerIcon(row);
 
-            // Lazy popup generation - generate once on first open, cache the result
-            let cachedPopupContent = null;
-            marker.bindPopup(function() {
-                if (!cachedPopupContent) {
-                    cachedPopupContent = generatePopupContent(row);
-                }
-                return cachedPopupContent;
-            }, { maxWidth: 450 });
+                const marker = L.marker(coords, { icon: markerIcon });
 
-            markers.push(marker);
+                // Lazy popup generation - generate once on first open, cache the result
+                let cachedPopupContent = null;
+                marker.bindPopup(function() {
+                    if (!cachedPopupContent) {
+                        cachedPopupContent = generatePopupContent(row);
+                    }
+                    return cachedPopupContent;
+                }, { maxWidth: 450 });
+
+                markers.push(marker);
+            }
+
+            // Add this chunk of markers
+            if (markers.length > 0) {
+                mapState.markersLayer.addLayers(markers);
+            }
+
+            processedCount = endIndex;
+
+            // Update progress message
+            const percentComplete = Math.round((processedCount / totalMarkers) * 100);
+            updateLoadingMessage(`Adding markers to map... ${percentComplete}%`);
+
+            // Break if we've run out of time
+            if (deadline.timeRemaining() <= 0) {
+                break;
+            }
         }
-
-        // Add this chunk of markers
-        if (markers.length > 0) {
-            mapState.markersLayer.addLayers(markers);
-        }
-
-        processedCount = endIndex;
-
-        // Update progress message
-        const percentComplete = Math.round((processedCount / totalMarkers) * 100);
-        updateLoadingMessage(`Adding markers to map... ${percentComplete}%`);
 
         // Process next chunk or finish
         if (processedCount < totalMarkers) {
-            // Schedule next chunk (yield to UI thread)
-            setTimeout(processChunk, 0);
+            // Schedule next chunk during idle time
+            requestIdleCallback(processChunk, { timeout: 1000 });
         } else {
             // All markers added - call callback if provided
             if (callback) callback();
         }
     }
 
-    // Start processing
-    processChunk();
+    // Start processing during next idle period
+    requestIdleCallback(processChunk, { timeout: 1000 });
 }
 
 // ============================================================================
@@ -660,6 +670,19 @@ export function addDensityMap() {
         densityData.push([coords[0], coords[1], weight]);
     });
 
+    // Fix Canvas2D performance warning before creating heatLayer
+    // Patch HTMLCanvasElement to add willReadFrequently attribute
+    const originalGetContext = HTMLCanvasElement.prototype.getContext;
+    const patchedCanvases = new WeakSet();
+
+    HTMLCanvasElement.prototype.getContext = function(type, attributes) {
+        if (type === '2d' && !patchedCanvases.has(this)) {
+            patchedCanvases.add(this);
+            return originalGetContext.call(this, type, { ...attributes, willReadFrequently: true });
+        }
+        return originalGetContext.call(this, type, attributes);
+    };
+
     mapState.densityLayer = L.heatLayer(densityData, {
         radius: 2,
         blur: 1,
@@ -677,6 +700,9 @@ export function addDensityMap() {
             1.0: 'rgb(255, 170, 175)'
         }
     }).addTo(mapState.map);
+
+    // Restore original getContext after heatLayer creation
+    HTMLCanvasElement.prototype.getContext = originalGetContext;
 
     // Scale heatmap radius/blur with zoom level; stored so it can be removed later
     mapState.densityZoomListener = function() {

@@ -35,7 +35,6 @@ const STATIC_ASSETS = [
     './src/js/utils.js',
     './src/js/performance.js',
     './src/js/pdf-generator.js',
-    './src/js/logger.js',
     './src/js/error-handler.js',
     './src/js/modals-content.js',
     './src/js/inline-handlers.js'

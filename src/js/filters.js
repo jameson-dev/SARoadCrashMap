@@ -21,29 +21,11 @@ import {
 import { updateStatistics } from './analytics.js';
 import { showLoading, hideLoading, updateLoadingMessage } from './utils.js';
 import { showNotification } from './ui.js';
-import { filterCache, perfMonitor } from './performance.js';
+import { filterCache, perfMonitor, debounce } from './performance.js';
 
 // Module-level variables
 let yearRangeSlider = null;
 let currentYearRange = [...YEAR_RANGE.DEFAULT];
-
-/**
- * Debounce utility function
- * @param {Function} func - Function to debounce
- * @param {number} wait - Wait time in milliseconds
- * @returns {Function} Debounced function
- */
-function debounce(func, wait) {
-    let timeout;
-    return function executedFunction(...args) {
-        const later = () => {
-            clearTimeout(timeout);
-            func(...args);
-        };
-        clearTimeout(timeout);
-        timeout = setTimeout(later, wait);
-    };
-}
 
 // ============================================================================
 // FILTER STATE & TRACKING
@@ -151,14 +133,44 @@ export function getSelectValues(selectId) {
 }
 
 /**
- * Compare two filter states for differences
+ * Deep equality comparison for filter states
+ * More efficient than JSON.stringify for large objects
  * @param {Object} state1 - First filter state
  * @param {Object} state2 - Second filter state
  * @returns {boolean} True if states differ, false otherwise
  */
 export function compareFilterStates(state1, state2) {
     if (!state1 || !state2) return false;
-    return JSON.stringify(state1) !== JSON.stringify(state2);
+
+    // Check if they're the same reference
+    if (state1 === state2) return false;
+
+    // Get keys from both objects
+    const keys1 = Object.keys(state1);
+    const keys2 = Object.keys(state2);
+
+    // Different number of keys means they're different
+    if (keys1.length !== keys2.length) return true;
+
+    // Compare each key-value pair
+    for (const key of keys1) {
+        const val1 = state1[key];
+        const val2 = state2[key];
+
+        // Handle arrays (like year range, multi-selects)
+        if (Array.isArray(val1) && Array.isArray(val2)) {
+            if (val1.length !== val2.length) return true;
+            for (let i = 0; i < val1.length; i++) {
+                if (val1[i] !== val2[i]) return true;
+            }
+            continue;
+        }
+
+        // Handle primitives
+        if (val1 !== val2) return true;
+    }
+
+    return false; // No differences found
 }
 
 /**
@@ -483,16 +495,16 @@ export function matchesBasicFilters(row, filters) {
 
     // DUI filter
     if (filters.duiInvolved !== 'all') {
-        const hasDUI = row['DUI Involved'] && row['DUI Involved'].trim() !== '';
-        if (filters.duiInvolved === 'Yes' && !hasDUI) return false;
-        if (filters.duiInvolved === 'No' && hasDUI) return false;
+        const duiValue = row['DUI Involved'] ? row['DUI Involved'].trim() : '';
+        if (filters.duiInvolved === 'Yes' && duiValue !== 'Y') return false;
+        if (filters.duiInvolved === 'No' && duiValue === 'Y') return false;
     }
 
     // Drugs filter
     if (filters.drugsInvolved !== 'all') {
-        const hasDrugs = row['Drugs Involved'] && row['Drugs Involved'].trim() !== '';
-        if (filters.drugsInvolved === 'Yes' && !hasDrugs) return false;
-        if (filters.drugsInvolved === 'No' && hasDrugs) return false;
+        const drugsValue = row['Drugs Involved'] ? row['Drugs Involved'].trim() : '';
+        if (filters.drugsInvolved === 'Yes' && drugsValue !== 'Y') return false;
+        if (filters.drugsInvolved === 'No' && drugsValue === 'Y') return false;
     }
 
     // Area filter (using pre-computed LGA)
@@ -1141,12 +1153,14 @@ export function clearSingleFilter(filterName) {
         case 'Severity': checkAll('severityMenu', 'severity'); break;
         case 'Crash Type': checkAll('crashTypeMenu', 'crashType'); break;
         case 'Weather': document.getElementById('weather').value = 'all'; break;
+        case 'Day/Night': document.getElementById('dayNight').value = 'all'; break;
+        case 'DUI': document.getElementById('duiInvolved').value = 'all'; break;
         case 'Day': checkAll('dayOfWeekMenu', 'dayOfWeek'); break;
         case 'LGA': checkAll('areaMenu', 'area'); break;
         case 'Suburb': checkAll('suburbMenu', 'suburb'); break;
         case 'Road User': resetSelect('roadUserType'); break;
         case 'Age': resetSelect('ageGroup'); break;
-        case 'Sex': resetSelect('casualtySex'); break;
+        case 'Casualty Sex': resetSelect('casualtySex'); break;
         case 'Injury': resetSelect('injuryExtent'); break;
         case 'Seat Belt': resetSelect('seatBelt'); break;
         case 'Helmet': resetSelect('helmet'); break;
@@ -1555,6 +1569,132 @@ export function updateActiveFiltersDisplay() {
     if (filters.selectedAgeGroups && !filters.selectedAgeGroups.includes('all')) {
         const display = getSmartFilterDisplay('ageGroup', filters.selectedAgeGroups);
         if (display) activeFilters.push({ name: 'Age', value: display });
+    }
+
+    // Day/Night
+    if (filters.dayNight && filters.dayNight !== 'all') {
+        activeFilters.push({ name: 'Day/Night', value: filters.dayNight });
+    }
+
+    // DUI Involved
+    if (filters.duiInvolved && filters.duiInvolved !== 'all') {
+        activeFilters.push({ name: 'DUI', value: filters.duiInvolved });
+    }
+
+    // Drugs Involved
+    if (filters.drugsInvolved && filters.drugsInvolved !== 'all') {
+        activeFilters.push({ name: 'Drugs', value: filters.drugsInvolved });
+    }
+
+    // Road Surface
+    if (filters.selectedRoadSurfaces && !filters.selectedRoadSurfaces.includes('all')) {
+        const display = getSmartFilterDisplay('roadSurface', filters.selectedRoadSurfaces);
+        if (display) activeFilters.push({ name: 'Road Surface', value: display });
+    }
+
+    // Moisture Condition
+    if (filters.selectedMoistureConds && !filters.selectedMoistureConds.includes('all')) {
+        const display = getSmartFilterDisplay('moistureCond', filters.selectedMoistureConds);
+        if (display) activeFilters.push({ name: 'Moisture', value: display });
+    }
+
+    // Speed Zone
+    if (filters.selectedSpeedZones && !filters.selectedSpeedZones.includes('all')) {
+        const display = getSmartFilterDisplay('speedZoneFilter', filters.selectedSpeedZones);
+        if (display) activeFilters.push({ name: 'Speed Zone', value: display });
+    }
+
+    // Month
+    if (filters.selectedMonths && !filters.selectedMonths.includes('all')) {
+        const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        const monthDisplay = filters.selectedMonths.map(m => monthNames[parseInt(m) - 1]).join(', ');
+        activeFilters.push({ name: 'Month', value: monthDisplay });
+    }
+
+    // Casualty Sex
+    if (filters.selectedSexes && !filters.selectedSexes.includes('all')) {
+        const display = getSmartFilterDisplay('casualtySex', filters.selectedSexes);
+        if (display) activeFilters.push({ name: 'Casualty Sex', value: display });
+    }
+
+    // Injury Extent
+    if (filters.selectedInjuries && !filters.selectedInjuries.includes('all')) {
+        const display = getSmartFilterDisplay('injuryExtent', filters.selectedInjuries);
+        if (display) activeFilters.push({ name: 'Injury', value: display });
+    }
+
+    // Seat Belt
+    if (filters.selectedSeatBelts && !filters.selectedSeatBelts.includes('all')) {
+        const display = getSmartFilterDisplay('seatBelt', filters.selectedSeatBelts);
+        if (display) activeFilters.push({ name: 'Seat Belt', value: display });
+    }
+
+    // Helmet
+    if (filters.selectedHelmets && !filters.selectedHelmets.includes('all')) {
+        const display = getSmartFilterDisplay('helmet', filters.selectedHelmets);
+        if (display) activeFilters.push({ name: 'Helmet', value: display });
+    }
+
+    // Heavy Vehicle
+    if (filters.heavyVehicle && filters.heavyVehicle !== 'all') {
+        activeFilters.push({ name: 'Heavy Vehicle', value: filters.heavyVehicle === 'yes' ? 'Yes' : 'No' });
+    }
+
+    // Vehicle Type
+    if (filters.selectedVehicles && !filters.selectedVehicles.includes('all')) {
+        const display = getSmartFilterDisplay('vehicleType', filters.selectedVehicles);
+        if (display) activeFilters.push({ name: 'Vehicle Type', value: display });
+    }
+
+    // Vehicle Year
+    if (filters.selectedVehicleYears && !filters.selectedVehicleYears.includes('all')) {
+        const display = getSmartFilterDisplay('vehicleYear', filters.selectedVehicleYears);
+        if (display) activeFilters.push({ name: 'Vehicle Year', value: display });
+    }
+
+    // Occupants
+    if (filters.selectedOccupants && !filters.selectedOccupants.includes('all')) {
+        const display = getSmartFilterDisplay('occupants', filters.selectedOccupants);
+        if (display) activeFilters.push({ name: 'Occupants', value: display });
+    }
+
+    // Towing
+    if (filters.towing && filters.towing !== 'all') {
+        activeFilters.push({ name: 'Towing', value: filters.towing });
+    }
+
+    // Rollover
+    if (filters.rollover && filters.rollover !== 'all') {
+        activeFilters.push({ name: 'Rollover', value: filters.rollover });
+    }
+
+    // Fire
+    if (filters.fire && filters.fire !== 'all') {
+        activeFilters.push({ name: 'Fire', value: filters.fire });
+    }
+
+    // License Type
+    if (filters.selectedLicenseTypes && !filters.selectedLicenseTypes.includes('all')) {
+        const display = getSmartFilterDisplay('licenseType', filters.selectedLicenseTypes);
+        if (display) activeFilters.push({ name: 'License', value: display });
+    }
+
+    // Vehicle Reg State
+    if (filters.selectedRegStates && !filters.selectedRegStates.includes('all')) {
+        const display = getSmartFilterDisplay('vehRegState', filters.selectedRegStates);
+        if (display) activeFilters.push({ name: 'Reg State', value: display });
+    }
+
+    // Direction of Travel
+    if (filters.selectedDirections && !filters.selectedDirections.includes('all')) {
+        const display = getSmartFilterDisplay('directionTravel', filters.selectedDirections);
+        if (display) activeFilters.push({ name: 'Direction', value: display });
+    }
+
+    // Unit Movement
+    if (filters.selectedMovements && !filters.selectedMovements.includes('all')) {
+        const display = getSmartFilterDisplay('unitMovement', filters.selectedMovements);
+        if (display) activeFilters.push({ name: 'Movement', value: display });
     }
 
     // Draw Area

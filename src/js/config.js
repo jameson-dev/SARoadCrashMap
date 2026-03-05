@@ -38,7 +38,7 @@ export const MARKER_CONFIG = {
 
 // Severity colors
 export const SEVERITY_COLORS = {
-    '1: PDO': '#4a90e2',
+    '1: PDO': '#2563eb', // Updated to match theme color
     '2: MI': '#f39c12',
     '3: SI': '#e67e22',
     '4: Fatal': '#e74c3c'
@@ -60,7 +60,7 @@ export const HEAVY_VEHICLE_TYPES = [
 ];
 
 // Tutorial tabs
-export const TUTORIAL_TABS = ['getting-started', 'filtering', 'analytics', 'tools', 'tips'];
+export const TUTORIAL_TABS = ['getting-started', 'filtering', 'analytics', 'tools', 'tips', 'quick-ref'];
 
 // Tutorial tab content mapping
 export const TUTORIAL_TAB_CONTENT_MAP = {
@@ -68,7 +68,8 @@ export const TUTORIAL_TAB_CONTENT_MAP = {
     'filtering': 'filteringTab',
     'analytics': 'analyticsTab',
     'tools': 'toolsTab',
-    'tips': 'tipsTab'
+    'tips': 'tipsTab',
+    'quick-ref': 'quickRefTab'
 };
 
 // Filter presets
@@ -258,7 +259,9 @@ export const MAP_CONFIG = {
 // Cache configuration
 export const CACHE_CONFIG = {
     MARKER_ICON_CACHE_SIZE: 1000,
-    POPUP_CACHE_SIZE: 2000
+    POPUP_CACHE_SIZE: 2000,
+    FILTER_CACHE_SIZE: 50,          // LRU cache size for filter results
+    FILTER_CACHE_MAX_AGE: 7 * 24 * 60 * 60 * 1000  // 7 days in milliseconds
 };
 
 // Loading configuration
@@ -268,8 +271,26 @@ export const LOADING_CONFIG = {
     URL_LOAD_DELAY: 2000
 };
 
+// Performance timeouts (milliseconds)
+export const TIMEOUTS = {
+    DEBOUNCE_DEFAULT: 300,
+    THROTTLE_DEFAULT: 300,
+    NOTIFICATION_DURATION: 5000,
+    NOTIFICATION_FADE: 10000,
+    CHART_RENDER_DELAY: 300,
+    IDLE_CHUNK_SIZE: 100
+};
+
 // Coordinate system configuration
 export const COORDINATE_SYSTEMS = {
     SOURCE: 'EPSG:3107', // GDA2020 / SA Lambert
     TARGET: 'EPSG:4326'  // WGS84
+};
+
+// South Australia coordinate boundaries for validation
+export const SA_BOUNDS = {
+    LAT_MIN: -39,
+    LAT_MAX: -25,
+    LNG_MIN: 128,
+    LNG_MAX: 142
 };

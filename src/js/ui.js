@@ -7,30 +7,43 @@ import { TUTORIAL_TABS, TUTORIAL_TAB_CONTENT_MAP, DATA_TABLE } from './config.js
 import { uiState, updateUiState, dataState, cacheState, updateCacheState, searchState, updateSearchState } from './state.js';
 import { escapeHtml, escapeCSV } from './utils.js';
 import { markFiltersChanged, getFilterValues } from './filters.js';
-import { domCache, batchDOMUpdate, perfMonitor } from './performance.js';
+import { domCache, batchDOMUpdate, perfMonitor, debounce } from './performance.js';
+import { loadModalContent } from './modals-content.js';
+
+// ============================================================================
+// MODAL LAZY LOADING
+// ============================================================================
+
+/**
+ * Open info modal with lazy content loading
+ * @param {string} modalId - The ID of the modal to open
+ */
+export async function openInfoModal(modalId) {
+    // Lazy load content if not already loaded
+    await loadModalContent(modalId);
+
+    const modal = document.getElementById(modalId);
+    if (modal) {
+        modal.classList.add('show');
+        document.body.style.overflow = 'hidden';
+    }
+}
+
+/**
+ * Close info modal
+ * @param {string} modalId - The ID of the modal to close
+ */
+export function closeInfoModal(modalId) {
+    const modal = document.getElementById(modalId);
+    if (modal) {
+        modal.classList.remove('show');
+        document.body.style.overflow = 'auto';
+    }
+}
 
 // ============================================================================
 // UTILITY FUNCTIONS
 // ============================================================================
-
-/**
- * Debounce utility function
- * Delays function execution until after a specified wait time has elapsed
- * @param {Function} func - Function to debounce
- * @param {number} wait - Wait time in milliseconds
- * @returns {Function} Debounced function
- */
-function debounce(func, wait) {
-    let timeout;
-    return function executedFunction(...args) {
-        const later = () => {
-            clearTimeout(timeout);
-            func(...args);
-        };
-        clearTimeout(timeout);
-        timeout = setTimeout(later, wait);
-    };
-}
 
 /**
  * Show loading overlay on data table
@@ -199,9 +212,12 @@ export function checkTutorial() {
 }
 
 /**
- * Open the tutorial modal
+ * Open the tutorial modal with lazy content loading
  */
-export function openTutorial() {
+export async function openTutorial() {
+    // Lazy load content if not already loaded
+    await loadModalContent('tutorialModal');
+
     const modal = document.getElementById('tutorialModal');
     if (modal) {
         modal.style.display = 'block';
@@ -306,6 +322,97 @@ export function updateTutorialPreference() {
         localStorage.setItem('tutorialCompleted', 'true');
     } else {
         localStorage.removeItem('tutorialCompleted');
+    }
+}
+
+/**
+ * Toggle collapsible tutorial step
+ * @param {HTMLElement} header - The step header element that was clicked
+ */
+export function toggleTutorialStep(header) {
+    const stepContent = header.nextElementSibling;
+    const icon = header.querySelector('.expand-icon');
+    const tutorialStep = header.parentElement;
+
+    if (stepContent && icon) {
+        const isCollapsed = tutorialStep.classList.contains('collapsed');
+
+        if (isCollapsed) {
+            tutorialStep.classList.remove('collapsed');
+            icon.textContent = '▼';
+        } else {
+            tutorialStep.classList.add('collapsed');
+            icon.textContent = '▶';
+        }
+    }
+}
+
+/**
+ * Search tutorial content and highlight matching steps
+ * @param {string} query - Search query string
+ */
+export function searchTutorial(query) {
+    const searchQuery = query.toLowerCase().trim();
+    const allSteps = document.querySelectorAll('#tutorialModal .tutorial-step');
+    const allTabs = document.querySelectorAll('#tutorialModal .tab-content');
+    let matchCount = 0;
+    let firstMatchTab = null;
+
+    // Clear previous search highlights
+    allSteps.forEach(step => {
+        step.classList.remove('search-highlight', 'search-hidden');
+    });
+
+    if (!searchQuery) {
+        // Reset all steps to visible when search is cleared
+        allSteps.forEach(step => {
+            step.classList.remove('collapsed');
+            const icon = step.querySelector('.expand-icon');
+            if (icon) icon.textContent = '▼';
+        });
+        return;
+    }
+
+    // Search through all tutorial steps
+    allSteps.forEach(step => {
+        const text = step.textContent.toLowerCase();
+        const stepHeader = step.querySelector('.step-header strong')?.textContent.toLowerCase() || '';
+
+        if (text.includes(searchQuery) || stepHeader.includes(searchQuery)) {
+            // Match found - highlight and expand
+            step.classList.add('search-highlight');
+            step.classList.remove('collapsed', 'search-hidden');
+            const icon = step.querySelector('.expand-icon');
+            if (icon) icon.textContent = '▼';
+            matchCount++;
+
+            // Track first match tab
+            if (!firstMatchTab) {
+                const parentTab = step.closest('.tab-content');
+                if (parentTab) {
+                    firstMatchTab = parentTab.id;
+                }
+            }
+        } else {
+            // No match - hide
+            step.classList.add('search-hidden');
+        }
+    });
+
+    // Switch to first tab with matches
+    if (firstMatchTab && matchCount > 0) {
+        const tabMap = {
+            'gettingStartedTab': 'getting-started',
+            'filteringTab': 'filtering',
+            'analyticsTab': 'analytics',
+            'toolsTab': 'tools',
+            'tipsTab': 'tips',
+            'quickRefTab': 'quick-ref'
+        };
+        const tabName = tabMap[firstMatchTab];
+        if (tabName) {
+            switchTutorialTab(tabName);
+        }
     }
 }
 
