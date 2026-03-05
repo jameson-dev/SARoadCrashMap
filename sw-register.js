@@ -10,19 +10,40 @@
         return;
     }
 
-    let refreshing = false;
-
-    // Reload page when new service worker takes control
-    navigator.serviceWorker.addEventListener('controllerchange', () => {
-        if (refreshing) return;
-        refreshing = true;
-        console.log('Service Worker updated, reloading page...');
-        window.location.reload();
-    });
+    let hasUpdate = false;
+    let contentUpdated = false;
 
     // Register service worker when page loads
     window.addEventListener('load', () => {
         registerServiceWorker();
+    });
+
+    // Listen for messages from service worker
+    navigator.serviceWorker.addEventListener('message', event => {
+        const { type, data } = event.data;
+
+        switch (type) {
+            case 'CACHE_PROGRESS':
+                updateCacheProgress(event.data.percentage, event.data.cached, event.data.total);
+                break;
+
+            case 'CACHE_COMPLETE':
+                hideCacheProgress();
+                console.log('✓ All assets cached for offline use');
+                break;
+
+            case 'CONTENT_UPDATED':
+                // Content was updated in the background
+                contentUpdated = true;
+                if (hasUpdate) {
+                    showUpdateAvailableBadge();
+                }
+                break;
+
+            case 'SW_INSTALLED':
+                console.log('Service Worker installed:', event.data.version);
+                break;
+        }
     });
 
     async function registerServiceWorker() {
@@ -33,10 +54,9 @@
 
             console.log('Service Worker registered successfully:', registration.scope);
 
-            // Check for updates every hour
-            setInterval(() => {
-                registration.update();
-            }, 60 * 60 * 1000);
+            // Check for updates only on page load (not periodically)
+            // This prevents interrupting users mid-session
+            registration.update();
 
             // Handle updates
             registration.addEventListener('updatefound', () => {
@@ -47,8 +67,9 @@
                     console.log('Service Worker state:', newWorker.state);
 
                     if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                        // New service worker installed, show update notification
-                        showUpdateNotification(newWorker);
+                        // New service worker installed
+                        hasUpdate = true;
+                        showGentleUpdateNotification(newWorker);
                     }
                 });
             });
@@ -67,82 +88,177 @@
         }
     }
 
-    // Show update notification to user
-    function showUpdateNotification(worker) {
-        console.log('New version available! Showing update notification...');
+    // Show gentle update notification (non-intrusive)
+    function showGentleUpdateNotification(worker) {
+        console.log('New version ready. User can refresh when convenient.');
 
-        // Create update banner
-        const banner = document.createElement('div');
-        banner.id = 'sw-update-banner';
-        banner.innerHTML = `
+        // Remove any existing notification
+        const existing = document.getElementById('sw-update-badge');
+        if (existing) existing.remove();
+
+        // Create gentle notification badge
+        const badge = document.createElement('div');
+        badge.id = 'sw-update-badge';
+        badge.innerHTML = `
             <div style="
                 position: fixed;
-                top: 10px;
-                left: 50%;
-                transform: translateX(-50%);
-                background: #4a90e2;
+                top: 20px;
+                right: 20px;
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
                 color: white;
-                padding: 12px 20px;
+                padding: 12px 18px;
                 border-radius: 8px;
-                box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+                box-shadow: 0 4px 12px rgba(0,0,0,0.15);
                 z-index: 10001;
-                display: flex;
-                gap: 15px;
-                align-items: center;
-                font-size: 14px;
+                font-size: 13px;
                 font-family: 'Segoe UI', sans-serif;
-                animation: slideDown 0.3s ease-out;
+                animation: slideInRight 0.4s ease-out;
+                cursor: pointer;
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                max-width: 300px;
             ">
-                <span>New version available!</span>
-                <button id="sw-update-btn" style="
-                    background: white;
-                    color: #4a90e2;
-                    border: none;
-                    padding: 6px 16px;
-                    border-radius: 4px;
-                    font-weight: 600;
-                    cursor: pointer;
-                    font-size: 13px;
-                ">Update Now</button>
-                <button id="sw-dismiss-btn" style="
-                    background: transparent;
-                    color: white;
-                    border: 1px solid white;
-                    padding: 6px 16px;
-                    border-radius: 4px;
-                    font-weight: 600;
-                    cursor: pointer;
-                    font-size: 13px;
-                ">Later</button>
+                <span style="font-size: 16px;">✨</span>
+                <div>
+                    <div style="font-weight: 600; margin-bottom: 4px;">Update Available</div>
+                    <div style="font-size: 11px; opacity: 0.9;">Refresh when ready to see the latest version</div>
+                </div>
             </div>
             <style>
-                @keyframes slideDown {
+                @keyframes slideInRight {
                     from {
-                        transform: translate(-50%, -100%);
+                        transform: translateX(400px);
                         opacity: 0;
                     }
                     to {
-                        transform: translateX(-50%);
+                        transform: translateX(0);
                         opacity: 1;
                     }
                 }
             </style>
         `;
 
-        document.body.appendChild(banner);
+        document.body.appendChild(badge);
 
-        // Update now button
-        document.getElementById('sw-update-btn').addEventListener('click', () => {
-            console.log('User accepted update');
+        // Click to refresh
+        badge.addEventListener('click', () => {
+            console.log('User chose to update now');
             worker.postMessage({ type: 'SKIP_WAITING' });
-            banner.remove();
+            // Show loading message
+            badge.innerHTML = `
+                <div style="
+                    position: fixed;
+                    top: 20px;
+                    right: 20px;
+                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    color: white;
+                    padding: 12px 18px;
+                    border-radius: 8px;
+                    font-size: 13px;
+                    font-family: 'Segoe UI', sans-serif;
+                ">
+                    Updating...
+                </div>
+            `;
+            // Reload after a brief delay to allow service worker to activate
+            setTimeout(() => {
+                window.location.reload();
+            }, 500);
         });
 
-        // Dismiss button
-        document.getElementById('sw-dismiss-btn').addEventListener('click', () => {
-            console.log('User dismissed update');
-            banner.remove();
-        });
+        // Auto-fade after 10 seconds
+        setTimeout(() => {
+            badge.style.transition = 'opacity 0.5s';
+            badge.style.opacity = '0.7';
+        }, 10000);
+    }
+
+    // Show update available badge (for background content updates)
+    function showUpdateAvailableBadge() {
+        const existing = document.getElementById('sw-update-badge');
+        if (existing) {
+            // Already showing, just pulse it
+            existing.style.animation = 'pulse 0.5s';
+            setTimeout(() => {
+                existing.style.animation = '';
+            }, 500);
+        }
+    }
+
+    // Cache progress indicator
+    function updateCacheProgress(percentage, cached, total) {
+        let indicator = document.getElementById('cache-progress-indicator');
+
+        if (!indicator) {
+            // Create progress indicator
+            indicator = document.createElement('div');
+            indicator.id = 'cache-progress-indicator';
+            indicator.innerHTML = `
+                <div style="
+                    position: fixed;
+                    bottom: 20px;
+                    right: 20px;
+                    background: white;
+                    color: #333;
+                    padding: 12px 16px;
+                    border-radius: 8px;
+                    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+                    z-index: 9999;
+                    font-size: 12px;
+                    font-family: 'Segoe UI', sans-serif;
+                    min-width: 200px;
+                    animation: slideUp 0.3s ease-out;
+                ">
+                    <div style="margin-bottom: 6px; font-weight: 600;">Caching for offline use</div>
+                    <div style="background: #e0e0e0; height: 4px; border-radius: 2px; overflow: hidden;">
+                        <div id="cache-progress-bar" style="
+                            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+                            height: 100%;
+                            width: 0%;
+                            transition: width 0.3s ease;
+                        "></div>
+                    </div>
+                    <div id="cache-progress-text" style="margin-top: 4px; font-size: 11px; color: #666;"></div>
+                </div>
+                <style>
+                    @keyframes slideUp {
+                        from {
+                            transform: translateY(100px);
+                            opacity: 0;
+                        }
+                        to {
+                            transform: translateY(0);
+                            opacity: 1;
+                        }
+                    }
+                </style>
+            `;
+            document.body.appendChild(indicator);
+        }
+
+        // Update progress
+        const progressBar = document.getElementById('cache-progress-bar');
+        const progressText = document.getElementById('cache-progress-text');
+
+        if (progressBar) {
+            progressBar.style.width = percentage + '%';
+        }
+
+        if (progressText) {
+            progressText.textContent = `${cached} of ${total} files (${percentage}%)`;
+        }
+    }
+
+    function hideCacheProgress() {
+        const indicator = document.getElementById('cache-progress-indicator');
+        if (indicator) {
+            indicator.style.transition = 'opacity 0.3s';
+            indicator.style.opacity = '0';
+            setTimeout(() => {
+                indicator.remove();
+            }, 300);
+        }
     }
 
     // Expose cache management functions globally

@@ -1,21 +1,29 @@
 // Service Worker for SA Crash Data Map
 // Implements caching strategies for offline support and performance
 
-const VERSION = '1.0.51';
+// Version can be injected during build: npm run build will replace __VERSION__
+// If not replaced, falls back to timestamp-based version
+const BUILD_VERSION = '__VERSION__'; // Will be replaced by build script
+const VERSION = BUILD_VERSION !== '__VERSION__' ? BUILD_VERSION :
+                `dev-${new Date().toISOString().split('T')[0]}`; // Fallback for dev
 const CACHE_NAME = `crash-map-static-v${VERSION}`;
-const DATA_CACHE_NAME = `crash-map-data-v${VERSION}`;
+// Data cache uses stable name to persist across service worker updates
+const DATA_CACHE_NAME = 'crash-map-data-stable';
 const RUNTIME_CACHE_NAME = `crash-map-runtime-v${VERSION}`;
 
-// Static assets to cache on install
-const STATIC_ASSETS = [
+// Critical shell assets to cache on install (minimal set for fast first load)
+const CRITICAL_ASSETS = [
     './',
     './index.html',
     './styles.css',
-    './manifest.json',
+    './manifest.json'
+];
+
+// Non-critical static assets to cache lazily (after initial load)
+const STATIC_ASSETS = [
     './saroadcrashmap-icon.svg',
     './saroadcrashmap-logo.svg',
     './LICENSE',
-    // Modularized JavaScript files
     './src/js/main.js',
     './src/js/analytics.js',
     './src/js/config.js',
@@ -24,56 +32,66 @@ const STATIC_ASSETS = [
     './src/js/map-renderer.js',
     './src/js/state.js',
     './src/js/ui.js',
-    './src/js/utils.js'
+    './src/js/utils.js',
+    './src/js/performance.js',
+    './src/js/pdf-generator.js',
+    './src/js/logger.js',
+    './src/js/error-handler.js',
+    './src/js/modals-content.js',
+    './src/js/inline-handlers.js'
 ];
 
-// CDN resources to cache
+// CDN resources to cache lazily (only essential core libraries)
+// Note: Reduced list - only cache libraries critical for offline functionality
+// Other CDN resources will be cached on-demand via stale-while-revalidate strategy
 const CDN_ASSETS = [
+    // Core mapping (essential for app to function)
     'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css',
     'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js',
-    'https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css',
-    'https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css',
-    'https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js',
-    'https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js',
-    'https://unpkg.com/nouislider@15.7.1/dist/nouislider.min.css',
-    'https://unpkg.com/nouislider@15.7.1/dist/nouislider.min.js',
-    'https://unpkg.com/papaparse@5.4.1/papaparse.min.js',
-    'https://unpkg.com/proj4@2.9.0/dist/proj4.js',
-    'https://unpkg.com/@turf/turf@6.5.0/turf.min.js',
-    'https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js'
+    // Data decompression (essential for loading data)
+    'https://unpkg.com/pako@2.1.0/dist/pako.min.js',
+    // Coordinate conversion (essential for map display)
+    'https://unpkg.com/proj4@2.9.0/dist/proj4.js'
+    // Other libraries are cached on-demand when first used
 ];
 
-// Install event - cache static assets
+// Install event - cache only critical shell assets for fast first load
 self.addEventListener('install', event => {
     console.log('[Service Worker] Installing version:', VERSION);
 
     event.waitUntil(
-        Promise.all([
-            // Cache static assets
-            caches.open(CACHE_NAME).then(cache => {
-                console.log('[Service Worker] Caching static assets');
-                return cache.addAll(STATIC_ASSETS);
-            }),
-            // Cache CDN resources
-            caches.open(CACHE_NAME).then(cache => {
-                console.log('[Service Worker] Caching CDN resources');
-                return Promise.allSettled(
-                    CDN_ASSETS.map(url =>
-                        cache.add(url).catch(err => {
-                            console.warn('[Service Worker] Failed to cache:', url, err);
-                        })
-                    )
-                );
-            })
-        ]).then(() => {
-            console.log('[Service Worker] Installation complete');
-            // Force the waiting service worker to become active
-            return self.skipWaiting();
+        caches.open(CACHE_NAME).then(cache => {
+            console.log('[Service Worker] Caching critical shell assets');
+            // Use Promise.allSettled to make installation resilient to individual failures
+            return Promise.allSettled(
+                CRITICAL_ASSETS.map(url =>
+                    cache.add(url).catch(err => {
+                        console.warn('[Service Worker] Failed to cache critical asset:', url, err);
+                        // Re-throw for truly critical assets
+                        if (url === './index.html' || url === './') {
+                            throw err;
+                        }
+                    })
+                )
+            );
+        }).then(() => {
+            console.log('[Service Worker] Critical assets cached, installation complete');
+            // Notify clients about installation progress
+            self.clients.matchAll().then(clients => {
+                clients.forEach(client => {
+                    client.postMessage({
+                        type: 'SW_INSTALLED',
+                        version: VERSION
+                    });
+                });
+            });
+            // Don't skip waiting - let the user decide when to update
+            // This prevents interrupting active sessions
         })
     );
 });
 
-// Activate event - clean up old caches
+// Activate event - clean up old caches and start lazy caching
 self.addEventListener('activate', event => {
     console.log('[Service Worker] Activating version:', VERSION);
 
@@ -84,11 +102,12 @@ self.addEventListener('activate', event => {
                 return Promise.all(
                     cacheNames
                         .filter(cacheName => {
-                            // Delete old caches
+                            // Delete old versioned caches, but keep stable data cache
                             return cacheName.startsWith('crash-map-') &&
                                    cacheName !== CACHE_NAME &&
-                                   cacheName !== DATA_CACHE_NAME &&
-                                   cacheName !== RUNTIME_CACHE_NAME;
+                                   cacheName !== DATA_CACHE_NAME && // Keep stable data cache
+                                   cacheName !== RUNTIME_CACHE_NAME &&
+                                   !cacheName.includes('data-stable'); // Extra safety
                         })
                         .map(cacheName => {
                             console.log('[Service Worker] Deleting old cache:', cacheName);
@@ -100,9 +119,111 @@ self.addEventListener('activate', event => {
             self.clients.claim()
         ]).then(() => {
             console.log('[Service Worker] Activation complete');
+            // Start lazy-loading non-critical assets in the background
+            lazyLoadAssets();
+            // Clean old data cache entries if needed
+            cleanDataCache();
         })
     );
 });
+
+// Clean old data cache entries (keep cache size manageable)
+async function cleanDataCache() {
+    try {
+        const cache = await caches.open(DATA_CACHE_NAME);
+        const requests = await cache.keys();
+
+        // If data cache has more than 100 entries, remove oldest ones
+        const MAX_DATA_CACHE_SIZE = 100;
+
+        if (requests.length > MAX_DATA_CACHE_SIZE) {
+            console.log(`[Service Worker] Data cache has ${requests.length} entries, cleaning...`);
+
+            // Get all entries with their dates
+            const entries = await Promise.all(
+                requests.map(async request => {
+                    const response = await cache.match(request);
+                    const date = response?.headers.get('date');
+                    return {
+                        request,
+                        date: date ? new Date(date) : new Date(0)
+                    };
+                })
+            );
+
+            // Sort by date (oldest first)
+            entries.sort((a, b) => a.date - b.date);
+
+            // Delete oldest entries
+            const toDelete = entries.slice(0, requests.length - MAX_DATA_CACHE_SIZE);
+            await Promise.all(
+                toDelete.map(entry => cache.delete(entry.request))
+            );
+
+            console.log(`[Service Worker] Removed ${toDelete.length} old data cache entries`);
+        }
+    } catch (err) {
+        console.warn('[Service Worker] Failed to clean data cache:', err);
+    }
+}
+
+// Lazy-load non-critical assets in the background
+async function lazyLoadAssets() {
+    console.log('[Service Worker] Starting background cache of non-critical assets');
+
+    const cache = await caches.open(CACHE_NAME);
+    let cachedCount = 0;
+    let totalAssets = STATIC_ASSETS.length + CDN_ASSETS.length;
+
+    // Cache static assets
+    for (const url of STATIC_ASSETS) {
+        try {
+            await cache.add(url);
+            cachedCount++;
+            notifyCacheProgress(cachedCount, totalAssets);
+        } catch (err) {
+            console.warn('[Service Worker] Failed to lazy-cache:', url, err);
+        }
+    }
+
+    // Cache CDN assets
+    for (const url of CDN_ASSETS) {
+        try {
+            await cache.add(url);
+            cachedCount++;
+            notifyCacheProgress(cachedCount, totalAssets);
+        } catch (err) {
+            console.warn('[Service Worker] Failed to lazy-cache CDN:', url, err);
+        }
+    }
+
+    console.log('[Service Worker] Background caching complete');
+
+    // Notify all clients that caching is done
+    const clients = await self.clients.matchAll();
+    clients.forEach(client => {
+        client.postMessage({
+            type: 'CACHE_COMPLETE',
+            version: VERSION
+        });
+    });
+}
+
+// Notify clients of cache progress
+function notifyCacheProgress(cached, total) {
+    const percentage = Math.round((cached / total) * 100);
+
+    self.clients.matchAll().then(clients => {
+        clients.forEach(client => {
+            client.postMessage({
+                type: 'CACHE_PROGRESS',
+                cached,
+                total,
+                percentage
+            });
+        });
+    });
+}
 
 // Fetch event - implement caching strategies
 self.addEventListener('fetch', event => {
@@ -114,6 +235,13 @@ self.addEventListener('fetch', event => {
         return;
     }
 
+    // Cache bypass for testing - add ?nocache to URL
+    if (url.searchParams.has('nocache') || url.searchParams.has('bypass-cache')) {
+        console.log('[Service Worker] Cache bypass requested:', url.pathname);
+        event.respondWith(fetch(request));
+        return;
+    }
+
     // Strategy 1: Data files - Cache First (with network fallback)
     // Browser automatically decompresses gzip when served with correct headers
     if (url.pathname.includes('/data/')) {
@@ -121,17 +249,17 @@ self.addEventListener('fetch', event => {
         return;
     }
 
-    // Strategy 2: Static assets - Cache First (with network fallback)
-    // HTML, CSS, JS files
-    if (url.pathname.match(/\.(html|css|js)$/)) {
-        event.respondWith(cacheFirstStrategy(request, CACHE_NAME));
+    // Strategy 2: Static assets - Stale-While-Revalidate
+    // HTML, CSS, JS files - serve from cache but update in background
+    if (url.pathname.match(/\.(html|css|js)$/) || url.pathname === '/' || url.pathname.endsWith('/')) {
+        event.respondWith(staleWhileRevalidateStrategy(request, CACHE_NAME));
         return;
     }
 
-    // Strategy 3: CDN resources - Cache First (with network fallback)
+    // Strategy 3: CDN resources - Stale-While-Revalidate (with longer tolerance)
     // External libraries from unpkg/jsdelivr
     if (url.hostname.includes('unpkg.com') || url.hostname.includes('jsdelivr.net')) {
-        event.respondWith(cacheFirstStrategy(request, CACHE_NAME));
+        event.respondWith(staleWhileRevalidateStrategy(request, CACHE_NAME, 30 * 24 * 60 * 60 * 1000)); // 30 days
         return;
     }
 
@@ -227,6 +355,78 @@ async function networkFirstStrategy(request, cacheName) {
             })
         });
     }
+}
+
+// Stale-While-Revalidate Strategy - Serve from cache, update in background
+async function staleWhileRevalidateStrategy(request, cacheName, maxAge = null) {
+    const cache = await caches.open(cacheName);
+    const cachedResponse = await cache.match(request);
+
+    // Fetch fresh version in the background
+    const fetchPromise = fetch(request).then(async networkResponse => {
+        // Only cache successful responses
+        if (networkResponse && networkResponse.ok && request.method === 'GET') {
+            try {
+                await cache.put(request, networkResponse.clone());
+                console.log('[Service Worker] Updated cache in background:', request.url);
+
+                // Notify clients that new content is available
+                const clients = await self.clients.matchAll();
+                clients.forEach(client => {
+                    client.postMessage({
+                        type: 'CONTENT_UPDATED',
+                        url: request.url
+                    });
+                });
+            } catch (err) {
+                console.warn('[Service Worker] Failed to update cache:', request.url, err);
+            }
+        }
+        return networkResponse;
+    }).catch(err => {
+        console.log('[Service Worker] Background fetch failed:', request.url, err);
+        return null;
+    });
+
+    // If we have a cached response, check if it's still valid
+    if (cachedResponse) {
+        // Check age if maxAge is specified
+        if (maxAge) {
+            const dateHeader = cachedResponse.headers.get('date');
+            if (dateHeader) {
+                const cachedDate = new Date(dateHeader);
+                const now = new Date();
+                const age = now - cachedDate;
+
+                if (age > maxAge) {
+                    console.log('[Service Worker] Cache too old, waiting for network:', request.url);
+                    // Cache is too old, wait for network response
+                    return fetchPromise.then(response => response || cachedResponse);
+                }
+            }
+        }
+
+        console.log('[Service Worker] Serving from cache (updating in background):', request.url);
+        // Return cached version immediately, update happens in background
+        return cachedResponse;
+    }
+
+    // No cached response, wait for network
+    console.log('[Service Worker] No cache, fetching from network:', request.url);
+    const networkResponse = await fetchPromise;
+
+    if (networkResponse) {
+        return networkResponse;
+    }
+
+    // Both failed
+    return new Response('Offline - Resource not available', {
+        status: 503,
+        statusText: 'Service Unavailable',
+        headers: new Headers({
+            'Content-Type': 'text/plain'
+        })
+    });
 }
 
 // Helper: Fetch from network and cache the response
