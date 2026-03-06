@@ -1279,37 +1279,154 @@ export function setYearRange(range) {
 /**
  * Encode current filters to URL parameters (internal function)
  */
+/**
+ * Helper: Get optimized filter value (inverts if most items selected)
+ * @param {string} elementId - ID of the filter element
+ * @param {Array} selectedValues - Currently selected values
+ * @returns {Object|null} {values: Array, inverted: boolean} or null if all selected
+ */
+function getOptimizedFilterValue(elementId, selectedValues) {
+    if (selectedValues.includes('all')) return null;
+
+    // Get all possible values
+    const menu = document.getElementById(`${elementId}Menu`);
+    const element = document.getElementById(elementId);
+    let allOptions = [];
+
+    if (menu) {
+        allOptions = Array.from(menu.querySelectorAll('input[type="checkbox"]')).map(cb => cb.value);
+    } else if (element) {
+        allOptions = Array.from(element.options).map(opt => opt.value).filter(v => v !== 'all');
+    }
+
+    const totalCount = allOptions.length;
+    const selectedCount = selectedValues.length;
+
+    // If >70% selected, store what's NOT selected (inverted)
+    if (selectedCount > totalCount * 0.7) {
+        const unselected = allOptions.filter(v => !selectedValues.includes(v));
+        return { values: unselected, inverted: true };
+    }
+
+    // Otherwise store what IS selected
+    return { values: selectedValues, inverted: false };
+}
+
 function encodeFiltersToURLInternal() {
-    const filters = getFilterValues();
-    const params = new URLSearchParams();
+    try {
+        const filters = getFilterValues();
+        const state = {};
 
-    // Only add non-default values to keep URL clean
-    if (filters.yearFrom !== YEAR_RANGE.MIN) params.set('yearFrom', filters.yearFrom);
-    if (filters.yearTo !== YEAR_RANGE.MAX) params.set('yearTo', filters.yearTo);
+        // Only include non-default values to minimize compressed size
+        if (filters.yearFrom !== YEAR_RANGE.MIN) state.yf = filters.yearFrom;
+        if (filters.yearTo !== YEAR_RANGE.MAX) state.yt = filters.yearTo;
 
-    if (!filters.selectedSeverities.includes('all')) {
-        params.set('severity', filters.selectedSeverities.map(s => s.trim()).join(','));
+        // Use optimized encoding for multi-select filters (inverts if most selected)
+        const sev = getOptimizedFilterValue('severity', filters.selectedSeverities);
+        if (sev) {
+            state.sev = sev.inverted ? `!${sev.values.join(',')}` : sev.values;
+        }
+
+        const ct = getOptimizedFilterValue('crashType', filters.selectedCrashTypes);
+        if (ct) {
+            state.ct = ct.inverted ? `!${ct.values.join(',')}` : ct.values;
+        }
+
+        const ar = getOptimizedFilterValue('area', filters.selectedAreas);
+        if (ar) {
+            state.ar = ar.inverted ? `!${ar.values.join(',')}` : ar.values;
+        }
+
+        const sub = getOptimizedFilterValue('suburb', filters.selectedSuburbs);
+        if (sub) {
+            state.sub = sub.inverted ? `!${sub.values.join(',')}` : sub.values;
+        }
+
+        if (filters.weather !== 'all') state.w = filters.weather;
+        if (filters.dayNight !== 'all') state.dn = filters.dayNight;
+        if (filters.duiInvolved !== 'all') state.dui = filters.duiInvolved;
+        if (filters.drugsInvolved !== 'all') state.drg = filters.drugsInvolved;
+
+        if (filters.dateFrom) state.df = filters.dateFrom;
+        if (filters.dateTo) state.dt = filters.dateTo;
+        if (filters.timeFrom) state.tf = filters.timeFrom;
+        if (filters.timeTo) state.tt = filters.timeTo;
+
+        // Include other multi-select filters (optimized with invert logic)
+        const rs = getOptimizedFilterValue('roadSurface', filters.selectedRoadSurfaces);
+        if (rs) state.rs = rs.inverted ? `!${rs.values.join(',')}` : rs.values;
+
+        const mc = getOptimizedFilterValue('moistureCond', filters.selectedMoistureConds);
+        if (mc) state.mc = mc.inverted ? `!${mc.values.join(',')}` : mc.values;
+
+        const sz = getOptimizedFilterValue('speedZoneFilter', filters.selectedSpeedZones);
+        if (sz) state.sz = sz.inverted ? `!${sz.values.join(',')}` : sz.values;
+
+        const mo = getOptimizedFilterValue('monthFilter', filters.selectedMonths);
+        if (mo) state.mo = mo.inverted ? `!${mo.values.join(',')}` : mo.values;
+
+        // Casualty filters (optimized)
+        const ru = getOptimizedFilterValue('roadUserType', filters.selectedRoadUsers);
+        if (ru) state.ru = ru.inverted ? `!${ru.values.join(',')}` : ru.values;
+
+        const ag = getOptimizedFilterValue('ageGroup', filters.selectedAgeGroups);
+        if (ag) state.ag = ag.inverted ? `!${ag.values.join(',')}` : ag.values;
+
+        const sx = getOptimizedFilterValue('casualtySex', filters.selectedSexes);
+        if (sx) state.sx = sx.inverted ? `!${sx.values.join(',')}` : sx.values;
+
+        const inj = getOptimizedFilterValue('injuryExtent', filters.selectedInjuries);
+        if (inj) state.inj = inj.inverted ? `!${inj.values.join(',')}` : inj.values;
+
+        const sb = getOptimizedFilterValue('seatBelt', filters.selectedSeatBelts);
+        if (sb) state.sb = sb.inverted ? `!${sb.values.join(',')}` : sb.values;
+
+        const hm = getOptimizedFilterValue('helmet', filters.selectedHelmets);
+        if (hm) state.hm = hm.inverted ? `!${hm.values.join(',')}` : hm.values;
+
+        // Vehicle filters
+        if (filters.heavyVehicle !== 'all') state.hv = filters.heavyVehicle;
+
+        const vt = getOptimizedFilterValue('vehicleType', filters.selectedVehicles);
+        if (vt) state.vt = vt.inverted ? `!${vt.values.join(',')}` : vt.values;
+
+        const vy = getOptimizedFilterValue('vehicleYear', filters.selectedVehicleYears);
+        if (vy) state.vy = vy.inverted ? `!${vy.values.join(',')}` : vy.values;
+
+        const oc = getOptimizedFilterValue('occupants', filters.selectedOccupants);
+        if (oc) state.oc = oc.inverted ? `!${oc.values.join(',')}` : oc.values;
+
+        if (filters.towing !== 'all') state.tw = filters.towing;
+        if (filters.rollover !== 'all') state.ro = filters.rollover;
+        if (filters.fire !== 'all') state.fi = filters.fire;
+
+        const lt = getOptimizedFilterValue('licenseType', filters.selectedLicenseTypes);
+        if (lt) state.lt = lt.inverted ? `!${lt.values.join(',')}` : lt.values;
+
+        const rst = getOptimizedFilterValue('vehRegState', filters.selectedRegStates);
+        if (rst) state.rst = rst.inverted ? `!${rst.values.join(',')}` : rst.values;
+
+        const dir = getOptimizedFilterValue('directionTravel', filters.selectedDirections);
+        if (dir) state.dir = dir.inverted ? `!${dir.values.join(',')}` : dir.values;
+
+        const mv = getOptimizedFilterValue('unitMovement', filters.selectedMovements);
+        if (mv) state.mv = mv.inverted ? `!${mv.values.join(',')}` : mv.values;
+
+        // If no filters are active, clear URL
+        if (Object.keys(state).length === 0) {
+            window.history.replaceState({}, '', window.location.pathname);
+            return;
+        }
+
+        // Compress and encode the state
+        const json = JSON.stringify(state);
+        const compressed = LZString.compressToEncodedURIComponent(json);
+        const newURL = `${window.location.pathname}?f=${compressed}`;
+
+        window.history.replaceState({}, '', newURL);
+    } catch (error) {
+        console.error('Error encoding filters to URL:', error);
     }
-    if (!filters.selectedCrashTypes.includes('all')) {
-        params.set('crashType', filters.selectedCrashTypes.map(s => s.trim()).join(','));
-    }
-    if (filters.weather !== 'all') params.set('weather', filters.weather.trim());
-    if (filters.dayNight !== 'all') params.set('dayNight', filters.dayNight.trim());
-    if (filters.duiInvolved !== 'all') params.set('dui', filters.duiInvolved.trim());
-    if (filters.drugsInvolved !== 'all') params.set('drugs', filters.drugsInvolved.trim());
-
-    if (!filters.selectedAreas.includes('all')) {
-        params.set('areas', filters.selectedAreas.map(a => a.trim()).join(','));
-    }
-
-    if (filters.dateFrom) params.set('dateFrom', filters.dateFrom);
-    if (filters.dateTo) params.set('dateTo', filters.dateTo);
-    if (filters.timeFrom) params.set('timeFrom', filters.timeFrom);
-    if (filters.timeTo) params.set('timeTo', filters.timeTo);
-
-    // Update URL without reloading page
-    const newURL = params.toString() ? `${window.location.pathname}?${params.toString()}` : window.location.pathname;
-    window.history.replaceState({}, '', newURL);
 }
 
 /**
@@ -1327,105 +1444,20 @@ export function encodeFiltersToURL() {
 }
 
 /**
- * Load filters from URL parameters
+ * Load filters from URL parameters (supports both compressed and legacy formats)
  */
 export function loadFiltersFromURL() {
     const params = new URLSearchParams(window.location.search);
     if (!params.toString()) return;
 
     try {
-        // Year range
-        if (params.has('yearFrom') || params.has('yearTo')) {
-            const yearFrom = parseInt(params.get('yearFrom')) || YEAR_RANGE.MIN;
-            const yearTo = parseInt(params.get('yearTo')) || YEAR_RANGE.MAX;
-            currentYearRange = [yearFrom, yearTo];
-            if (yearRangeSlider) {
-                yearRangeSlider.set([yearFrom, yearTo]);
-            }
+        // Check for new compressed format
+        if (params.has('f')) {
+            loadCompressedFilters(params.get('f'));
+        } else {
+            // Legacy format for backwards compatibility
+            loadLegacyFilters(params);
         }
-
-        // Severity
-        if (params.has('severity')) {
-            const severities = params.get('severity').split(',').map(s => s.trim());
-            const menu = document.getElementById('severityMenu');
-            if (menu) {
-                menu.querySelectorAll('input[type="checkbox"]').forEach(cb => {
-                    cb.checked = severities.includes(cb.value.trim());
-                });
-                updateCheckboxDropdownDisplay('severity', true);
-            }
-        }
-
-        // Crash type
-        if (params.has('crashType')) {
-            const crashTypes = params.get('crashType').split(',').map(s => s.trim());
-            const menu = document.getElementById('crashTypeMenu');
-            if (menu) {
-                menu.querySelectorAll('input[type="checkbox"]').forEach(cb => {
-                    cb.checked = crashTypes.includes(cb.value.trim());
-                });
-                updateCheckboxDropdownDisplay('crashType', true);
-            }
-        }
-
-        // Simple selects
-        if (params.has('weather')) {
-            const weather = params.get('weather');
-            const select = document.getElementById('weather');
-            if (select) {
-                Array.from(select.options).forEach(opt => {
-                    if (opt.value.trim() === weather) select.value = opt.value;
-                });
-            }
-        }
-
-        if (params.has('dayNight')) {
-            const dayNight = params.get('dayNight');
-            const select = document.getElementById('dayNight');
-            if (select) {
-                Array.from(select.options).forEach(opt => {
-                    if (opt.value.trim() === dayNight) select.value = opt.value;
-                });
-            }
-        }
-
-        if (params.has('dui')) {
-            const dui = params.get('dui');
-            const select = document.getElementById('duiInvolved');
-            if (select) {
-                Array.from(select.options).forEach(opt => {
-                    if (opt.value.trim() === dui) select.value = opt.value;
-                });
-            }
-        }
-
-        if (params.has('drugs')) {
-            const drugs = params.get('drugs');
-            const select = document.getElementById('drugsInvolved');
-            if (select) {
-                Array.from(select.options).forEach(opt => {
-                    if (opt.value.trim() === drugs) select.value = opt.value;
-                });
-            }
-        }
-
-        // Areas
-        if (params.has('areas')) {
-            const areas = params.get('areas').split(',').map(a => a.trim());
-            const menu = document.getElementById('areaMenu');
-            if (menu) {
-                menu.querySelectorAll('input[type="checkbox"]').forEach(cb => {
-                    cb.checked = areas.includes(cb.value.trim());
-                });
-                updateCheckboxDropdownDisplay('area', true);
-            }
-        }
-
-        // Date/time
-        if (params.has('dateFrom')) document.getElementById('dateFrom').value = params.get('dateFrom');
-        if (params.has('dateTo')) document.getElementById('dateTo').value = params.get('dateTo');
-        if (params.has('timeFrom')) document.getElementById('timeFrom').value = params.get('timeFrom');
-        if (params.has('timeTo')) document.getElementById('timeTo').value = params.get('timeTo');
 
         // Apply filters after loading from URL
         setTimeout(() => {
@@ -1434,6 +1466,191 @@ export function loadFiltersFromURL() {
     } catch (error) {
         console.error('Error loading filters from URL:', error);
     }
+}
+
+/**
+ * Helper: Decode filter value (handles inverted format)
+ * @param {string} elementId - ID of the filter element
+ * @param {string|Array} value - Encoded value (string starting with '!' for inverted, or array)
+ * @returns {Array} Decoded values to select
+ */
+function decodeFilterValue(elementId, value) {
+    // If it's already an array, return as-is
+    if (Array.isArray(value)) return value;
+
+    // Check if it's inverted (string starting with '!')
+    if (typeof value === 'string' && value.startsWith('!')) {
+        // Get all possible values
+        const menu = document.getElementById(`${elementId}Menu`);
+        const element = document.getElementById(elementId);
+        let allOptions = [];
+
+        if (menu) {
+            allOptions = Array.from(menu.querySelectorAll('input[type="checkbox"]')).map(cb => cb.value);
+        } else if (element) {
+            allOptions = Array.from(element.options).map(opt => opt.value).filter(v => v !== 'all');
+        }
+
+        // Invert: select everything EXCEPT what's in the list
+        const unselected = value.substring(1).split(',').filter(v => v);
+        return allOptions.filter(v => !unselected.includes(v));
+    }
+
+    // Regular string value
+    return typeof value === 'string' ? value.split(',') : [value];
+}
+
+/**
+ * Load filters from compressed URL parameter
+ */
+function loadCompressedFilters(compressed) {
+    try {
+        const json = LZString.decompressFromEncodedURIComponent(compressed);
+        if (!json) {
+            console.error('Failed to decompress URL parameter');
+            return;
+        }
+
+        const state = JSON.parse(json);
+
+        // Year range
+        if (state.yf !== undefined || state.yt !== undefined) {
+            const yearFrom = state.yf || YEAR_RANGE.MIN;
+            const yearTo = state.yt || YEAR_RANGE.MAX;
+            currentYearRange = [yearFrom, yearTo];
+            if (yearRangeSlider) {
+                yearRangeSlider.set([yearFrom, yearTo]);
+            }
+        }
+
+        // Apply multi-select filters (with invert support)
+        if (state.sev) applyCheckboxFilter('severity', decodeFilterValue('severity', state.sev));
+        if (state.ct) applyCheckboxFilter('crashType', decodeFilterValue('crashType', state.ct));
+        if (state.ar) applyCheckboxFilter('area', decodeFilterValue('area', state.ar));
+        if (state.sub) applyCheckboxFilter('suburb', decodeFilterValue('suburb', state.sub));
+
+        // Apply simple select filters
+        if (state.w) setSelectValue('weather', state.w);
+        if (state.dn) setSelectValue('dayNight', state.dn);
+        if (state.dui) setSelectValue('duiInvolved', state.dui);
+        if (state.drg) setSelectValue('drugsInvolved', state.drg);
+
+        // Date/time filters
+        if (state.df) document.getElementById('dateFrom').value = state.df;
+        if (state.dt) document.getElementById('dateTo').value = state.dt;
+        if (state.tf) document.getElementById('timeFrom').value = state.tf;
+        if (state.tt) document.getElementById('timeTo').value = state.tt;
+
+        // Advanced filters - crash conditions (with invert support)
+        if (state.rs) applyMultiSelectFilter('roadSurface', decodeFilterValue('roadSurface', state.rs));
+        if (state.mc) applyMultiSelectFilter('moistureCond', decodeFilterValue('moistureCond', state.mc));
+        if (state.sz) applyMultiSelectFilter('speedZoneFilter', decodeFilterValue('speedZoneFilter', state.sz));
+        if (state.mo) applyMultiSelectFilter('monthFilter', decodeFilterValue('monthFilter', state.mo));
+
+        // Casualty filters (with invert support)
+        if (state.ru) applyMultiSelectFilter('roadUserType', decodeFilterValue('roadUserType', state.ru));
+        if (state.ag) applyMultiSelectFilter('ageGroup', decodeFilterValue('ageGroup', state.ag));
+        if (state.sx) applyMultiSelectFilter('casualtySex', decodeFilterValue('casualtySex', state.sx));
+        if (state.inj) applyMultiSelectFilter('injuryExtent', decodeFilterValue('injuryExtent', state.inj));
+        if (state.sb) applyMultiSelectFilter('seatBelt', decodeFilterValue('seatBelt', state.sb));
+        if (state.hm) applyMultiSelectFilter('helmet', decodeFilterValue('helmet', state.hm));
+
+        // Vehicle filters (with invert support)
+        if (state.hv) setSelectValue('heavyVehicle', state.hv);
+        if (state.vt) applyMultiSelectFilter('vehicleType', decodeFilterValue('vehicleType', state.vt));
+        if (state.vy) applyMultiSelectFilter('vehicleYear', decodeFilterValue('vehicleYear', state.vy));
+        if (state.oc) applyMultiSelectFilter('occupants', decodeFilterValue('occupants', state.oc));
+        if (state.tw) setSelectValue('towing', state.tw);
+        if (state.ro) setSelectValue('rollover', state.ro);
+        if (state.fi) setSelectValue('fire', state.fi);
+        if (state.lt) applyMultiSelectFilter('licenseType', decodeFilterValue('licenseType', state.lt));
+        if (state.rst) applyMultiSelectFilter('vehRegState', decodeFilterValue('vehRegState', state.rst));
+        if (state.dir) applyMultiSelectFilter('directionTravel', decodeFilterValue('directionTravel', state.dir));
+        if (state.mv) applyMultiSelectFilter('unitMovement', decodeFilterValue('unitMovement', state.mv));
+
+    } catch (error) {
+        console.error('Error loading compressed filters:', error);
+    }
+}
+
+/**
+ * Load filters from legacy URL parameters (backwards compatibility)
+ */
+function loadLegacyFilters(params) {
+    // Year range
+    if (params.has('yearFrom') || params.has('yearTo')) {
+        const yearFrom = parseInt(params.get('yearFrom')) || YEAR_RANGE.MIN;
+        const yearTo = parseInt(params.get('yearTo')) || YEAR_RANGE.MAX;
+        currentYearRange = [yearFrom, yearTo];
+        if (yearRangeSlider) {
+            yearRangeSlider.set([yearFrom, yearTo]);
+        }
+    }
+
+    // Multi-select filters
+    if (params.has('severity')) {
+        const values = params.get('severity').split(',').map(s => s.trim());
+        applyCheckboxFilter('severity', values);
+    }
+    if (params.has('crashType')) {
+        const values = params.get('crashType').split(',').map(s => s.trim());
+        applyCheckboxFilter('crashType', values);
+    }
+    if (params.has('areas')) {
+        const values = params.get('areas').split(',').map(a => a.trim());
+        applyCheckboxFilter('area', values);
+    }
+
+    // Simple selects
+    if (params.has('weather')) setSelectValue('weather', params.get('weather'));
+    if (params.has('dayNight')) setSelectValue('dayNight', params.get('dayNight'));
+    if (params.has('dui')) setSelectValue('duiInvolved', params.get('dui'));
+    if (params.has('drugs')) setSelectValue('drugsInvolved', params.get('drugs'));
+
+    // Date/time
+    if (params.has('dateFrom')) document.getElementById('dateFrom').value = params.get('dateFrom');
+    if (params.has('dateTo')) document.getElementById('dateTo').value = params.get('dateTo');
+    if (params.has('timeFrom')) document.getElementById('timeFrom').value = params.get('timeFrom');
+    if (params.has('timeTo')) document.getElementById('timeTo').value = params.get('timeTo');
+}
+
+/**
+ * Helper: Apply values to checkbox dropdown filter
+ */
+function applyCheckboxFilter(dropdownId, values) {
+    const menu = document.getElementById(`${dropdownId}Menu`);
+    if (!menu) return;
+
+    menu.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+        cb.checked = values.includes(cb.value.trim());
+    });
+    updateCheckboxDropdownDisplay(dropdownId, true);
+}
+
+/**
+ * Helper: Apply values to multi-select filter
+ */
+function applyMultiSelectFilter(elementId, values) {
+    const element = document.getElementById(elementId);
+    if (!element) return;
+
+    Array.from(element.options).forEach(opt => {
+        opt.selected = values.includes(opt.value);
+    });
+}
+
+/**
+ * Helper: Set value of a select element
+ */
+function setSelectValue(elementId, value) {
+    const element = document.getElementById(elementId);
+    if (!element) return;
+
+    Array.from(element.options).forEach(opt => {
+        if (opt.value.trim() === value.trim()) {
+            element.value = opt.value;
+        }
+    });
 }
 
 /**

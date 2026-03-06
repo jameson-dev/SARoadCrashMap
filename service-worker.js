@@ -50,7 +50,9 @@ const CDN_ASSETS = [
     // Data decompression (essential for loading data)
     'https://unpkg.com/pako@2.1.0/dist/pako.min.js',
     // Coordinate conversion (essential for map display)
-    'https://unpkg.com/proj4@2.9.0/dist/proj4.js'
+    'https://unpkg.com/proj4@2.9.0/dist/proj4.js',
+    // URL compression (essential for sharing filters)
+    'https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.5.0/lz-string.min.js'
     // Other libraries are cached on-demand when first used
 ];
 
