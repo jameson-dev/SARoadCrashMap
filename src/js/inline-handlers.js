@@ -42,7 +42,9 @@ function toggleCheckboxDropdown(dropdownId) {
     document.querySelectorAll('.checkbox-dropdown-menu').forEach(m => {
         if (m !== menu && m.classList.contains('show')) {
             m.classList.remove('show');
-            const otherArrow = m.previousElementSibling.querySelector('.dropdown-arrow');
+            const otherTrigger = m.previousElementSibling;
+            if (otherTrigger) otherTrigger.classList.remove('open');
+            const otherArrow = m.previousElementSibling?.querySelector('.dropdown-arrow');
             if (otherArrow) otherArrow.style.transform = 'rotate(0deg)';
             // Clear search in the closed dropdown
             const otherSearch = m.querySelector('.dropdown-search');
@@ -56,7 +58,8 @@ function toggleCheckboxDropdown(dropdownId) {
     // Toggle current dropdown
     if (menu.classList.contains('show')) {
         menu.classList.remove('show');
-        arrow.style.transform = 'rotate(0deg)';
+        if (trigger) trigger.classList.remove('open');
+        if (arrow) arrow.style.transform = 'rotate(0deg)';
         // Clear search when closing
         const search = menu.querySelector('.dropdown-search');
         if (search && search.value) {
@@ -65,7 +68,8 @@ function toggleCheckboxDropdown(dropdownId) {
         }
     } else {
         menu.classList.add('show');
-        arrow.style.transform = 'rotate(180deg)';
+        if (trigger) trigger.classList.add('open');
+        if (arrow) arrow.style.transform = 'rotate(180deg)';
         // Focus search input when opening
         const search = menu.querySelector('.dropdown-search');
         if (search) setTimeout(() => search.focus(), 50);
@@ -200,10 +204,12 @@ function initCheckboxDropdowns() {
 
     // Close dropdowns when clicking outside
     document.addEventListener('click', (e) => {
-        if (!e.target.closest('.checkbox-dropdown-container')) {
+        if (!e.target.closest('.checkbox-dropdown')) {
             document.querySelectorAll('.checkbox-dropdown-menu.show').forEach(menu => {
                 menu.classList.remove('show');
-                const arrow = menu.previousElementSibling.querySelector('.dropdown-arrow');
+                const trigger = menu.previousElementSibling;
+                if (trigger) trigger.classList.remove('open');
+                const arrow = trigger?.querySelector('.dropdown-arrow');
                 if (arrow) arrow.style.transform = 'rotate(0deg)';
             });
         }
