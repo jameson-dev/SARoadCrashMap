@@ -70,7 +70,9 @@ export function captureCurrentFilterState() {
         licenseType: getSelectValues('licenseType'),
         vehRegState: getSelectValues('vehRegState'),
         directionTravel: getSelectValues('directionTravel'),
-        unitMovement: getSelectValues('unitMovement')
+        unitMovement: getSelectValues('unitMovement'),
+        // Capture draw area state for proper change detection
+        drawnArea: drawState.drawnLayer ? JSON.stringify(drawState.drawnLayer.toGeoJSON()) : null
     };
     return state;
 }
@@ -712,47 +714,20 @@ export function matchesUnitsFilters(row, filters) {
     const hasRegStateFilter = !filters.selectedRegStates.includes('all');
     const hasDirectionFilter = !filters.selectedDirections.includes('all');
     const hasMovementFilter = !filters.selectedMovements.includes('all');
+    const hasHeavyVehicleFilter = filters.heavyVehicle !== 'all';
+    const hasTowingFilter = filters.towing !== 'all';
+    const hasRolloverFilter = filters.rollover !== 'all';
+    const hasFireFilter = filters.fire !== 'all';
 
-    const hasAnyMultiSelectUnitFilter = hasVehicleTypeFilter || hasVehicleYearFilter ||
-                                        hasOccupantsFilter || hasLicenseTypeFilter ||
-                                        hasRegStateFilter || hasDirectionFilter || hasMovementFilter;
+    const hasAnyUnitFilter = hasVehicleTypeFilter || hasVehicleYearFilter ||
+                            hasOccupantsFilter || hasLicenseTypeFilter ||
+                            hasRegStateFilter || hasDirectionFilter || hasMovementFilter ||
+                            hasHeavyVehicleFilter || hasTowingFilter || hasRolloverFilter || hasFireFilter;
 
-    // Handle Heavy Vehicle filter
-    if (filters.heavyVehicle !== 'all') {
-        if (units.length === 0) return filters.heavyVehicle !== 'yes';
-        const hasHeavyVehicle = units.some(u => HEAVY_VEHICLE_TYPES.includes(u['Unit Type']));
-        if (filters.heavyVehicle === 'yes' && !hasHeavyVehicle) return false;
-        if (filters.heavyVehicle === 'no' && hasHeavyVehicle) return false;
-    }
+    // If no unit filters are active, pass all crashes
+    if (!hasAnyUnitFilter) return true;
 
-    // Handle Towing filter
-    if (filters.towing !== 'all') {
-        if (units.length === 0) return filters.towing !== 'Yes';
-        const hasTowing = units.some(u => {
-            const val = (u.Towing || '').trim();
-            return val !== '' && val !== 'Not Towing' && val !== 'Unknown';
-        });
-        if (filters.towing === 'Yes' && !hasTowing) return false;
-        if (filters.towing === 'No' && hasTowing) return false;
-    }
-
-    // Handle Rollover filter
-    if (filters.rollover !== 'all') {
-        if (units.length === 0) return filters.rollover !== 'Yes';
-        const hasRollover = units.some(u => u.Rollover && u.Rollover.trim() !== '');
-        if (filters.rollover === 'Yes' && !hasRollover) return false;
-        if (filters.rollover === 'No' && hasRollover) return false;
-    }
-
-    // Handle Fire filter
-    if (filters.fire !== 'all') {
-        if (units.length === 0) return filters.fire !== 'Yes';
-        const hasFire = units.some(u => u.Fire && u.Fire.trim() !== '');
-        if (filters.fire === 'Yes' && !hasFire) return false;
-        if (filters.fire === 'No' && hasFire) return false;
-    }
-
-    if (!hasAnyMultiSelectUnitFilter) return true;
+    // If filters are active but crash has no units, reject
     if (units.length === 0) return false;
 
     // Create Sets for O(1) lookups
@@ -764,12 +739,43 @@ export function matchesUnitsFilters(row, filters) {
     const directionSet = hasDirectionFilter ? new Set(filters.selectedDirections) : null;
     const movementSet = hasMovementFilter ? new Set(filters.selectedMovements) : null;
 
-    // Check if ANY unit matches ALL active multi-select filters
+    // Check if ANY unit matches ALL active filters (including yes/no filters)
     return units.some(unit => {
+        // Heavy Vehicle filter - must be checked per unit
+        if (hasHeavyVehicleFilter) {
+            const isHeavyVehicle = HEAVY_VEHICLE_TYPES.includes(unit['Unit Type']);
+            if (filters.heavyVehicle === 'yes' && !isHeavyVehicle) return false;
+            if (filters.heavyVehicle === 'no' && isHeavyVehicle) return false;
+        }
+
+        // Towing filter - must be checked per unit
+        if (hasTowingFilter) {
+            const val = (unit.Towing || '').trim();
+            const hasTowing = val !== '' && val !== 'Not Towing' && val !== 'Unknown';
+            if (filters.towing === 'Yes' && !hasTowing) return false;
+            if (filters.towing === 'No' && hasTowing) return false;
+        }
+
+        // Rollover filter - must be checked per unit
+        if (hasRolloverFilter) {
+            const hasRollover = unit.Rollover && unit.Rollover.trim() !== '';
+            if (filters.rollover === 'Yes' && !hasRollover) return false;
+            if (filters.rollover === 'No' && hasRollover) return false;
+        }
+
+        // Fire filter - must be checked per unit
+        if (hasFireFilter) {
+            const hasFire = unit.Fire && unit.Fire.trim() !== '';
+            if (filters.fire === 'Yes' && !hasFire) return false;
+            if (filters.fire === 'No' && hasFire) return false;
+        }
+
+        // Vehicle Type filter
         if (hasVehicleTypeFilter && !vehicleTypeSet.has(unit['Unit Type'])) {
             return false;
         }
 
+        // Vehicle Year filter
         if (hasVehicleYearFilter) {
             const year = parseInt(unit['Veh Year']);
             if (isNaN(year)) return false;
@@ -783,6 +789,7 @@ export function matchesUnitsFilters(row, filters) {
             if (!matchesAnyYear) return false;
         }
 
+        // Occupants filter
         if (hasOccupantsFilter) {
             const occupantsStr = unit['Number Occupants'];
             if (occupantsStr !== undefined && occupantsStr !== null) {
@@ -806,18 +813,22 @@ export function matchesUnitsFilters(row, filters) {
             }
         }
 
+        // License Type filter
         if (hasLicenseTypeFilter && !licenseTypeSet.has(unit['Licence Type'])) {
             return false;
         }
 
+        // Registration State filter
         if (hasRegStateFilter && !regStateSet.has(unit['Veh Reg State'])) {
             return false;
         }
 
+        // Direction of Travel filter
         if (hasDirectionFilter && !directionSet.has(unit['Direction Of Travel'])) {
             return false;
         }
 
+        // Unit Movement filter
         if (hasMovementFilter && !movementSet.has(unit['Unit Movement'])) {
             return false;
         }

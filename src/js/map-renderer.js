@@ -222,9 +222,9 @@ export function initMap() {
         document.body.classList.remove('draw-mode-active');
         updateDrawAreaUI();
 
-        // Trigger filter application (assumes applyFilters is available globally)
-        if (typeof window.applyFilters === 'function') {
-            window.applyFilters();
+        // Mark filters as changed to trigger proper state tracking
+        if (typeof window.markFiltersChanged === 'function') {
+            window.markFiltersChanged();
         }
     });
 
@@ -1411,9 +1411,9 @@ export function clearLocationSearch() {
     if (input) input.value = '';
     if (results) results.style.display = 'none';
 
-    // Reapply normal filters (assumes applyFilters is available globally)
-    if (typeof window.applyFilters === 'function') {
-        window.applyFilters();
+    // Mark filters as changed to trigger proper state tracking
+    if (typeof window.markFiltersChanged === 'function') {
+        window.markFiltersChanged();
     }
 }
 
@@ -1652,9 +1652,9 @@ export function clearDrawArea() {
     drawState.drawnLayer = null;
     updateDrawAreaUI();
 
-    // Reapply filters (assumes applyFilters is available globally)
-    if (typeof window.applyFilters === 'function') {
-        window.applyFilters();
+    // Mark filters as changed to trigger proper state tracking
+    if (typeof window.markFiltersChanged === 'function') {
+        window.markFiltersChanged();
     }
 }
 
