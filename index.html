@@ -178,35 +178,35 @@
             <div class="filter-group">
                 <label class="filter-label">Crash Severity</label>
                 <div class="checkbox-dropdown" id="severityDropdown">
-                    <div class="checkbox-dropdown-trigger" onclick="toggleCheckboxDropdown('severity')">
+                    <div class="checkbox-dropdown-trigger">
                         <span id="severityDisplay">All Severities</span>
                         <span class="dropdown-arrow">▼</span>
                     </div>
                     <div class="checkbox-dropdown-menu" id="severityMenu">
                         <div class="dropdown-search-wrap">
-                            <input type="text" class="dropdown-search" placeholder="Search..." oninput="filterDropdownItems('severity', this.value)">
+                            <input type="text" class="dropdown-search" placeholder="Search...">
                         </div>
                         <div class="dropdown-items-list" id="severityItemsList">
                             <div class="checkbox-dropdown-item">
-                                <input type="checkbox" id="severity-pdo" value="1: PDO" checked onchange="updateCheckboxDropdownDisplay('severity')">
+                                <input type="checkbox" id="severity-pdo" value="1: PDO" checked>
                                 <label for="severity-pdo">PDO (Property Damage Only)</label>
                             </div>
                             <div class="checkbox-dropdown-item">
-                                <input type="checkbox" id="severity-mi" value="2: MI" checked onchange="updateCheckboxDropdownDisplay('severity')">
+                                <input type="checkbox" id="severity-mi" value="2: MI" checked>
                                 <label for="severity-mi">Minor Injury</label>
                             </div>
                             <div class="checkbox-dropdown-item">
-                                <input type="checkbox" id="severity-si" value="3: SI" checked onchange="updateCheckboxDropdownDisplay('severity')">
+                                <input type="checkbox" id="severity-si" value="3: SI" checked>
                                 <label for="severity-si">Serious Injury</label>
                             </div>
                             <div class="checkbox-dropdown-item">
-                                <input type="checkbox" id="severity-fatal" value="4: Fatal" checked onchange="updateCheckboxDropdownDisplay('severity')">
+                                <input type="checkbox" id="severity-fatal" value="4: Fatal" checked>
                                 <label for="severity-fatal">Fatal</label>
                             </div>
                         </div>
                         <div class="checkbox-dropdown-controls">
-                            <button class="checkbox-select-all" onclick="selectAllDropdownItems('severity')">Select All</button>
-                            <button class="checkbox-clear-all" onclick="clearAllDropdownItems('severity')">Clear All</button>
+                            <button class="checkbox-select-all">Select All</button>
+                            <button class="checkbox-clear-all">Clear All</button>
                         </div>
                     </div>
                 </div>
@@ -215,7 +215,7 @@
             <div class="filter-group">
                 <label class="filter-label">Crash Type</label>
                 <div class="checkbox-dropdown" id="crashTypeDropdown">
-                    <div class="checkbox-dropdown-trigger" onclick="toggleCheckboxDropdown('crashType')">
+                    <div class="checkbox-dropdown-trigger">
                         <span id="crashTypeDisplay">All Types</span>
                         <span class="dropdown-arrow">▼</span>
                     </div>
@@ -228,7 +228,7 @@
             <div class="filter-group">
                 <label class="filter-label">Area</label>
                 <div class="checkbox-dropdown" id="areaDropdown">
-                    <div class="checkbox-dropdown-trigger" onclick="toggleCheckboxDropdown('area')">
+                    <div class="checkbox-dropdown-trigger">
                         <span id="areaDisplay">All Areas</span>
                         <span class="dropdown-arrow">▼</span>
                     </div>
@@ -241,7 +241,7 @@
             <div class="filter-group">
                 <label class="filter-label">Suburb</label>
                 <div class="checkbox-dropdown" id="suburbDropdown">
-                    <div class="checkbox-dropdown-trigger" onclick="toggleCheckboxDropdown('suburb')">
+                    <div class="checkbox-dropdown-trigger">
                         <span id="suburbDisplay">All Suburbs</span>
                         <span class="dropdown-arrow">▼</span>
                     </div>
@@ -383,7 +383,7 @@
                         <label class="filter-label">Day/Night</label>
                         <select id="dayNight" onchange="markFiltersChanged()">
                             <option value="all" selected>All</option>
-                            <option value="Day">Day</option>
+                            <option value="Daylight">Daylight</option>
                             <option value="Night">Night</option>
                         </select>
                     </div>
@@ -1377,147 +1377,6 @@
             checkboxes.forEach(cb => {
                 cb.checked = false;
             });
-        }
-
-        // Checkbox dropdown functions
-        function toggleCheckboxDropdown(dropdownId) {
-            const menu = document.getElementById(`${dropdownId}Menu`);
-            const trigger = menu.previousElementSibling;
-            const arrow = trigger.querySelector('.dropdown-arrow');
-
-            // Close all other dropdowns and clear their searches
-            document.querySelectorAll('.checkbox-dropdown-menu').forEach(m => {
-                if (m !== menu && m.classList.contains('show')) {
-                    m.classList.remove('show');
-                    const otherArrow = m.previousElementSibling.querySelector('.dropdown-arrow');
-                    if (otherArrow) otherArrow.style.transform = 'rotate(0deg)';
-                    // Clear search in the closed dropdown
-                    const otherSearch = m.querySelector('.dropdown-search');
-                    if (otherSearch && otherSearch.value) {
-                        otherSearch.value = '';
-                        m.querySelectorAll('.checkbox-dropdown-item').forEach(item => item.style.display = '');
-                    }
-                }
-            });
-
-            // Toggle current dropdown
-            if (menu.classList.contains('show')) {
-                menu.classList.remove('show');
-                arrow.style.transform = 'rotate(0deg)';
-                // Clear search when closing
-                const search = menu.querySelector('.dropdown-search');
-                if (search && search.value) {
-                    search.value = '';
-                    menu.querySelectorAll('.checkbox-dropdown-item').forEach(item => item.style.display = '');
-                }
-            } else {
-                menu.classList.add('show');
-                arrow.style.transform = 'rotate(180deg)';
-                // Focus search input when opening
-                const search = menu.querySelector('.dropdown-search');
-                if (search) setTimeout(() => search.focus(), 50);
-            }
-        }
-
-        function filterDropdownItems(dropdownId, query) {
-            const menu = document.getElementById(`${dropdownId}Menu`);
-            if (!menu) return;
-            const q = query.trim().toLowerCase();
-            menu.querySelectorAll('.checkbox-dropdown-item').forEach(function(item) {
-                const label = item.querySelector('label');
-                const text = label ? label.textContent.toLowerCase() : '';
-                item.style.display = (q === '' || text.includes(q)) ? '' : 'none';
-            });
-        }
-
-        function updateCheckboxDropdownDisplay(dropdownId) {
-            const menu = document.getElementById(`${dropdownId}Menu`);
-            const display = document.getElementById(`${dropdownId}Display`);
-
-            // Add null checks to prevent errors
-            if (!menu || !display) {
-                return;
-            }
-
-            const checkboxes = menu.querySelectorAll('input[type="checkbox"]:checked');
-
-            if (checkboxes.length === 0 || checkboxes.length === menu.querySelectorAll('input[type="checkbox"]').length) {
-                if (dropdownId === 'crashType') {
-                    display.textContent = 'All Types';
-                } else if (dropdownId === 'area') {
-                    display.textContent = 'All Areas';
-                } else if (dropdownId === 'severity') {
-                    display.textContent = 'All Severities';
-                }
-            } else if (checkboxes.length === 1) {
-                display.textContent = checkboxes[0].nextElementSibling.textContent;
-            } else {
-                display.textContent = `${checkboxes.length} selected`;
-            }
-
-            // Mark filters as changed
-            if (typeof markFiltersChanged === 'function') {
-                markFiltersChanged();
-            }
-        }
-
-        function selectAllDropdownItems(dropdownId) {
-            const menu = document.getElementById(`${dropdownId}Menu`);
-            const checkboxes = menu.querySelectorAll('input[type="checkbox"]');
-            checkboxes.forEach(cb => {
-                cb.checked = true;
-            });
-            updateCheckboxDropdownDisplay(dropdownId);
-        }
-
-        function clearAllDropdownItems(dropdownId) {
-            const menu = document.getElementById(`${dropdownId}Menu`);
-            const checkboxes = menu.querySelectorAll('input[type="checkbox"]');
-            checkboxes.forEach(cb => {
-                cb.checked = false;
-            });
-            updateCheckboxDropdownDisplay(dropdownId);
-        }
-
-        // Close dropdowns on Escape key
-        document.addEventListener('keydown', function(event) {
-            if (event.key !== 'Escape') return;
-            document.querySelectorAll('.checkbox-dropdown-menu').forEach(menu => {
-                if (menu.classList.contains('show')) {
-                    menu.classList.remove('show');
-                    const arrow = menu.previousElementSibling.querySelector('.dropdown-arrow');
-                    if (arrow) arrow.style.transform = 'rotate(0deg)';
-                    const search = menu.querySelector('.dropdown-search');
-                    if (search && search.value) {
-                        search.value = '';
-                        menu.querySelectorAll('.checkbox-dropdown-item').forEach(item => item.style.display = '');
-                    }
-                }
-            });
-        });
-
-        // Close dropdowns when clicking outside
-        document.addEventListener('click', function(event) {
-            if (!event.target.closest('.checkbox-dropdown')) {
-                document.querySelectorAll('.checkbox-dropdown-menu').forEach(menu => {
-                    if (menu.classList.contains('show')) {
-                        menu.classList.remove('show');
-                        const arrow = menu.previousElementSibling.querySelector('.dropdown-arrow');
-                        if (arrow) arrow.style.transform = 'rotate(0deg)';
-                        // Clear search on close
-                        const search = menu.querySelector('.dropdown-search');
-                        if (search && search.value) {
-                            search.value = '';
-                            menu.querySelectorAll('.checkbox-dropdown-item').forEach(item => item.style.display = '');
-                        }
-                    }
-                });
-            }
-        });
-
-        // Placeholder for updateResultCount (can be implemented in filters.js if needed)
-        function updateResultCount() {
-            // This can be implemented when crash data is loaded
         }
 
         // Analytics panel toggle - opens fullscreen
@@ -2607,7 +2466,6 @@
 
         // Make functions available globally for inline scripts
         window.updateChartsWithData = updateChartsWithData;
-        window.updateResultCount = updateResultCount;
     </script>
 
     <!-- PDF Generator Module -->

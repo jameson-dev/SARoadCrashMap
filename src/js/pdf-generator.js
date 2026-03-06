@@ -2413,7 +2413,7 @@ export async function generatePdfReport() {
 
         if (crashData.length === 0) {
             if (loadingOverlay) loadingOverlay.style.display = 'none';
-            alert('No data to export. Please apply filters first.');
+            showNotification('No data to export. Please apply filters first.', 'warning');
             return;
         }
 
@@ -2555,11 +2555,7 @@ export async function generatePdfReport() {
         console.error('Error generating PDF:', error);
 
         // Show error notification
-        if (typeof showNotification === 'function') {
-            showNotification('Failed to generate PDF report. Please try again.', 'error');
-        } else {
-            alert('Failed to generate PDF report. Please try again.');
-        }
+        showNotification('Failed to generate PDF report. Please try again.', 'error');
     } finally {
         // Always restore chart state and cleanup, whether success or error
         try {

@@ -56,11 +56,8 @@ const CDN_ASSETS = [
 
 // Install event - cache only critical shell assets for fast first load
 self.addEventListener('install', event => {
-    console.log('[Service Worker] Installing version:', VERSION);
-
     event.waitUntil(
         caches.open(CACHE_NAME).then(cache => {
-            console.log('[Service Worker] Caching critical shell assets');
             // Use Promise.allSettled to make installation resilient to individual failures
             return Promise.allSettled(
                 CRITICAL_ASSETS.map(url =>
@@ -74,7 +71,6 @@ self.addEventListener('install', event => {
                 )
             );
         }).then(() => {
-            console.log('[Service Worker] Critical assets cached, installation complete');
             // Notify clients about installation progress
             self.clients.matchAll().then(clients => {
                 clients.forEach(client => {
@@ -92,8 +88,6 @@ self.addEventListener('install', event => {
 
 // Activate event - clean up old caches and start lazy caching
 self.addEventListener('activate', event => {
-    console.log('[Service Worker] Activating version:', VERSION);
-
     event.waitUntil(
         Promise.all([
             // Clean up old caches
@@ -109,7 +103,6 @@ self.addEventListener('activate', event => {
                                    !cacheName.includes('data-stable'); // Extra safety
                         })
                         .map(cacheName => {
-                            console.log('[Service Worker] Deleting old cache:', cacheName);
                             return caches.delete(cacheName);
                         })
                 );
@@ -117,7 +110,6 @@ self.addEventListener('activate', event => {
             // Take control of all pages immediately
             self.clients.claim()
         ]).then(() => {
-            console.log('[Service Worker] Activation complete');
             // Start lazy-loading non-critical assets in the background
             lazyLoadAssets();
             // Clean old data cache entries if needed
@@ -136,8 +128,6 @@ async function cleanDataCache() {
         const MAX_DATA_CACHE_SIZE = 100;
 
         if (requests.length > MAX_DATA_CACHE_SIZE) {
-            console.log(`[Service Worker] Data cache has ${requests.length} entries, cleaning...`);
-
             // Get all entries with their dates
             const entries = await Promise.all(
                 requests.map(async request => {
@@ -158,8 +148,6 @@ async function cleanDataCache() {
             await Promise.all(
                 toDelete.map(entry => cache.delete(entry.request))
             );
-
-            console.log(`[Service Worker] Removed ${toDelete.length} old data cache entries`);
         }
     } catch (err) {
         console.warn('[Service Worker] Failed to clean data cache:', err);
@@ -168,8 +156,6 @@ async function cleanDataCache() {
 
 // Lazy-load non-critical assets in the background
 async function lazyLoadAssets() {
-    console.log('[Service Worker] Starting background cache of non-critical assets');
-
     const cache = await caches.open(CACHE_NAME);
     let cachedCount = 0;
     let totalAssets = STATIC_ASSETS.length + CDN_ASSETS.length;
@@ -195,8 +181,6 @@ async function lazyLoadAssets() {
             console.warn('[Service Worker] Failed to lazy-cache CDN:', url, err);
         }
     }
-
-    console.log('[Service Worker] Background caching complete');
 
     // Notify all clients that caching is done
     const clients = await self.clients.matchAll();
@@ -236,7 +220,6 @@ self.addEventListener('fetch', event => {
 
     // Cache bypass for testing - add ?nocache to URL
     if (url.searchParams.has('nocache') || url.searchParams.has('bypass-cache')) {
-        console.log('[Service Worker] Cache bypass requested:', url.pathname);
         event.respondWith(fetch(request));
         return;
     }
@@ -290,18 +273,15 @@ async function cacheFirstStrategy(request, cacheName, maxAge = null) {
                 const age = now - cachedDate;
 
                 if (age > maxAge) {
-                    console.log('[Service Worker] Cache expired, fetching fresh:', request.url);
                     // Cache expired, fetch fresh and update cache
                     return fetchAndCache(request, cacheName);
                 }
             }
 
-            console.log('[Service Worker] Serving from cache:', request.url);
             return cachedResponse;
         }
 
         // Not in cache, fetch from network
-        console.log('[Service Worker] Not in cache, fetching:', request.url);
         return fetchAndCache(request, cacheName);
 
     } catch (error) {
@@ -334,14 +314,11 @@ async function networkFirstStrategy(request, cacheName) {
         return networkResponse;
 
     } catch (error) {
-        console.log('[Service Worker] Network failed, trying cache:', request.url);
-
         // Network failed, try cache
         const cache = await caches.open(cacheName);
         const cachedResponse = await cache.match(request);
 
         if (cachedResponse) {
-            console.log('[Service Worker] Serving stale from cache:', request.url);
             return cachedResponse;
         }
 
@@ -367,7 +344,6 @@ async function staleWhileRevalidateStrategy(request, cacheName, maxAge = null) {
         if (networkResponse && networkResponse.ok && request.method === 'GET') {
             try {
                 await cache.put(request, networkResponse.clone());
-                console.log('[Service Worker] Updated cache in background:', request.url);
 
                 // Notify clients that new content is available
                 const clients = await self.clients.matchAll();
@@ -382,8 +358,7 @@ async function staleWhileRevalidateStrategy(request, cacheName, maxAge = null) {
             }
         }
         return networkResponse;
-    }).catch(err => {
-        console.log('[Service Worker] Background fetch failed:', request.url, err);
+    }).catch(() => {
         return null;
     });
 
@@ -398,20 +373,17 @@ async function staleWhileRevalidateStrategy(request, cacheName, maxAge = null) {
                 const age = now - cachedDate;
 
                 if (age > maxAge) {
-                    console.log('[Service Worker] Cache too old, waiting for network:', request.url);
                     // Cache is too old, wait for network response
                     return fetchPromise.then(response => response || cachedResponse);
                 }
             }
         }
 
-        console.log('[Service Worker] Serving from cache (updating in background):', request.url);
         // Return cached version immediately, update happens in background
         return cachedResponse;
     }
 
     // No cached response, wait for network
-    console.log('[Service Worker] No cache, fetching from network:', request.url);
     const networkResponse = await fetchPromise;
 
     if (networkResponse) {
@@ -446,25 +418,15 @@ async function fetchAndCache(request, cacheName) {
                 const cache = await caches.open(cacheName);
                 // Clone the response because it can only be consumed once
                 await cache.put(request, networkResponse.clone());
-                console.log('[Service Worker] Cached:', request.url);
             } catch (cacheError) {
                 // Cache.put() can fail for various reasons - log but don't crash
                 console.warn('[Service Worker] Failed to cache:', request.url, {
                     error: cacheError.message,
                     status: networkResponse.status,
                     type: networkResponse.type,
-                    redirected: networkResponse.redirected,
-                    headers: Object.fromEntries([...networkResponse.headers.entries()].slice(0, 5))
+                    redirected: networkResponse.redirected
                 });
             }
-        } else if (networkResponse && request.url.includes('/data/')) {
-            // Log why data files weren't cached
-            console.log('[Service Worker] Skipping cache for:', request.url, {
-                ok: networkResponse.ok,
-                status: networkResponse.status,
-                type: networkResponse.type,
-                redirected: networkResponse.redirected
-            });
         }
 
         return networkResponse;
@@ -477,8 +439,6 @@ async function fetchAndCache(request, cacheName) {
 
 // Message event - handle messages from the client
 self.addEventListener('message', event => {
-    console.log('[Service Worker] Received message:', event.data);
-
     if (event.data && event.data.type === 'SKIP_WAITING') {
         self.skipWaiting();
     }
@@ -488,7 +448,6 @@ self.addEventListener('message', event => {
             caches.keys().then(cacheNames => {
                 return Promise.all(
                     cacheNames.map(cacheName => {
-                        console.log('[Service Worker] Clearing cache:', cacheName);
                         return caches.delete(cacheName);
                     })
                 );
@@ -505,7 +464,5 @@ self.addEventListener('message', event => {
 
 // Handle updates
 self.addEventListener('controllerchange', () => {
-    console.log('[Service Worker] Controller changed');
+    // Controller changed
 });
-
-console.log('[Service Worker] Loaded, version:', VERSION);

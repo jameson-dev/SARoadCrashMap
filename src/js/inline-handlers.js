@@ -1,134 +1,210 @@
 /**
  * Inline Handlers Module
- * Consolidates JavaScript that was previously inline in index.html
- * This module should be migrated to proper event listeners over time
- *
- * TODO: Refactor these functions to use proper event listeners instead of onclick attributes
+ * Sets up event listeners for UI components using proper event delegation
  */
+
+import { markFiltersChanged } from './filters.js';
 
 /**
  * Info Modal Management
  */
-export function openInfoModal(modalId) {
-    const modal = document.getElementById(modalId);
-    if (modal) {
-        modal.classList.add('active');
-        document.body.style.overflow = 'hidden';
-    }
-}
-
-export function closeInfoModal(modalId) {
-    const modal = document.getElementById(modalId);
-    if (modal) {
-        modal.classList.remove('active');
-        document.body.style.overflow = '';
-    }
-}
-
-/**
- * Setup info modal event listeners
- */
-export function initInfoModals() {
+function initInfoModals() {
     // Close on background click
     document.querySelectorAll('.info-modal').forEach(modal => {
         modal.addEventListener('click', (e) => {
-            if (e.target.id === modal.id) {
-                closeInfoModal(e.target.id);
+            if (e.target.id === modal.id && window.closeInfoModal) {
+                window.closeInfoModal(e.target.id);
             }
         });
     });
 
     // Close on Escape key
     document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape') {
+        if (e.key === 'Escape' && window.closeInfoModal) {
             document.querySelectorAll('.info-modal.active').forEach(modal => {
-                closeInfoModal(modal.id);
+                window.closeInfoModal(modal.id);
             });
         }
     });
 }
 
 /**
- * Checkbox Dropdown Management
+ * Toggle checkbox dropdown menu
  */
-export function toggleCheckboxDropdown(dropdownId) {
-    const dropdown = document.getElementById(`${dropdownId}Dropdown`);
-    if (!dropdown) return;
+function toggleCheckboxDropdown(dropdownId) {
+    const menu = document.getElementById(`${dropdownId}Menu`);
+    if (!menu) return;
 
-    dropdown.classList.toggle('open');
+    const trigger = menu.previousElementSibling;
+    const arrow = trigger.querySelector('.dropdown-arrow');
 
-    // Close other dropdowns
-    document.querySelectorAll('.checkbox-dropdown.open').forEach(d => {
-        if (d !== dropdown) d.classList.remove('open');
+    // Close all other dropdowns and clear their searches
+    document.querySelectorAll('.checkbox-dropdown-menu').forEach(m => {
+        if (m !== menu && m.classList.contains('show')) {
+            m.classList.remove('show');
+            const otherArrow = m.previousElementSibling.querySelector('.dropdown-arrow');
+            if (otherArrow) otherArrow.style.transform = 'rotate(0deg)';
+            // Clear search in the closed dropdown
+            const otherSearch = m.querySelector('.dropdown-search');
+            if (otherSearch && otherSearch.value) {
+                otherSearch.value = '';
+                m.querySelectorAll('.checkbox-dropdown-item').forEach(item => item.style.display = '');
+            }
+        }
+    });
+
+    // Toggle current dropdown
+    if (menu.classList.contains('show')) {
+        menu.classList.remove('show');
+        arrow.style.transform = 'rotate(0deg)';
+        // Clear search when closing
+        const search = menu.querySelector('.dropdown-search');
+        if (search && search.value) {
+            search.value = '';
+            menu.querySelectorAll('.checkbox-dropdown-item').forEach(item => item.style.display = '');
+        }
+    } else {
+        menu.classList.add('show');
+        arrow.style.transform = 'rotate(180deg)';
+        // Focus search input when opening
+        const search = menu.querySelector('.dropdown-search');
+        if (search) setTimeout(() => search.focus(), 50);
+    }
+}
+
+/**
+ * Filter dropdown items based on search query
+ */
+function filterDropdownItems(dropdownId, query) {
+    const menu = document.getElementById(`${dropdownId}Menu`);
+    if (!menu) return;
+    const q = query.trim().toLowerCase();
+    menu.querySelectorAll('.checkbox-dropdown-item').forEach(function(item) {
+        const label = item.querySelector('label');
+        const text = label ? label.textContent.toLowerCase() : '';
+        item.style.display = (q === '' || text.includes(q)) ? '' : 'none';
     });
 }
 
-export function updateCheckboxDropdownDisplay(dropdownId) {
+/**
+ * Update checkbox dropdown display text
+ */
+function updateCheckboxDropdownDisplay(dropdownId) {
     const menu = document.getElementById(`${dropdownId}Menu`);
     const display = document.getElementById(`${dropdownId}Display`);
 
     if (!menu || !display) return;
 
-    const checkboxes = menu.querySelectorAll('input[type="checkbox"]');
-    const checked = Array.from(checkboxes).filter(cb => cb.checked);
+    const checkboxes = menu.querySelectorAll('input[type="checkbox"]:checked');
+    const totalCheckboxes = menu.querySelectorAll('input[type="checkbox"]').length;
 
-    if (checked.length === 0 || checked.length === checkboxes.length) {
-        display.textContent = `All ${capitalize(dropdownId)}${dropdownId === 'crashType' ? 's' : dropdownId === 'severity' ? ' Levels' : 's'}`;
-    } else if (checked.length === 1) {
-        display.textContent = checked[0].nextElementSibling?.textContent || checked[0].value;
+    if (checkboxes.length === 0 || checkboxes.length === totalCheckboxes) {
+        if (dropdownId === 'crashType') {
+            display.textContent = 'All Types';
+        } else if (dropdownId === 'area') {
+            display.textContent = 'All Areas';
+        } else if (dropdownId === 'severity') {
+            display.textContent = 'All Severities';
+        } else if (dropdownId === 'suburb') {
+            display.textContent = 'All Suburbs';
+        }
+    } else if (checkboxes.length === 1) {
+        display.textContent = checkboxes[0].nextElementSibling.textContent;
     } else {
-        display.textContent = `${checked.length} selected`;
+        display.textContent = `${checkboxes.length} selected`;
     }
+
+    markFiltersChanged();
 }
 
-export function selectAllDropdownItems(dropdownId) {
+/**
+ * Select all items in dropdown
+ */
+function selectAllDropdownItems(dropdownId) {
     const menu = document.getElementById(`${dropdownId}Menu`);
     if (!menu) return;
-
-    menu.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+    const checkboxes = menu.querySelectorAll('input[type="checkbox"]');
+    checkboxes.forEach(cb => {
         cb.checked = true;
     });
     updateCheckboxDropdownDisplay(dropdownId);
 }
 
-export function clearAllDropdownItems(dropdownId) {
+/**
+ * Clear all items in dropdown
+ */
+function clearAllDropdownItems(dropdownId) {
     const menu = document.getElementById(`${dropdownId}Menu`);
     if (!menu) return;
-
-    menu.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+    const checkboxes = menu.querySelectorAll('input[type="checkbox"]');
+    checkboxes.forEach(cb => {
         cb.checked = false;
     });
     updateCheckboxDropdownDisplay(dropdownId);
 }
 
-export function filterDropdownItems(dropdownId, searchTerm) {
-    const menu = document.getElementById(`${dropdownId}Menu`);
-    if (!menu) return;
-
-    const items = menu.querySelectorAll('.checkbox-dropdown-item');
-    const term = searchTerm.toLowerCase();
-
-    items.forEach(item => {
-        const label = item.querySelector('label')?.textContent || '';
-        item.style.display = label.toLowerCase().includes(term) ? '' : 'none';
-    });
-}
-
 /**
- * Utility Functions
+ * Initialize checkbox dropdown handlers
  */
-function capitalize(str) {
-    return str.charAt(0).toUpperCase() + str.slice(1);
-}
-
-/**
- * Close dropdowns when clicking outside
- */
-export function initDropdownCloseHandlers() {
+function initCheckboxDropdowns() {
+    // Handle dropdown trigger clicks
     document.addEventListener('click', (e) => {
-        if (!e.target.closest('.checkbox-dropdown')) {
-            document.querySelectorAll('.checkbox-dropdown.open').forEach(dropdown => {
-                dropdown.classList.remove('open');
+        const trigger = e.target.closest('.checkbox-dropdown-trigger');
+        if (trigger) {
+            const menu = trigger.nextElementSibling;
+            if (menu && menu.classList.contains('checkbox-dropdown-menu')) {
+                const dropdownId = menu.id.replace('Menu', '');
+                toggleCheckboxDropdown(dropdownId);
+            }
+        }
+    });
+
+    // Handle search input
+    document.addEventListener('input', (e) => {
+        if (e.target.classList.contains('dropdown-search')) {
+            const menu = e.target.closest('.checkbox-dropdown-menu');
+            if (menu) {
+                const dropdownId = menu.id.replace('Menu', '');
+                filterDropdownItems(dropdownId, e.target.value);
+            }
+        }
+    });
+
+    // Handle checkbox changes
+    document.addEventListener('change', (e) => {
+        if (e.target.type === 'checkbox' && e.target.closest('.checkbox-dropdown-menu')) {
+            const menu = e.target.closest('.checkbox-dropdown-menu');
+            if (menu) {
+                const dropdownId = menu.id.replace('Menu', '');
+                updateCheckboxDropdownDisplay(dropdownId);
+            }
+        }
+    });
+
+    // Handle select all/clear all buttons
+    document.addEventListener('click', (e) => {
+        if (e.target.classList.contains('checkbox-select-all')) {
+            const menu = e.target.closest('.checkbox-dropdown-menu');
+            if (menu) {
+                const dropdownId = menu.id.replace('Menu', '');
+                selectAllDropdownItems(dropdownId);
+            }
+        } else if (e.target.classList.contains('checkbox-clear-all')) {
+            const menu = e.target.closest('.checkbox-dropdown-menu');
+            if (menu) {
+                const dropdownId = menu.id.replace('Menu', '');
+                clearAllDropdownItems(dropdownId);
+            }
+        }
+    });
+
+    // Close dropdowns when clicking outside
+    document.addEventListener('click', (e) => {
+        if (!e.target.closest('.checkbox-dropdown-container')) {
+            document.querySelectorAll('.checkbox-dropdown-menu.show').forEach(menu => {
+                menu.classList.remove('show');
+                const arrow = menu.previousElementSibling.querySelector('.dropdown-arrow');
+                if (arrow) arrow.style.transform = 'rotate(0deg)';
             });
         }
     });
@@ -139,28 +215,9 @@ export function initDropdownCloseHandlers() {
  */
 export function initInlineHandlers() {
     initInfoModals();
-    initDropdownCloseHandlers();
-    console.log('Inline handlers initialized');
-}
-
-// Make functions globally available (for now, until HTML is updated)
-if (typeof window !== 'undefined') {
-    window.openInfoModal = openInfoModal;
-    window.closeInfoModal = closeInfoModal;
-    window.toggleCheckboxDropdown = toggleCheckboxDropdown;
-    window.updateCheckboxDropdownDisplay = updateCheckboxDropdownDisplay;
-    window.selectAllDropdownItems = selectAllDropdownItems;
-    window.clearAllDropdownItems = clearAllDropdownItems;
-    window.filterDropdownItems = filterDropdownItems;
+    initCheckboxDropdowns();
 }
 
 export default {
-    openInfoModal,
-    closeInfoModal,
-    toggleCheckboxDropdown,
-    updateCheckboxDropdownDisplay,
-    selectAllDropdownItems,
-    clearAllDropdownItems,
-    filterDropdownItems,
     initInlineHandlers
 };

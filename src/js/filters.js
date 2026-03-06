@@ -88,7 +88,6 @@ export function applyFiltersWithCache(crashData, filters) {
     // Check if we have cached results for these exact filters
     if (filterCache.has(filters)) {
         const cachedResults = filterCache.get(filters);
-        console.log('✅ Using cached filter results');
         perfMonitor.end('Apply filters');
         return cachedResults;
     }
@@ -729,7 +728,10 @@ export function matchesUnitsFilters(row, filters) {
     // Handle Towing filter
     if (filters.towing !== 'all') {
         if (units.length === 0) return filters.towing !== 'Yes';
-        const hasTowing = units.some(u => u.Towing && u.Towing.trim() !== '');
+        const hasTowing = units.some(u => {
+            const val = (u.Towing || '').trim();
+            return val !== '' && val !== 'Not Towing' && val !== 'Unknown';
+        });
         if (filters.towing === 'Yes' && !hasTowing) return false;
         if (filters.towing === 'No' && hasTowing) return false;
     }
@@ -830,7 +832,7 @@ export function matchesUnitsFilters(row, filters) {
 
 /**
  * Apply all active filters to the crash data and update the UI
- * This is the main filter function that needs to be implemented in the main app
+ * This is the main filter function used throughout the application
  * @returns {Promise<void>}
  */
 export async function applyFilters() {

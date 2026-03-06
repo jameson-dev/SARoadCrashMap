@@ -6,6 +6,7 @@
 import { dataState, updateDataState } from './state.js';
 import { convertCoordinates, normalizeLGAName, getLGAName, showLoading, updateLoadingMessage, hideLoading } from './utils.js';
 import { dbCache, perfMonitor, fetchWithProgress } from './performance.js';
+import { showNotification } from './ui.js';
 
 /**
  * Link casualty and units data to crashes by REPORT_ID
@@ -59,7 +60,7 @@ export function linkCrashData() {
     } catch (error) {
         console.error('Error linking crash data:', error);
         hideLoading();
-        alert('Error linking crash data. Some details may be missing.');
+        showNotification('Error linking crash data. Some details may be missing.', 'error');
     }
 }
 
@@ -72,7 +73,6 @@ async function loadUnitsDataOnly() {
         const cached = await dbCache.getFresh('crashData', 'units-2012-2024', 7 * 24 * 60 * 60 * 1000);
 
         if (cached) {
-            console.log('✅ Using cached units data');
             updateDataState({ unitsData: cached });
             return cached;
         }
@@ -130,7 +130,7 @@ export async function loadUnitsData() {
 
     } catch (error) {
         hideLoading();
-        alert('Error loading units data. Please check your connection and try again.');
+        showNotification('Error loading units data. Please check your connection and try again.', 'error');
         throw error;
     }
 }
@@ -144,7 +144,6 @@ async function loadCasualtyDataOnly() {
         const cached = await dbCache.getFresh('crashData', 'casualty-2012-2024', 7 * 24 * 60 * 60 * 1000);
 
         if (cached) {
-            console.log('✅ Using cached casualty data');
             updateDataState({ casualtyData: cached });
             return cached;
         }
@@ -188,7 +187,7 @@ export async function loadCasualtyData() {
         await loadUnitsData();
     } catch (error) {
         hideLoading();
-        alert('Error loading casualty data. Please check your connection and try again.');
+        showNotification('Error loading casualty data. Please check your connection and try again.', 'error');
         throw error;
     }
 }
@@ -202,7 +201,6 @@ async function loadCrashDataOnly() {
         const cached = await dbCache.getFresh('crashData', 'crash-2012-2024', 7 * 24 * 60 * 60 * 1000); // 7 days
 
         if (cached) {
-            console.log('✅ Using cached crash data');
             updateDataState({ crashData: cached });
             return cached;
         }
@@ -236,7 +234,6 @@ async function loadCrashDataOnly() {
         try {
             await dbCache.put('crashData', 'crash-2012-2024', crashData);
             await dbCache.put('metadata', 'crash-2012-2024', { timestamp: Date.now() });
-            console.log('✅ Cached crash data to IndexedDB');
         } catch (cacheError) {
             console.warn('Failed to cache crash data:', cacheError);
             // Non-fatal, continue anyway
@@ -263,7 +260,7 @@ export async function loadCrashData() {
         await loadCasualtyData();
     } catch (error) {
         hideLoading();
-        alert('Error loading crash data. Please check your connection and try again.');
+        showNotification('Error loading crash data. Please check your connection and try again.', 'error');
         throw error;
     }
 }
@@ -401,7 +398,6 @@ export async function loadData() {
             loadUnitsDataOnly()
         ]);
 
-        console.log('✅ All datasets loaded in parallel');
 
         // Link data together after all loaded
         linkCrashData();

@@ -830,7 +830,6 @@ export async function loadModalContent(modalId) {
     modalElement.innerHTML = MODAL_CONTENT[modalType];
     loadedModals[modalType] = true;
 
-    console.log(`✅ Loaded ${modalType} modal content`);
 }
 
 /**

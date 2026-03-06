@@ -6,7 +6,7 @@
 // Import all modules
 import { loadData, loadSuburbBoundaries } from './data-loader.js';
 import { LOADING_CONFIG } from './config.js';
-import { initTheme, checkFirstVisit, initMultiSelectEnhancements, initUI } from './ui.js';
+import { initTheme, checkFirstVisit, initMultiSelectEnhancements, initUI, showNotification } from './ui.js';
 import { initMap } from './map-renderer.js';
 import {
     initYearRangeSlider,
@@ -69,7 +69,7 @@ async function initializeApp() {
     } catch (error) {
         console.error('❌ Fatal error during initialization:', error);
         errorHandler.handleError(error, ERROR_TYPES.UNKNOWN, 'Application Initialization', true);
-        alert('Failed to initialize the application. Please refresh the page or check the console for details.');
+        showNotification('Failed to initialize the application. Please refresh the page or check the console for details.', 'error', 10000);
     }
 }
 

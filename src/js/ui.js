@@ -1201,7 +1201,7 @@ export function initColumnResizing() {
  */
 export function exportFilteredData(exportAll = true) {
     if (!dataState.filteredData || dataState.filteredData.length === 0) {
-        alert('No data to export. Please apply filters first.');
+        showNotification('No data to export. Please apply filters first.', 'warning');
         return;
     }
 

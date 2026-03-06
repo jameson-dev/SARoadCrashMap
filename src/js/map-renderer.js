@@ -335,7 +335,7 @@ export function getMarkerIcon(row) {
         color = getCrashTypeColor(row['Crash Type'] || 'Unknown');
     } else if (filterState.markerColorMode === 'daynight') {
         const dn = row['DayNight'] || '';
-        color = dn === 'Day' ? '#4a90e2' : dn === 'Night' ? '#1a237e' : '#808080';
+        color = dn === 'Daylight' ? '#4a90e2' : dn === 'Night' ? '#1a237e' : '#808080';
     } else {
         // default: severity
         color = SEVERITY_COLORS[row['CSEF Severity']] || '#808080';
@@ -1030,7 +1030,7 @@ export function updateMapLayers(changedLayer = null) {
                     } catch (error) {
                         console.error('Error adding markers:', error);
                         hideLoading();
-                        alert('Error displaying markers. Please try again.');
+                        showNotification('Error displaying markers. Please try again.', 'error');
                     }
                 } else {
                     if (mapState.markersLayer) {
@@ -1142,7 +1142,7 @@ export function updateMapLayers(changedLayer = null) {
     } catch (error) {
         console.error('Error updating map layers:', error);
         hideLoading();
-        alert('Error updating map display. Please refresh the page.');
+        showNotification('Error updating map display. Please refresh the page.', 'error');
     }
 }
 

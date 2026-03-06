@@ -6,7 +6,6 @@
 
     // Check if service workers are supported
     if (!('serviceWorker' in navigator)) {
-        console.log('Service Workers not supported in this browser');
         return;
     }
 
@@ -29,7 +28,6 @@
 
             case 'CACHE_COMPLETE':
                 hideCacheProgress();
-                console.log('✓ All assets cached for offline use');
                 break;
 
             case 'CONTENT_UPDATED':
@@ -41,7 +39,6 @@
                 break;
 
             case 'SW_INSTALLED':
-                console.log('Service Worker installed:', event.data.version);
                 break;
         }
     });
@@ -52,8 +49,6 @@
                 scope: './'
             });
 
-            console.log('Service Worker registered successfully:', registration.scope);
-
             // Check for updates only on page load (not periodically)
             // This prevents interrupting users mid-session
             registration.update();
@@ -61,11 +56,8 @@
             // Handle updates
             registration.addEventListener('updatefound', () => {
                 const newWorker = registration.installing;
-                console.log('New Service Worker found, installing...');
 
                 newWorker.addEventListener('statechange', () => {
-                    console.log('Service Worker state:', newWorker.state);
-
                     if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
                         // New service worker installed
                         hasUpdate = true;
@@ -74,15 +66,6 @@
                 });
             });
 
-            // Get current version
-            if (registration.active) {
-                const messageChannel = new MessageChannel();
-                messageChannel.port1.onmessage = (event) => {
-                    console.log('Service Worker version:', event.data.version);
-                };
-                registration.active.postMessage({ type: 'GET_VERSION' }, [messageChannel.port2]);
-            }
-
         } catch (error) {
             console.error('Service Worker registration failed:', error);
         }
@@ -90,8 +73,6 @@
 
     // Show gentle update notification (non-intrusive)
     function showGentleUpdateNotification(worker) {
-        console.log('New version ready. User can refresh when convenient.');
-
         // Remove any existing notification
         const existing = document.getElementById('sw-update-badge');
         if (existing) existing.remove();
@@ -324,14 +305,12 @@
         }
     };
 
-    // Log online/offline status
+    // Handle online/offline status
     window.addEventListener('online', () => {
-        console.log('✅ Back online');
         showOnlineStatus(true);
     });
 
     window.addEventListener('offline', () => {
-        console.log('⚠️ Offline mode');
         showOnlineStatus(false);
     });
 
@@ -368,7 +347,5 @@
             setTimeout(() => status.remove(), 300);
         }, 3000);
     }
-
-    console.log('Service Worker registration module loaded');
 
 })();

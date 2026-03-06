@@ -357,58 +357,6 @@ export function getTopN(counts, n = 10) {
 }
 
 /**
- * Update charts with filtered data
- * Placeholder for Chart.js visualizations
- * @param {Array} data - Filtered crash data
- */
-export function updateChartsWithData(data) {
-    // Placeholder for future Chart.js implementation
-    // This function can be expanded to create:
-    // - Time series charts (crashes by year/month)
-    // - Bar charts (crashes by type, severity)
-    // - Pie charts (distribution)
-    // - Line charts (trends)
-
-    if (typeof Chart === 'undefined') {
-        return;
-    }
-
-    // Example: Get data for charts
-    const yearCounts = getCrashCountsByYear(data);
-    const severityCounts = getCrashCountsBySeverity(data);
-    const monthCounts = getCrashCountsByMonth(data);
-
-    // TODO: Implement actual Chart.js visualizations
-    // Example structure:
-    /*
-    const ctx = document.getElementById('myChart');
-    if (ctx) {
-        new Chart(ctx, {
-            type: 'line',
-            data: {
-                labels: Object.keys(yearCounts),
-                datasets: [{
-                    label: 'Crashes by Year',
-                    data: Object.values(yearCounts),
-                    borderColor: 'rgb(75, 192, 192)',
-                    tension: 0.1
-                }]
-            },
-            options: {
-                responsive: true,
-                plugins: {
-                    title: {
-                        display: true,
-                        text: 'Crash Trends'
-                    }
-                }
-            }
-        });
-    }
-    */
-}
-
-/**
  * Generate summary statistics object
  * @returns {Object} Comprehensive statistics summary
  */
