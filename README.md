@@ -15,25 +15,37 @@ An interactive web-based map visualization tool for exploring South Australian c
 
 ### **Three Visualization Layers**
 - **Clustered Markers**: Individual crash locations that group together when zoomed out (190K+ markers)
-- **Point Density**: Density visualization showing crash hotspots
-- **Choropleth**: Area-based statistics grouped by Local Government Area (LGA) or Suburb
+  - Three color modes: Severity, Crash Type, or Day/Night
+  - Smart clustering with formatted labels (K/M suffixes)
+  - Progressive loading in chunks for smooth performance
+- **Point Density**: Severity-weighted heatmap showing crash hotspots
+  - Dynamic radius/blur adjustment based on zoom level
+- **Choropleth**: Area-based statistics with two modes:
+  - **LGA Mode**: Statistics grouped by Local Government Area
+  - **Suburb Mode**: Statistics grouped by suburb boundaries
 
 ### **Interactive Filters**
 
 #### Crash-Level Filters
-- **Year Range**: Filter crashes between 2012-2024
+- **Year Range**: Filter crashes between 2012-2024 (dual-handle slider)
 - **Severity Levels**:
   - PDO (Property Damage Only)
   - Minor Injury
   - Serious Injury
   - Fatal
-- **Crash Type**: Filter by specific crash types
+- **Crash Type**: Filter by specific crash types (multi-select)
 - **Weather Conditions**: See how weather impacts crashes
 - **Day/Night**: Compare crashes during different times
 - **DUI Involvement**: Filter for alcohol-related incidents
 - **Drugs Involved**: Filter for drug-related incidents
-- **Area (LGA)**: Focus on specific local government areas
-- **Suburb**: Filter by specific suburbs
+- **Area (LGA)**: Focus on specific local government areas (multi-select)
+- **Suburb**: Filter by specific suburbs (multi-select)
+- **Road Surface**: Filter by road surface conditions (multi-select)
+- **Moisture Condition**: Filter by road moisture conditions (multi-select)
+- **Speed Zone**: Filter by speed limit zones (multi-select)
+- **Month of Year**: Filter by specific months (multi-select)
+- **Date Range**: Optional from/to date filtering
+- **Time Range**: Optional from/to time filtering (handles midnight crossing)
 
 #### Casualty-Level Filters
 - **Road User Type**: Filter by casualty type (Driver, Passenger, Pedestrian, Rider, Cyclist)
@@ -47,24 +59,68 @@ An interactive web-based map visualization tool for exploring South Australian c
 - **Involved Entities**: Filter by crash units involved (vehicles, pedestrians, fixed objects struck)
 - **Rollover Involved**: Filter crashes where rollover occurred
 - **Fire Involved**: Filter crashes where fire occurred
+- **Vehicle Type**: Filter by specific vehicle types (multi-select)
 - **Vehicle Year**: Filter by vehicle age (Before 2000, 2000-2010, 2011-2020, 2021+)
 - **Number of Occupants**: Filter by vehicle occupancy (1, 2, 3, 4, 5+ occupants)
 - **Towing**: Filter vehicles that were towing trailers/caravans
 - **Heavy Vehicles**: Filter crashes involving heavy vehicles (trucks, semi-trailers, road trains, buses)
+- **License Type**: Filter by driver license type
+- **Vehicle Registration State**: Filter by vehicle registration state
+- **Direction of Travel**: Filter by travel direction
+- **Unit Movement**: Filter by unit movement at time of crash
+
+**Note:** Casualty and Vehicle/Unit-level filters are accessible through the "Advanced Filters"
+
+#### Filter Presets
+Nine pre-configured filter examples for quick analysis:
+1. **Fatal Crashes (2023-2024)**: Recent fatal crashes
+2. **Motorcycle/Rider Crashes at Night**: Night-time motorcycle incidents
+3. **DUI-Related Crashes**: Alcohol-involved crashes
+4. **Heavy Vehicle Crashes**: Incidents involving trucks and buses
+5. **Pedestrian Casualties**: Crashes with pedestrian involvement
+6. **Wet Weather Crashes**: Crashes in wet conditions
+7. **Weekend Crashes**: Saturday and Sunday crashes
+8. **Hit Fixed Object Crashes**: Single-vehicle object strikes
+9. **Young Driver Crashes (Under 26)**: Crashes involving young drivers
 
 ### **Advanced Features**
 
 #### Analytics Dashboard
-- **Time-based Charts**: Analyze crash trends by year, month, day of week, and hour
-- **Interactive Visualizations**: Click chart segments to filter the map
-- **Pattern Discovery**: Identify high-risk time periods
+- **11 Interactive Charts**: Comprehensive crash analysis with Chart.js
+  - Crashes Over Time (line chart with yearly/monthly toggle)
+  - Crashes by Day of Week
+  - Crashes by Hour
+  - Severity Distribution (doughnut chart)
+  - Top Crash Types (top 10)
+  - Top Areas/LGA (top 10)
+  - Weather Conditions
+  - Severity Trend Over Time (stacked area chart)
+  - Speed Zone Distribution
+  - Road User Types (doughnut chart)
+  - Casualty Age Distribution
+- **Click-to-Filter**: Click any chart segment to apply that filter to the map
+- **Chart Maximization**: Expand charts to focus mode for detailed analysis
+- **Chart Search**: Quickly find specific charts
+- **Pattern Discovery**: Identify high-risk time periods and crash patterns
+- **Fullscreen Analytics**: Expand the entire analytics panel for comprehensive overview
 
-#### Location Search
-- **Search by Address/Suburb**: Find crashes near any SA location
-- **Radius Filtering**: Set custom search radius (1-50km)
+#### Location Search & Spatial Filtering
+- **Intelligent Geocoding**: Find crashes near any SA location using OpenStreetMap/Nominatim
+- **Autocomplete Suggestions**: 60+ pre-configured SA locations with grouped categories
+  - Major Cities, Northern/Southern/Eastern/Western Suburbs, Regional Cities, etc.
+- **Smart Abbreviation Expansion**: Automatically expands Mt → Mount, St → Saint, etc.
+- **Keyboard Navigation**: Arrow keys and Enter support for quick selection
+- **Radius Filtering**: Set custom search radius (0.5km to 50km)
+- **Visual Feedback**: Search marker and radius circle displayed on map
+- **Draw Tools**: Custom area filtering
+  - **Rectangle Tool**: Draw rectangular selection areas
+  - **Polygon Tool**: Draw custom polygon shapes
+  - Point-in-polygon filtering using Turf.js
+  - Visual feedback during drawing with cancel option
 
 #### Interactive Data Table
 - **Sortable Columns**: Click any column header to sort data (Year, Date/Time, Suburb, LGA, Severity, Type, Speed, Casualties)
+  - Multi-column sort support for complex sorting
 - **Flexible Pagination**: Choose to display 10, 25, 50, 100, 250, or 500 rows per page
 - **Quick Navigation**: Jump directly to any page number or use Previous/Next buttons
 - **Real-time Search**: Filter table data instantly by typing in the search box - searches across all columns
@@ -83,11 +139,15 @@ An interactive web-based map visualization tool for exploring South Australian c
   - Filter Documentation: Active filters are documented in the export
   - Comprehensive Data: Includes crash details, location, casualties, and units involved
 
-- **PDF Export**: Generate professional PDF reports with customizable content
+- **PDF Export**: Generate professional PDF reports with fully customizable content
   - **Cover Page**: Report title with generation timestamp and crash count
+  - **Map Capture**: Include map screenshots in your report
+    - Choose layer: Density heatmap, Marker clusters, or Choropleth
+    - Automatic tile loading detection for crisp captures
+  - **Executive Summary**: Automated insights and key findings from the data
   - **Statistics Summary**: Total crashes, fatalities, serious injuries, and minor injuries
   - **Active Filters**: Documentation of all applied filters
-  - **Interactive Charts**: Full-page, high-resolution charts including:
+  - **Interactive Charts**: Full-page, high-resolution charts (select any combination):
     - Crashes Over Time (yearly/monthly trends)
     - Crashes by Day of Week
     - Crashes by Hour
@@ -96,17 +156,52 @@ An interactive web-based map visualization tool for exploring South Australian c
     - Top Areas (LGA)
     - Weather Conditions
     - Severity Trend Over Time
-  - **Data Table**: Detailed crash records with customizable row count (10-500 rows, or all data)
+    - Speed Zone Distribution
+    - Road User Types
+    - Casualty Age Distribution
+  - **Chart Ordering**: Drag and drop to reorder charts in your report
+  - **Data Table**: Detailed crash records with customizable row count (50/100/200/500 rows, or all data)
+    - Column selection: Choose which columns to include
+  - **Custom Notes**: Add your own comments and observations
   - **Flexible Layout**: Portrait or landscape orientation
+  - **Filename Templates**: Customize filenames with variables ({date}, {year_range}, {count}, {time})
+  - **Preview Mode**: Preview your report configuration before generating
   - **Smart Compression**: Automatic JPEG/PNG selection for optimal quality and file size
   - **High Quality**: Charts rendered at 2400×1200 resolution with 3x scaling for crisp output
   - **Large, Readable Fonts**: All chart legends and labels scaled for easy reading
-  - **Progress Tracking**: Real-time progress bar during generation
+  - **Progress Tracking**: Real-time progress bar with percentage indicator
+  - **Page Numbering**: Professional page numbering throughout
 
 #### Filter Management
-- **Active Filters Bar**: See all active filters at a glance
+- **Active Filters Bar**: See all active filters at a glance with smart descriptions
+  - Shows exclusions when >70% of options are selected (e.g., "All except PDO")
 - **Quick Clear**: Remove individual filters or clear all
 - **Filter Persistence**: Filters are saved in URL for easy sharing
+  - URL compression using LZ-String for compact URLs
+  - Smart encoding: inverts filters when >70% selected to reduce URL size
+- **Filter Caching**: Previously used filter combinations cached for instant re-application
+  - LRU cache with 50 entries and 7-day TTL
+
+#### Theme System
+- **Light & Dark Themes**: Toggle between light and dark color schemes
+- **Persistent Preferences**: Theme choice saved automatically to localStorage
+- **Smooth Transitions**: Animated theme switching for visual comfort
+
+#### Tutorial System
+- **6-Tab Interactive Tutorial**: Comprehensive guide for new users
+  - Getting Started, Map Navigation, Filtering Data, Analytics, Exporting, Tips & Tricks
+- **Collapsible Steps**: Expandable sections for easy navigation
+- **Search Functionality**: Quickly find specific tutorial topics
+- **Progress Tracking**: Track which sections you've explored
+- **"Don't Show Again" Option**: Skip tutorial on future visits
+- **First-Visit Disclaimer**: Important information for new users
+
+#### Notification System
+- **Smart Queue Management**: Maximum 3 visible notifications at once
+- **Four Notification Types**: Info, Warning, Error, Success
+- **Auto-Dismiss**: Notifications automatically fade after display
+- **Smooth Animations**: Stacking with automatic repositioning
+- **Non-Intrusive**: Positioned for minimal disruption
 
 ### **Real-time Statistics**
 - Total crashes in filtered dataset
@@ -127,7 +222,9 @@ An interactive web-based map visualization tool for exploring South Australian c
 - **Zoom**: Use mouse wheel or +/- buttons
 - **Pan**: Click and drag the map
 - **Click markers**: View detailed crash information
-- **Switch base maps**: Toggle between Dark, Light, and Satellite views
+- **Switch base maps**: Toggle between 6 basemap styles:
+  - Dark, Light, Voyager, Street, Satellite, and Terrain
+- **Change marker colors**: Toggle between Severity, Crash Type, or Day/Night color coding
 
 ### 2. **Toggle Layers**
 In the control panel on the right, you can switch between:
@@ -178,23 +275,35 @@ Click on any marker to see comprehensive crash information:
 
 #### Export to PDF
 1. Click "Export to PDF" button in the Statistics panel
-2. Choose a preset:
+2. Choose a preset or start from scratch:
    - **Quick Summary**: Stats + top 3 charts (fast, small file)
    - **Full Analytics**: All charts without data table (recommended)
-   - **Custom**: Select exactly what you want
-3. Customize your report:
-   - **Include/Exclude**: Cover page, statistics, filters, charts, data table
-   - **Select Charts**: Choose which charts to include (or select all/none)
-   - **Table Rows**: Choose how many rows to include (10-500, or all)
+   - **Custom**: Build your report from scratch
+3. Customize your report sections:
+   - **Cover Page**: Include title and summary
+   - **Map Capture**: Include current map view (choose: Density/Markers/Choropleth)
+   - **Executive Summary**: Automated insights and key findings
+   - **Statistics**: Crash counts and casualty statistics
+   - **Active Filters**: Documentation of applied filters
+   - **Charts**: Select any combination of 11 available charts
+     - Drag and drop to reorder charts in your report
+   - **Data Table**: Include crash records (50/100/200/500 rows, or all)
+     - Choose which columns to include
+   - **Custom Notes**: Add your own comments and observations
+4. Configure format options:
    - **Orientation**: Portrait or Landscape (landscape recommended for charts)
-   - **File Name**: Customize the filename
-4. Click "Generate PDF" and wait for the progress bar to complete
-5. PDF downloads automatically with timestamp appended to filename
+   - **Quality**: Standard, High, or Ultra
+   - **Filename**: Use templates with variables ({date}, {year_range}, {count}, {time})
+5. Optional: Click "Preview" to see your configuration
+6. Click "Generate PDF" and wait for the progress bar to complete
+7. PDF downloads automatically
 
 **Tips for Best PDFs:**
 - Use "Full Analytics" preset for comprehensive visual reports
-- Landscape orientation works best for charts
-- For large datasets, limit table rows to 100-200 for faster generation
+- Include map capture for spatial context
+- Landscape orientation works best for charts and maps
+- For large datasets, limit table rows to 200-500 for faster generation
+- Ultra quality produces the best charts but larger file sizes
 
 ### 7. **Share & Bookmark**
 - Filters are encoded in URL - copy the URL to share your exact view
@@ -217,76 +326,47 @@ The application uses crash data from the `data/` folder:
 - `data/sa_suburbs.geojson` - Suburb boundary polygons for choropleth visualization
 
 ### Libraries & Technologies
-- **Leaflet.js** - Interactive mapping
-- **Leaflet.markercluster** - Marker clustering with chunked loading
-- **Leaflet.heat** - Heatmap visualization
-- **Chart.js** - Interactive analytics charts and visualizations
-- **PapaParse** - CSV file parsing
+- **Leaflet.js** - Interactive mapping with custom renderers
+- **Leaflet.markercluster** - Marker clustering with progressive loading
+- **Leaflet.heat** - Heatmap/density visualization
+- **Leaflet.draw** - Drawing tools for custom area selection
+- **Chart.js** - Interactive analytics charts (11 chart types)
+- **PapaParse** - High-performance CSV file parsing
 - **jsPDF** - Client-side PDF generation with jsPDF-AutoTable for tables
+- **html2canvas** - Map and chart capture for PDF export
+- **Turf.js** - Geospatial analysis (point-in-polygon filtering)
 - **Proj4js** - Coordinate system conversion (EPSG:3107 to WGS84)
+- **LZ-String** - URL compression for filter state sharing
 - **Service Worker API** - Offline caching and PWA support
-- **IndexedDB** (future) - Client-side data caching
+- **LocalStorage API** - Client-side preference persistence
 
 ### Coordinate System
 The data uses EPSG:3107 (GDA94 / SA Lambert) coordinates which are automatically converted to WGS84 (EPSG:4326) for display on the map.
 
-### Pre-computed LGA Assignment
-LGA assignments are pre-computed using Python geospatial scripts (`scripts/add_lga_column.py`) that perform spatial joins between crash coordinates and LGA boundary polygons. This eliminates expensive client-side point-in-polygon calculations and provides instant filtering performance.
-
 **Coverage:** 98% of crashes (187,017 out of 190,910) have pre-assigned LGAs.
 
 ### Performance Optimizations
-- **Progressive Marker Loading**: 190K+ markers loaded in chunks of 20,000 with progress indicator
+- **Progressive Marker Loading**: 190K+ markers loaded in chunks of 5,000 using requestIdleCallback
+  - Non-blocking rendering for smooth UI interaction
+  - Progress indicator during initial load
 - **Icon Caching**: Reuses marker icons instead of creating duplicates
 - **Batch Processing**: Adds markers to cluster in batches for faster rendering
-- **Dynamic Clustering**: More aggressive clustering at lower zoom levels
+- **Dynamic Clustering**: More aggressive clustering at lower zoom levels with formatted labels
 - **Lazy Popup Generation**: Crash details only generated when popup is opened
-- **Service Worker Caching**: Caches 200MB+ of data files for offline access
+- **Coordinate Pre-computation**: Crash coordinates transformed and cached on load
+- **Analytics Caching**: Chart calculations cached to avoid recomputation
+- **DOM Element Caching**: Frequently accessed DOM elements cached in memory
+- **Filter Result Caching**: LRU cache (50 entries, 7-day TTL) for instant filter re-application
+- **Debounced Inputs**: Search inputs debounced to reduce unnecessary processing
+- **Throttled Map Updates**: Map-related updates throttled for smoother performance
+- **Chunked Data Processing**: Large datasets processed in manageable chunks
+- **Service Worker Caching**: Caches 200MB+ of data files for offline access and instant loading
 - **Efficient Table Rendering**: Data table uses virtual pagination and only renders visible rows
-- **Filter Result Caching**: Previously used filter combinations are cached for instant re-application
-- **Client-side Persistence**: User preferences (table settings, theme) stored locally for instant restoration
+- **Client-side Persistence**: User preferences (table settings, theme, tutorial) stored locally
+- **Canvas Optimization**: Heatmap canvas configured with willReadFrequently attribute
+- **Smart Chart Rendering**: Charts rendered at high DPI only when needed (PDF export)
 
 ## Development
-
-### Running Locally
-```bash
-# Clone the repository
-git clone https://github.com/jameson-dev/SARoadCrashMap.git
-cd SARoadCrashMap
-
-# Start a local server (Python 3)
-python start_server.py
-
-# Or use any other HTTP server
-# python -m http.server 8000
-# npx serve
-```
-
-Visit `http://localhost:8000` in your browser.
-
-### Data Processing Scripts
-Located in `scripts/` directory:
-
-#### `add_lga_column.py`
-Pre-computes LGA assignments for all crashes using spatial joins.
-
-**Requirements:**
-```bash
-pip install -r scripts/requirements.txt
-```
-
-**Usage:**
-```bash
-cd scripts
-python add_lga_column.py
-```
-
-This script:
-- Loads crash data and LGA boundaries
-- Converts coordinates from EPSG:3107 to EPSG:4326
-- Performs spatial join to assign LGAs
-- Updates the crash CSV with LGA column
-- Provides statistics on assignment coverage
 
 ### Browser Compatibility
 - ✅ Chrome/Edge 90+
@@ -301,10 +381,6 @@ The app can be installed as a Progressive Web App:
 **Desktop:**
 - Chrome/Edge: Click install icon in address bar
 - Safari: Not yet supported
-
-**Mobile:**
-- iOS: Safari → Share → Add to Home Screen
-- Android: Chrome → Menu → Install App
 
 ## Data Source
 
@@ -341,10 +417,28 @@ A: 2% of crashes have invalid or missing coordinates in the dataset.
 **Q: Can I export filtered data?**
 A: Yes, in two formats:
 - **CSV Export**: Click "Export to CSV" in the Statistics panel. Includes all filtered crash data with summary statistics, active filters, and comprehensive crash details including casualties and units involved.
-- **PDF Export**: Click "Export to PDF" in the Statistics panel. Generate professional reports with statistics, high-resolution charts, and data tables. Choose from Quick Summary, Full Analytics, or Custom presets.
+- **PDF Export**: Click "Export to PDF" in the Statistics panel. Generate fully customizable professional reports with:
+  - Map captures (with layer selection)
+  - Executive summary with automated insights
+  - Statistics and active filters documentation
+  - 11 selectable high-resolution charts (drag to reorder)
+  - Data tables with column selection
+  - Custom notes sections
+  - Multiple quality levels and filename templates
+  - Choose from Quick Summary, Full Analytics, or Custom presets
+  - Preview mode available before generation
 
 **Q: How often is the data updated?**
 A: Data is sourced from Data.SA and updated when new datasets are published. This involves cleansing & aggregating the data which can take time.
+
+**Q: How do I use the drawing tools to select custom areas?**
+A: Click the Rectangle or Polygon tool buttons in the Spatial Filters section. For rectangles, click and drag on the map. For polygons, click to add each vertex, then double-click or click the first point to close the shape. The map will automatically filter to show only crashes within your drawn area.
+
+**Q: Can I share my filtered view with others?**
+A: Yes! All active filters are encoded in the URL using compressed parameters. Simply copy the URL from your browser and share it. When others open the link, they'll see exactly the same filtered view with all your selected options applied.
+
+**Q: How do I change between light and dark themes?**
+A: Click the theme toggle button (sun/moon icon) in the top navigation bar. Your preference is automatically saved and will be remembered on future visits.
 
 ## Contributing
 
