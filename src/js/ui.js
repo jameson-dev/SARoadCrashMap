@@ -518,6 +518,8 @@ export function toggleDataTable() {
 
     if (panel.style.display === 'none' || panel.style.display === '') {
         panel.style.display = 'flex';
+        // On mobile the FAB must be raised above the table panel
+        document.body.classList.add('data-table-open');
         showTableLoading();
 
         // Use setTimeout to allow loading indicator to display
@@ -537,6 +539,7 @@ export function toggleDataTable() {
         }, 50);
     } else {
         panel.style.display = 'none';
+        document.body.classList.remove('data-table-open');
     }
 }
 
@@ -1752,6 +1755,28 @@ export function initUI() {
             columnPicker.style.display = 'none';
         }
     });
+
+    // Swipe-down to dismiss the mobile bottom sheet.
+    // Only triggers when the panel is open, the swipe starts while the panel's
+    // own scroll position is at the top (so normal upward scrolling is not
+    // blocked), and the downward distance exceeds 80px.
+    const controlsPanel = document.getElementById('controlsPanel');
+    if (controlsPanel) {
+        let swipeStartY = 0;
+        let swipeStartScrollTop = 0;
+
+        controlsPanel.addEventListener('touchstart', function(e) {
+            swipeStartY = e.touches[0].clientY;
+            swipeStartScrollTop = controlsPanel.scrollTop;
+        }, { passive: true });
+
+        controlsPanel.addEventListener('touchend', function(e) {
+            const deltaY = e.changedTouches[0].clientY - swipeStartY;
+            if (deltaY > 80 && swipeStartScrollTop === 0 && controlsPanel.classList.contains('visible')) {
+                togglePanel();
+            }
+        }, { passive: true });
+    }
 }
 
 // Export constants for use in HTML onclick handlers

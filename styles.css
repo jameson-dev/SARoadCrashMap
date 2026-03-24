@@ -67,6 +67,17 @@
             box-sizing: border-box;
         }
 
+        /* Eliminate the ~300ms tap delay on interactive controls and prevent
+           double-tap zoom on buttons. Does NOT affect the map (div, not button). */
+        button,
+        [role="button"],
+        input,
+        select,
+        label,
+        a {
+            touch-action: manipulation;
+        }
+
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Inter", "SF Pro Display",
                          "Segoe UI", "Roboto", system-ui, sans-serif;
@@ -713,6 +724,10 @@
         }
 
         .location-search-header:hover {
+            background: var(--border);
+        }
+
+        .location-search-header:active {
             background: var(--border);
         }
 
@@ -4244,12 +4259,22 @@
     }
 
     .dt-pagination-label {
-        font-size: 11px;
+        font-size: 12px;
     }
 
     .column-picker {
         right: 5px;
         width: 180px;
+    }
+
+    /* The × close button inside the column-picker header has padding:0 by
+       default, making it a tiny tap target. Expand to 44×44px on touch. */
+    .column-picker-header button {
+        min-width: 44px;
+        min-height: 44px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
     }
 }
 
@@ -5083,6 +5108,14 @@ body:has(.map-positioning-active) .analytics-panel {
         opacity: 0;
         pointer-events: none;
     }
+
+    /* When the data table panel is open the FAB sits behind it at bottom:24px.
+       Raise it above the panel so it remains reachable. The panel height on
+       mobile is clamp(180px,45vh,320px); add 16px breathing room on top. */
+    body.data-table-open .toggle-panel-btn {
+        bottom: calc(clamp(180px, 45vh, 320px) + 16px);
+        transition: bottom 0.2s ease, transform 0.2s, opacity 0.2s;
+    }
 }
 
 /* ============================================================
@@ -5151,11 +5184,15 @@ body:has(.map-positioning-active) .analytics-panel {
 
 /* ── Checkbox dropdown items ─────────────────────────────────
    4px 6px padding gives ~29px row height — too small for touch.
-   Increase to 8px vertical giving ~40px (within 4px of target). */
+   Increase to meet the 44px minimum touch target.              */
 @media (max-width: 768px) {
     .checkbox-dropdown-item {
         padding: 8px 8px;
-        min-height: 40px;
+        min-height: 44px;
+    }
+
+    .checkbox-dropdown-item:active {
+        background: var(--accent-bg);
     }
 
     /* Larger checkbox to match the bigger row */
@@ -5174,11 +5211,12 @@ body:has(.map-positioning-active) .analytics-panel {
     visibility: visible;
 }
 
-/* Slightly larger hit area on touch screens */
+/* Expand to full 44×44 tap target on touch screens. The icon glyph stays
+   small and centred; the element itself provides the tappable area.       */
 @media (max-width: 768px) {
     .layer-info-icon {
-        width: 24px;
-        height: 24px;
+        width: 44px;
+        height: 44px;
         font-size: 14px;
     }
 }
@@ -5317,7 +5355,7 @@ body:has(.map-positioning-active) .analytics-panel {
     .choropleth-mode-btn {
         font-size: 12px;
         padding: 6px 10px;
-        min-height: 36px;
+        min-height: 44px;
     }
 }
 
@@ -5345,7 +5383,34 @@ body:has(.map-positioning-active) .analytics-panel {
     .multi-select-count,
     .select-all-btn,
     .time-range-label,
-    .help-text-small {
+    .help-text-small,
+    .location-search-header .header-text {
         font-size: 12px;
+    }
+}
+
+/* ── 8. :focus-visible — restore keyboard/switch-access focus rings ──────────
+   Nearly every element has outline:none on :focus to remove the browser's
+   default ring for mouse users. :focus-visible fires only when the browser
+   determines a focus indicator is needed (keyboard, switch, sequential nav),
+   so reinstating an outline here doesn't affect mouse/touch workflows but
+   gives keyboard and assistive-technology users a clear indicator.
+   !important is required because the per-element outline:none rules have
+   higher specificity than this bare selector.                               */
+:focus-visible {
+    outline: 2px solid var(--accent) !important;
+    outline-offset: 2px !important;
+}
+
+/* ── 9. prefers-reduced-motion ───────────────────────────────────────────────
+   The app has panel slides, marker animations, notification slide-ins and
+   many CSS transitions. Honour the OS-level preference so users who are
+   sensitive to motion (vestibular disorders, etc.) get an instant UI.      */
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
     }
 }
