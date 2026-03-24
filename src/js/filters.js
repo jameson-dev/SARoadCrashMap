@@ -26,6 +26,8 @@ import { filterCache, perfMonitor, debounce } from './performance.js';
 // Module-level variables
 let yearRangeSlider = null;
 let currentYearRange = [...YEAR_RANGE.DEFAULT];
+let _filterRunning = false;
+let _filterPending = false;
 
 // ============================================================================
 // FILTER STATE & TRACKING
@@ -847,64 +849,79 @@ export function matchesUnitsFilters(row, filters) {
  * @returns {Promise<void>}
  */
 export async function applyFilters() {
+    // If a filter run is already in progress, mark a pending run and return.
+    // The in-progress run will re-execute once it finishes, picking up the latest state.
+    if (_filterRunning) {
+        _filterPending = true;
+        return;
+    }
+    _filterRunning = true;
     showLoading('Filtering crash data...');
 
-    // Use setTimeout to ensure loading indicator renders before heavy processing
-    setTimeout(async () => {
-        try {
-            const filters = getFilterValues();
+    // Yield to the browser so the loading indicator renders before heavy processing
+    await new Promise(resolve => setTimeout(resolve, 0));
 
-            // Filter data using helper functions
-            const filteredData = dataState.crashData.filter(row => {
-                return matchesBasicFilters(row, filters) &&
-                       matchesDateTimeFilters(row, filters) &&
-                       matchesCasualtyFilters(row, filters) &&
-                       matchesUnitsFilters(row, filters);
-            });
+    try {
+        const filters = getFilterValues();
 
-            // Update filtered data in state
-            dataState.filteredData = filteredData;
+        // Filter data using helper functions
+        const filteredData = dataState.crashData.filter(row => {
+            return matchesBasicFilters(row, filters) &&
+                   matchesDateTimeFilters(row, filters) &&
+                   matchesCasualtyFilters(row, filters) &&
+                   matchesUnitsFilters(row, filters);
+        });
 
-            // Update statistics
-            updateStatistics();
+        // Update filtered data in state
+        dataState.filteredData = filteredData;
 
-            // Show/hide the "no crashes found" overlay
-            const noResultsEl = document.getElementById('noResultsOverlay');
-            if (noResultsEl) {
-                noResultsEl.style.display = filteredData.length === 0 ? 'block' : 'none';
-            }
+        // Update statistics
+        updateStatistics();
 
-            // Update active filters display
-            updateActiveFiltersDisplay();
-
-            // Update analytics charts if available (global function from HTML)
-            if (typeof window.updateChartsWithData === 'function') {
-                window.updateChartsWithData(filteredData);
-            }
-
-            // Update map layers
-            const { updateMapLayers } = await import('./map-renderer.js');
-            if (typeof updateMapLayers === 'function') {
-                await updateMapLayers();
-            }
-
-            // Update URL with current filters (debounced)
-            encodeFiltersToURLDebounced();
-
-            // Reset filter change tracking
-            updateFilterState({
-                lastAppliedFilterState: captureCurrentFilterState(),
-                filtersChanged: false
-            });
-            updateApplyButtonState();
-
-            hideLoading();
-        } catch (error) {
-            console.error('❌ applyFilters() error:', error);
-            showNotification('An error occurred while filtering. Please try again.', 'error');
-            hideLoading();
+        // Show/hide the "no crashes found" overlay
+        const noResultsEl = document.getElementById('noResultsOverlay');
+        if (noResultsEl) {
+            noResultsEl.style.display = filteredData.length === 0 ? 'block' : 'none';
         }
-    }, 0);
+
+        // Update active filters display
+        updateActiveFiltersDisplay();
+
+        // Update analytics charts only when the panel is open to avoid wasted renders
+        const analyticsPanel = document.getElementById('analyticsPanel');
+        if (typeof window.updateChartsWithData === 'function' &&
+            analyticsPanel && !analyticsPanel.classList.contains('collapsed')) {
+            window.updateChartsWithData(filteredData);
+        }
+
+        // Update map layers
+        const { updateMapLayers } = await import('./map-renderer.js');
+        if (typeof updateMapLayers === 'function') {
+            await updateMapLayers();
+        }
+
+        // Update URL with current filters (debounced)
+        encodeFiltersToURLDebounced();
+
+        // Reset filter change tracking
+        updateFilterState({
+            lastAppliedFilterState: captureCurrentFilterState(),
+            filtersChanged: false
+        });
+        updateApplyButtonState();
+
+        hideLoading();
+    } catch (error) {
+        console.error('❌ applyFilters() error:', error);
+        showNotification('An error occurred while filtering. Please try again.', 'error');
+        hideLoading();
+    } finally {
+        _filterRunning = false;
+        if (_filterPending) {
+            _filterPending = false;
+            applyFilters();
+        }
+    }
 }
 
 /**
@@ -929,113 +946,106 @@ export function applyPreset(presetKey) {
         descEl.textContent = preset.description;
     }
 
-    // Clear all filters first (skip applying, we'll apply after setting preset values)
+    // Clear all filters first (skip applying, we'll apply after setting preset values).
+    // clearFilters is synchronous DOM manipulation so no delay is needed before continuing.
     clearFilters(true);
 
-    // Wait for clearFilters to complete before applying preset
-    setTimeout(() => {
-        const filters = preset.filters;
+    const filters = preset.filters;
 
-        // Year range
-        if (filters.yearFrom !== undefined) {
-            if (yearRangeSlider) {
-                yearRangeSlider.set([filters.yearFrom, filters.yearTo]);
-            }
+    // Year range
+    if (filters.yearFrom !== undefined) {
+        if (yearRangeSlider) {
+            yearRangeSlider.set([filters.yearFrom, filters.yearTo]);
         }
+    }
 
-        // Severities
-        if (filters.severities && filters.severities.length > 0) {
-            const severityMenu = document.getElementById('severityMenu');
-            if (severityMenu) {
-                const checkboxes = severityMenu.querySelectorAll('input[type="checkbox"]');
-                checkboxes.forEach(cb => {
-                    cb.checked = filters.severities.includes(cb.value);
-                });
-                updateCheckboxDropdownDisplay('severity', true);
-            }
+    // Severities
+    if (filters.severities && filters.severities.length > 0) {
+        const severityMenu = document.getElementById('severityMenu');
+        if (severityMenu) {
+            const checkboxes = severityMenu.querySelectorAll('input[type="checkbox"]');
+            checkboxes.forEach(cb => {
+                cb.checked = filters.severities.includes(cb.value);
+            });
+            updateCheckboxDropdownDisplay('severity', true);
         }
+    }
 
-        // Crash types
-        if (filters.crashTypes && filters.crashTypes.length > 0) {
-            const crashTypeMenu = document.getElementById('crashTypeMenu');
-            if (crashTypeMenu) {
-                const checkboxes = crashTypeMenu.querySelectorAll('input[type="checkbox"]');
-                checkboxes.forEach(cb => {
-                    cb.checked = filters.crashTypes.includes(cb.value);
-                });
-                updateCheckboxDropdownDisplay('crashType', true);
-            }
+    // Crash types
+    if (filters.crashTypes && filters.crashTypes.length > 0) {
+        const crashTypeMenu = document.getElementById('crashTypeMenu');
+        if (crashTypeMenu) {
+            const checkboxes = crashTypeMenu.querySelectorAll('input[type="checkbox"]');
+            checkboxes.forEach(cb => {
+                cb.checked = filters.crashTypes.includes(cb.value);
+            });
+            updateCheckboxDropdownDisplay('crashType', true);
         }
+    }
 
-        // Other simple filters
-        if (filters.dayNight) {
-            const el = document.getElementById('dayNight');
-            if (el) el.value = filters.dayNight;
+    // Other simple filters
+    if (filters.dayNight) {
+        const el = document.getElementById('dayNight');
+        if (el) el.value = filters.dayNight;
+    }
+
+    if (filters.duiInvolved) {
+        const el = document.getElementById('duiInvolved');
+        if (el) el.value = filters.duiInvolved;
+    }
+
+    if (filters.weather) {
+        const el = document.getElementById('weather');
+        if (el) el.value = filters.weather;
+    }
+
+    if (filters.heavyVehicle) {
+        const el = document.getElementById('heavyVehicle');
+        if (el) el.value = filters.heavyVehicle;
+    }
+
+    // Multi-select filters
+    if (filters.roadUsers && filters.roadUsers.length > 0) {
+        const select = document.getElementById('roadUserType');
+        if (select) {
+            Array.from(select.options).forEach(option => {
+                option.selected = filters.roadUsers.includes(option.value);
+            });
         }
+    }
 
-        if (filters.duiInvolved) {
-            const el = document.getElementById('duiInvolved');
-            if (el) el.value = filters.duiInvolved;
+    if (filters.ageGroups && filters.ageGroups.length > 0) {
+        const select = document.getElementById('ageGroup');
+        if (select) {
+            Array.from(select.options).forEach(option => {
+                option.selected = filters.ageGroups.includes(option.value);
+            });
         }
+    }
 
-        if (filters.weather) {
-            const el = document.getElementById('weather');
-            if (el) el.value = filters.weather;
+    if (filters.speedZones && filters.speedZones.length > 0) {
+        const select = document.getElementById('speedZoneFilter');
+        if (select) {
+            Array.from(select.options).forEach(option => {
+                option.selected = filters.speedZones.includes(option.value);
+            });
         }
+    }
 
-        if (filters.heavyVehicle) {
-            const el = document.getElementById('heavyVehicle');
-            if (el) el.value = filters.heavyVehicle;
+    if (filters.moistureConds && filters.moistureConds.length > 0) {
+        const select = document.getElementById('moistureCond');
+        if (select) {
+            Array.from(select.options).forEach(option => {
+                option.selected = filters.moistureConds.includes(option.value);
+            });
         }
+    }
 
-        // Multi-select filters
-        if (filters.roadUsers && filters.roadUsers.length > 0) {
-            const select = document.getElementById('roadUserType');
-            if (select) {
-                Array.from(select.options).forEach(option => {
-                    option.selected = filters.roadUsers.includes(option.value);
-                });
-            }
-        }
+    // Apply filters (updateActiveFiltersDisplay is called inside applyFilters)
+    applyFilters();
 
-        if (filters.ageGroups && filters.ageGroups.length > 0) {
-            const select = document.getElementById('ageGroup');
-            if (select) {
-                Array.from(select.options).forEach(option => {
-                    option.selected = filters.ageGroups.includes(option.value);
-                });
-            }
-        }
-
-        if (filters.speedZones && filters.speedZones.length > 0) {
-            const select = document.getElementById('speedZoneFilter');
-            if (select) {
-                Array.from(select.options).forEach(option => {
-                    option.selected = filters.speedZones.includes(option.value);
-                });
-            }
-        }
-
-        if (filters.moistureConds && filters.moistureConds.length > 0) {
-            const select = document.getElementById('moistureCond');
-            if (select) {
-                Array.from(select.options).forEach(option => {
-                    option.selected = filters.moistureConds.includes(option.value);
-                });
-            }
-        }
-
-        // Apply filters
-        applyFilters();
-
-        // Update active filters display
-        setTimeout(() => {
-            updateActiveFiltersDisplay();
-        }, 100);
-
-        // Show notification
-        showFilterNotification(`Applied preset: ${preset.name}`);
-    }, 500);
+    // Show notification
+    showFilterNotification(`Applied preset: ${preset.name}`);
 }
 
 /**
@@ -1508,6 +1518,7 @@ function loadCompressedFilters(compressed) {
         const json = LZString.decompressFromEncodedURIComponent(compressed);
         if (!json) {
             console.error('Failed to decompress URL parameter');
+            showNotification('The shared link could not be loaded — it may be corrupted or incomplete.', 'warning');
             return;
         }
 
@@ -1570,6 +1581,7 @@ function loadCompressedFilters(compressed) {
 
     } catch (error) {
         console.error('Error loading compressed filters:', error);
+        showNotification('The shared link could not be loaded — it may be corrupted or incomplete.', 'warning');
     }
 }
 
