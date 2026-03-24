@@ -101,32 +101,16 @@ function processNotificationQueue() {
     // Calculate position based on existing notifications
     const topPosition = 80 + (activeNotifications.length * 70);
 
-    notification.style.cssText = `
-        position: fixed;
-        top: ${topPosition}px;
-        right: 20px;
-        padding: 12px 20px;
-        border-radius: 8px;
-        background: var(--bg-secondary);
-        border: 1px solid var(--border);
-        box-shadow: var(--shadow-lg);
-        z-index: 10002;
-        font-size: 14px;
-        max-width: 350px;
-        animation: slideInFromRight 0.3s ease-out;
-        transition: top 0.3s ease-out;
-    `;
+    // Static appearance is handled by the .app-notification CSS class so that
+    // the mobile media query can override layout properties (right/left/max-width).
+    // Inline styles here are limited to the two truly dynamic values: vertical
+    // position and type-specific border colour.
+    notification.classList.add('app-notification');
+    notification.style.top = `${topPosition}px`;
 
-    // Add type-specific styling
-    if (type === 'warning') {
-        notification.style.borderLeft = '4px solid #ff9800';
-    } else if (type === 'error') {
-        notification.style.borderLeft = '4px solid #f44336';
-    } else if (type === 'success') {
-        notification.style.borderLeft = '4px solid #4caf50';
-    } else {
-        notification.style.borderLeft = '4px solid #2196f3';
-    }
+    // Type-specific left border colour
+    const borderColors = { warning: '#ff9800', error: '#f44336', success: '#4caf50', info: '#2196f3' };
+    notification.style.borderLeft = `4px solid ${borderColors[type] || borderColors.info}`;
 
     document.body.appendChild(notification);
     activeNotifications.push(notification);
@@ -457,13 +441,37 @@ export function initTheme() {
 // ============================================================================
 
 /**
- * Toggle control panel visibility (for mobile)
+ * Toggle active filters bar expanded state.
+ * On desktop this pins the bar open alongside hover; on mobile (where
+ * :hover doesn't persist) this is the sole expand/collapse mechanism.
+ */
+export function toggleActiveFiltersBar() {
+    const bar = document.getElementById('activeFiltersBar');
+    if (!bar) return;
+    const expanded = bar.classList.toggle('expanded');
+    const header = bar.querySelector('.active-filters-bar-header');
+    if (header) header.setAttribute('aria-expanded', String(expanded));
+}
+
+/**
+ * Toggle control panel visibility (for mobile).
+ * On mobile this shows/hides the bottom-sheet panel. It also:
+ *  - Toggles the backdrop overlay so the map is dimmed while open.
+ *  - Sets data-panel-open on the FAB so CSS can hide it while the sheet is up.
  */
 export function togglePanel() {
     const panel = document.getElementById('controlsPanel');
-    if (panel) {
-        panel.classList.toggle('visible');
-    }
+    if (!panel) return;
+
+    const isOpen = panel.classList.toggle('visible');
+
+    // Show/hide the semi-transparent backdrop behind the bottom sheet
+    const backdrop = document.querySelector('.mobile-panel-backdrop');
+    if (backdrop) backdrop.classList.toggle('active', isOpen);
+
+    // Let CSS know the panel state so the FAB can be hidden while open
+    const fab = document.querySelector('.toggle-panel-btn');
+    if (fab) fab.dataset.panelOpen = isOpen;
 }
 
 /**

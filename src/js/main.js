@@ -91,6 +91,7 @@ async function setupGlobalHandlers() {
     window.toggleTutorialStep = ui.toggleTutorialStep;
     window.searchTutorial = ui.searchTutorial;
     window.toggleTheme = ui.toggleTheme;
+    window.toggleActiveFiltersBar = ui.toggleActiveFiltersBar;
     window.togglePanel = ui.togglePanel;
     window.togglePanelCollapse = ui.togglePanelCollapse;
     window.toggleDataTable = ui.toggleDataTable;

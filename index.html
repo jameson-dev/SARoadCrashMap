@@ -75,13 +75,24 @@
 
     <button class="toggle-panel-btn" onclick="togglePanel()" aria-label="Open filters panel">☰ Filters</button>
 
+    <!-- Backdrop: dims the map when the mobile bottom-sheet panel is open.
+         Tapping it calls togglePanel() to close the sheet. -->
+    <div class="mobile-panel-backdrop" onclick="togglePanel()" aria-hidden="true"></div>
+
     <!-- Active Filters Badge -->
     <div class="active-filters-bar" id="activeFiltersBar">
-        <div class="active-filters-bar-header">
+        <div class="active-filters-bar-header"
+             onclick="toggleActiveFiltersBar()"
+             onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleActiveFiltersBar();}"
+             role="button"
+             tabindex="0"
+             aria-expanded="false"
+             aria-controls="activeFiltersContent">
             <span class="active-filters-bar-title">🔍 No filters</span>
+            <span class="active-filters-bar-chevron" aria-hidden="true">▾</span>
         </div>
         <div class="active-filters-bar-content" id="activeFiltersContent">
-            <div class="no-active-filters">Hover to see filter details</div>
+            <div class="no-active-filters">No filters applied</div>
         </div>
     </div>
 
@@ -98,6 +109,9 @@
                 <button class="collapse-btn" onclick="togglePanelCollapse()" title="Collapse/Expand">
                     <span id="collapseIcon">▲</span>
                 </button>
+                <!-- Mobile-only: explicit close button since the collapse button
+                     is hidden and the FAB is not visible while the sheet is open -->
+                <button class="mobile-panel-close-btn" onclick="togglePanel()" aria-label="Close filters panel">✕</button>
             </div>
         </div>
 
@@ -292,7 +306,7 @@
             <div class="layer-toggle" id="densityToggle" onclick="toggleLayer('density')">
                 <div class="layer-label-container">
                     <span>💠 Point Density</span>
-                    <div class="layer-info-icon" onclick="event.stopPropagation()">
+                    <div class="layer-info-icon" onclick="event.stopPropagation()" tabindex="0" role="button" aria-label="Layer info">
                         ⓘ
                         <div class="layer-info-tooltip">
                             Best viewed on <strong>Dark</strong> basemap
@@ -1334,7 +1348,7 @@
         </div>
     </div>
 
-    <!-- Footer -->
+    <!-- Footer (hidden on mobile via CSS) -->
     <footer class="page-footer">
         <div class="footer-links">
             <a href="#" onclick="openInfoModal('disclaimerModal'); return false;">Disclaimer</a>
