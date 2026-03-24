@@ -29,6 +29,7 @@ const STATIC_ASSETS = [
     './src/js/config.js',
     './src/js/data-loader.js',
     './src/js/filters.js',
+    './src/js/filter-worker.js',
     './src/js/map-renderer.js',
     './src/js/state.js',
     './src/js/ui.js',

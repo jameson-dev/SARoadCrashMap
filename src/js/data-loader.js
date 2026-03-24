@@ -403,11 +403,15 @@ export async function loadData() {
         linkCrashData();
 
         // After linking, populate filter options and load boundaries
-        const { populateFilterOptions } = await import('./filters.js');
+        const { populateFilterOptions, initFilterWorker } = await import('./filters.js');
         const { updateMarkerColorLegend } = await import('./map-renderer.js');
 
         populateFilterOptions();
         updateMarkerColorLegend();
+
+        // Initialise the filter worker now that crashData is fully linked.
+        // The worker receives the data once; subsequent filter runs only send filter values.
+        initFilterWorker();
 
         // Load LGA boundaries (which will trigger initial filter application)
         await loadLGABoundaries();

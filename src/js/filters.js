@@ -22,12 +22,18 @@ import { updateStatistics } from './analytics.js';
 import { showLoading, hideLoading, updateLoadingMessage } from './utils.js';
 import { showNotification } from './ui.js';
 import { filterCache, perfMonitor, debounce } from './performance.js';
+import { updateMapLayers } from './map-renderer.js';
 
 // Module-level variables
 let yearRangeSlider = null;
 let currentYearRange = [...YEAR_RANGE.DEFAULT];
 let _filterRunning = false;
 let _filterPending = false;
+
+// Web Worker for off-thread filtering
+let _filterWorker = null;
+let _workerReady = false;
+let _workerRequestId = 0;
 
 // ============================================================================
 // FILTER STATE & TRACKING
@@ -840,6 +846,71 @@ export function matchesUnitsFilters(row, filters) {
 }
 
 // ============================================================================
+// FILTER WORKER
+// ============================================================================
+
+/**
+ * Initialise the filter Web Worker and transfer a copy of the crash data to it.
+ * Called once from data-loader after linkCrashData() completes.
+ * Subsequent applyFilters() calls will use the worker automatically.
+ */
+export function initFilterWorker() {
+    if (!window.Worker) return;
+    try {
+        _filterWorker = new Worker('./src/js/filter-worker.js');
+
+        _filterWorker.onmessage = (e) => {
+            if (e.data.type === 'READY') {
+                _workerReady = true;
+            }
+        };
+
+        _filterWorker.onerror = (err) => {
+            console.warn('Filter worker error, will use inline filtering:', err);
+            _filterWorker = null;
+            _workerReady = false;
+        };
+
+        // Transfer the full dataset to the worker once.  This is a structured
+        // clone (one-time cost) so that filter messages carry only filter values.
+        _filterWorker.postMessage({
+            type: 'INIT',
+            crashData: dataState.crashData,
+            heavyVehicleTypes: HEAVY_VEHICLE_TYPES
+        });
+    } catch (err) {
+        console.warn('Could not create filter worker, will use inline filtering:', err);
+    }
+}
+
+/**
+ * Send a FILTER request to the worker and resolve with the matching indices.
+ * Returns a Uint32Array of indices into dataState.crashData.
+ */
+function runFilterInWorker(filters) {
+    return new Promise((resolve, reject) => {
+        const id = ++_workerRequestId;
+
+        function onMessage(e) {
+            if (e.data.type !== 'RESULT' || e.data.id !== id) return;
+            _filterWorker.removeEventListener('message', onMessage);
+            _filterWorker.removeEventListener('error', onError);
+            resolve(new Uint32Array(e.data.indicesBuffer));
+        }
+
+        function onError(err) {
+            _filterWorker.removeEventListener('message', onMessage);
+            _filterWorker.removeEventListener('error', onError);
+            reject(err);
+        }
+
+        _filterWorker.addEventListener('message', onMessage);
+        _filterWorker.addEventListener('error', onError);
+        _filterWorker.postMessage({ type: 'FILTER', id, filters });
+    });
+}
+
+// ============================================================================
 // FILTER APPLICATION
 // ============================================================================
 
@@ -864,13 +935,45 @@ export async function applyFilters() {
     try {
         const filters = getFilterValues();
 
-        // Filter data using helper functions
-        const filteredData = dataState.crashData.filter(row => {
-            return matchesBasicFilters(row, filters) &&
-                   matchesDateTimeFilters(row, filters) &&
-                   matchesCasualtyFilters(row, filters) &&
-                   matchesUnitsFilters(row, filters);
-        });
+        // Filter crash records — use the worker when available, otherwise inline.
+        let filteredData;
+
+        if (_workerReady) {
+            try {
+                const indices = await runFilterInWorker(filters);
+                filteredData = [];
+                for (let i = 0; i < indices.length; i++) {
+                    filteredData.push(dataState.crashData[indices[i]]);
+                }
+
+                // The drawn-area filter needs turf (main-thread global) so it runs here.
+                // toGeoJSON() is called once before the loop, not per record.
+                if (drawState.drawnLayer) {
+                    const poly = drawState.drawnLayer.toGeoJSON();
+                    filteredData = filteredData.filter(row => {
+                        if (!row._coords) return false;
+                        return turf.booleanPointInPolygon(
+                            turf.point([row._coords[1], row._coords[0]]), poly
+                        );
+                    });
+                }
+            } catch (workerErr) {
+                console.warn('Filter worker request failed, falling back to inline filtering:', workerErr);
+                filteredData = dataState.crashData.filter(row =>
+                    matchesBasicFilters(row, filters) &&
+                    matchesDateTimeFilters(row, filters) &&
+                    matchesCasualtyFilters(row, filters) &&
+                    matchesUnitsFilters(row, filters)
+                );
+            }
+        } else {
+            filteredData = dataState.crashData.filter(row =>
+                matchesBasicFilters(row, filters) &&
+                matchesDateTimeFilters(row, filters) &&
+                matchesCasualtyFilters(row, filters) &&
+                matchesUnitsFilters(row, filters)
+            );
+        }
 
         // Update filtered data in state
         dataState.filteredData = filteredData;
@@ -895,10 +998,7 @@ export async function applyFilters() {
         }
 
         // Update map layers
-        const { updateMapLayers } = await import('./map-renderer.js');
-        if (typeof updateMapLayers === 'function') {
-            await updateMapLayers();
-        }
+        await updateMapLayers();
 
         // Update URL with current filters (debounced)
         encodeFiltersToURLDebounced();
