@@ -463,8 +463,15 @@ export class FilterCache {
      * Generate cache key from filter values
      */
     generateKey(filters) {
-        // Create a stable string representation of filters
-        return JSON.stringify(filters, Object.keys(filters).sort());
+        // Build a canonical object: keys sorted alphabetically, array values sorted
+        // so that logically identical filters always produce the same key regardless
+        // of insertion order or multi-select ordering.
+        const sorted = {};
+        for (const key of Object.keys(filters).sort()) {
+            const val = filters[key];
+            sorted[key] = Array.isArray(val) ? [...val].sort() : val;
+        }
+        return JSON.stringify(sorted);
     }
 
     /**
