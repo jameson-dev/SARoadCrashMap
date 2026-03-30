@@ -752,8 +752,8 @@ export function matchesUnitsFilters(row, filters) {
         // Heavy Vehicle filter - must be checked per unit
         if (hasHeavyVehicleFilter) {
             const isHeavyVehicle = HEAVY_VEHICLE_TYPES.includes(unit['Unit Type']);
-            if (filters.heavyVehicle === 'yes' && !isHeavyVehicle) return false;
-            if (filters.heavyVehicle === 'no' && isHeavyVehicle) return false;
+            if (filters.heavyVehicle === 'Yes' && !isHeavyVehicle) return false;
+            if (filters.heavyVehicle === 'No' && isHeavyVehicle) return false;
         }
 
         // Towing filter - must be checked per unit

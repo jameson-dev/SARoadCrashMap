@@ -471,6 +471,7 @@
             border-radius: 3px;
             outline: none;
             -webkit-appearance: none;
+            appearance: none;
             cursor: pointer;
         }
 
@@ -3852,10 +3853,10 @@
 .dt-sev-si    { background: rgba(239,83,80,0.15);   color: #c62828; }
 .dt-sev-fatal { background: rgba(139,0,0,0.15);     color: #8B0000; font-weight: 700; }
 
-[data-theme="dark"] .dt-sev-pdo   { color: #bbb; }
-[data-theme="dark"] .dt-sev-mi    { color: #ffa726; }
-[data-theme="dark"] .dt-sev-si    { color: #ef9a9a; }
-[data-theme="dark"] .dt-sev-fatal { color: #ff6b6b; }
+[data-theme="dark"] .dt-sev-pdo   { background: rgba(128,128,128,0.25); color: #bbb; }
+[data-theme="dark"] .dt-sev-mi    { background: rgba(255,167,38,0.2);  color: #ffa726; }
+[data-theme="dark"] .dt-sev-si    { background: rgba(239,83,80,0.2);   color: #ef9a9a; }
+[data-theme="dark"] .dt-sev-fatal { background: rgba(180,0,0,0.25);    color: #ff6b6b; }
 
 @media (max-width: 768px) {
     .data-table-panel {
@@ -3989,6 +3990,7 @@
 
 .dt-jump-input[type=number] {
     -moz-appearance: textfield;
+    appearance: textfield;
 }
 
 /* Action buttons */
@@ -5084,7 +5086,7 @@ body:has(.map-positioning-active) .analytics-panel {
         color: var(--accent-text);
         box-shadow: var(--shadow-lg);
         z-index: 1201;
-        transition: transform 0.2s, opacity 0.2s;
+        transition: bottom 0.2s ease, transform 0.2s, opacity 0.2s;
         /* Hide the "☰ Filters" text — icon provided by ::before */
         font-size: 0;
         overflow: hidden;
@@ -5114,7 +5116,6 @@ body:has(.map-positioning-active) .analytics-panel {
        mobile is clamp(180px,45vh,320px); add 16px breathing room on top. */
     body.data-table-open .toggle-panel-btn {
         bottom: calc(clamp(180px, 45vh, 320px) + 16px);
-        transition: bottom 0.2s ease, transform 0.2s, opacity 0.2s;
     }
 }
 

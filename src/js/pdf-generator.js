@@ -1940,7 +1940,6 @@ class PDFGenerator {
         const uiElements = [
             ...document.querySelectorAll('.leaflet-control-container'),
             ...document.querySelectorAll('.leaflet-control'),
-            // Note: We don't hide legends anymore - they'll be included in the capture
             ...document.querySelectorAll('.toggle-panel-btn'),
             ...document.querySelectorAll('.active-filters-bar'),
             ...document.querySelectorAll('.controls-panel'),

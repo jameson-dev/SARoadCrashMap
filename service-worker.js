@@ -115,8 +115,9 @@ self.addEventListener('activate', event => {
         ]).then(() => {
             // Start lazy-loading non-critical assets in the background
             lazyLoadAssets();
-            // Clean old data cache entries if needed
+            // Clean old cache entries if needed
             cleanDataCache();
+            cleanRuntimeCache();
         })
     );
 });
@@ -154,6 +155,29 @@ async function cleanDataCache() {
         }
     } catch (err) {
         console.warn('[Service Worker] Failed to clean data cache:', err);
+    }
+}
+
+// Clean runtime cache entries (tiles + misc network responses)
+async function cleanRuntimeCache() {
+    try {
+        const cache = await caches.open(RUNTIME_CACHE_NAME);
+        const requests = await cache.keys();
+        const MAX_RUNTIME_CACHE_SIZE = 200;
+        if (requests.length > MAX_RUNTIME_CACHE_SIZE) {
+            const entries = await Promise.all(
+                requests.map(async request => {
+                    const response = await cache.match(request);
+                    const date = response?.headers.get('date');
+                    return { request, date: date ? new Date(date) : new Date(0) };
+                })
+            );
+            entries.sort((a, b) => a.date - b.date);
+            const toDelete = entries.slice(0, requests.length - MAX_RUNTIME_CACHE_SIZE);
+            await Promise.all(toDelete.map(entry => cache.delete(entry.request)));
+        }
+    } catch (err) {
+        console.warn('[Service Worker] Failed to clean runtime cache:', err);
     }
 }
 

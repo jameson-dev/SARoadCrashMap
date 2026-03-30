@@ -256,8 +256,8 @@ function matchesUnitsFilters(row, filters) {
     return units.some(unit => {
         if (hasHeavyVehicleFilter) {
             const isHeavy = HEAVY_VEHICLE_TYPES.includes(unit['Unit Type']);
-            if (filters.heavyVehicle === 'yes' && !isHeavy) return false;
-            if (filters.heavyVehicle === 'no'  && isHeavy)  return false;
+            if (filters.heavyVehicle === 'Yes' && !isHeavy) return false;
+            if (filters.heavyVehicle === 'No'  && isHeavy)  return false;
         }
 
         if (hasTowingFilter) {
