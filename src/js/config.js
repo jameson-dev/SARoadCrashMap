@@ -123,7 +123,7 @@ export const FILTER_PRESETS = {
             crashTypes: [],
             areas: [],
             suburbs: [],
-            heavyVehicle: 'yes'
+            heavyVehicle: 'Yes'
         }
     },
     'pedestrian': {

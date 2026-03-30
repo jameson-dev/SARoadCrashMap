@@ -6,6 +6,10 @@
 import { dataState } from './state.js';
 import { domCache, perfMonitor } from './performance.js';
 
+const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+                     'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
 /**
  * Update crash statistics display
  * @param {Array} data - Crash data array
@@ -30,12 +34,8 @@ export function computeAllAnalytics(data = dataState.filteredData) {
         byWeather: {}
     };
 
-    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-                       'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-
     // Initialize months
-    monthNames.forEach(name => {
+    MONTH_NAMES.forEach(name => {
         stats.byMonth[name] = 0;
     });
 
@@ -98,14 +98,14 @@ export function computeAllAnalytics(data = dataState.filteredData) {
 
                     // Month
                     if (month >= 0 && month < 12) {
-                        stats.byMonth[monthNames[month]]++;
+                        stats.byMonth[MONTH_NAMES[month]]++;
                     }
 
                     // Day of week
                     const date = new Date(year, month, day);
                     const dayOfWeek = date.getDay();
                     if (dayOfWeek >= 0 && dayOfWeek < 7) {
-                        stats.byDayOfWeek[dayNames[dayOfWeek]]++;
+                        stats.byDayOfWeek[DAY_NAMES[dayOfWeek]]++;
                     }
                 }
 
@@ -230,11 +230,9 @@ export function getCrashCountsByCrashType(data = dataState.filteredData) {
  */
 export function getCrashCountsByMonth(data = dataState.filteredData) {
     const monthCounts = {};
-    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-                       'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
     // Initialize all months to 0
-    monthNames.forEach((name, idx) => {
+    MONTH_NAMES.forEach(name => {
         monthCounts[name] = 0;
     });
 
@@ -246,7 +244,7 @@ export function getCrashCountsByMonth(data = dataState.filteredData) {
             if (parts.length >= 2) {
                 const month = parseInt(parts[1]) - 1; // 0-indexed
                 if (month >= 0 && month < 12) {
-                    monthCounts[monthNames[month]]++;
+                    monthCounts[MONTH_NAMES[month]]++;
                 }
             }
         }
@@ -271,8 +269,6 @@ export function getCrashCountsByDayOfWeek(data = dataState.filteredData) {
         'Saturday': 0
     };
 
-    const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-
     data.forEach(crash => {
         const dt = crash['Crash Date Time'];
         if (dt) {
@@ -285,7 +281,7 @@ export function getCrashCountsByDayOfWeek(data = dataState.filteredData) {
 
                 const date = new Date(year, month, day);
                 const dayOfWeek = date.getDay();
-                dayCounts[dayNames[dayOfWeek]]++;
+                dayCounts[DAY_NAMES[dayOfWeek]]++;
             }
         }
     });

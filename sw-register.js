@@ -12,6 +12,9 @@
     let hasUpdate = false;
     let contentUpdated = false;
 
+    const BRAND_GRADIENT   = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
+    const BRAND_GRADIENT_H = 'linear-gradient(90deg,  #667eea 0%, #764ba2 100%)';
+
     // Register service worker when page loads
     window.addEventListener('load', () => {
         registerServiceWorker();
@@ -85,7 +88,7 @@
                 position: fixed;
                 top: 20px;
                 right: 20px;
-                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                background: ${BRAND_GRADIENT};
                 color: white;
                 padding: 12px 18px;
                 border-radius: 8px;
@@ -132,7 +135,7 @@
                     position: fixed;
                     top: 20px;
                     right: 20px;
-                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    background: ${BRAND_GRADIENT};
                     color: white;
                     padding: 12px 18px;
                     border-radius: 8px;
@@ -194,7 +197,7 @@
                     <div style="margin-bottom: 6px; font-weight: 600;">Caching for offline use</div>
                     <div style="background: #e0e0e0; height: 4px; border-radius: 2px; overflow: hidden;">
                         <div id="cache-progress-bar" style="
-                            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+                            background: ${BRAND_GRADIENT_H};
                             height: 100%;
                             width: 0%;
                             transition: width 0.3s ease;

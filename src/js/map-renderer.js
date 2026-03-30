@@ -27,6 +27,7 @@ import {
 
 import {
     convertCoordinates,
+    escapeHtml,
     normalizeLGAName,
     getLGAName,
     showLoading,
@@ -1296,8 +1297,11 @@ export function expandAbbreviations(searchTerm) {
  * Highlight matching text
  */
 export function highlightMatch(text, search) {
-    const regex = new RegExp(`(${search})`, 'gi');
-    return text.replace(regex, '<span class="match">$1</span>');
+    const safeText = escapeHtml(text);
+    if (!search) return safeText;
+    const escapedSearch = search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regex = new RegExp(`(${escapedSearch})`, 'gi');
+    return safeText.replace(regex, '<span class="match">$1</span>');
 }
 
 /**

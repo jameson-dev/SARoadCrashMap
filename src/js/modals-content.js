@@ -4,6 +4,8 @@
  * Content is loaded lazily when modals are first opened
  */
 
+const LAST_UPDATED = 'February 2026';
+
 export const MODAL_CONTENT = {
     disclaimer: `<div class="info-modal-header">
             <h1>Disclaimer</h1>
@@ -81,7 +83,7 @@ export const MODAL_CONTENT = {
             <div class="info-modal-section">
                 <h2>Changes to This Disclaimer</h2>
                 <p>This disclaimer may be updated from time to time without notice. Continued use of this website constitutes acceptance of any changes to this disclaimer.</p>
-                <p class="last-updated-text">Last Updated: February 2026</p>
+                <p class="last-updated-text">Last Updated: ${LAST_UPDATED}</p>
             </div>
         </div>`,
 
@@ -303,7 +305,7 @@ export const MODAL_CONTENT = {
             <div class="info-modal-section">
                 <h2>Updates & Versioning</h2>
                 <p>As new data becomes available from Data SA, the dataset may be updated. Major updates will be documented here with version information and change notes.</p>
-                <p><strong>Current Version:</strong> 2012-2024 Dataset (February 2026)</p>
+                <p><strong>Current Version:</strong> 2012-2024 Dataset (${LAST_UPDATED})</p>
             </div>
 
             <div class="info-modal-section">
@@ -314,7 +316,7 @@ export const MODAL_CONTENT = {
                     <li>Review the processing scripts (available in project repository if open-sourced)</li>
                     <li>Contact the project maintainer with questions or concerns</li>
                 </ul>
-                <p class="last-updated-text">Last Updated: February 2026</p>
+                <p class="last-updated-text">Last Updated: ${LAST_UPDATED}</p>
             </div>
         </div>`,
 
