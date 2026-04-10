@@ -16,7 +16,8 @@ import {
     dataState,
     filterState,
     drawState,
-    updateFilterState
+    updateFilterState,
+    updateDataState
 } from './state.js';
 import { updateStatistics } from './analytics.js';
 import { showLoading, hideLoading, updateLoadingMessage, uniqueValues, showFilterNotification } from './utils.js';
@@ -963,7 +964,7 @@ export async function applyFilters() {
         }
 
         // Update filtered data in state
-        dataState.filteredData = filteredData;
+        updateDataState({ filteredData });
 
         // Update statistics
         updateStatistics();
