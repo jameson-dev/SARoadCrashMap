@@ -488,8 +488,3 @@ self.addEventListener('message', event => {
         event.ports[0].postMessage({ version: VERSION });
     }
 });
-
-// Handle updates
-self.addEventListener('controllerchange', () => {
-    // Controller changed
-});
