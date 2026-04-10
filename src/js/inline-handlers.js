@@ -21,7 +21,7 @@ function initInfoModals() {
     // Close on Escape key
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape' && window.closeInfoModal) {
-            document.querySelectorAll('.info-modal.active').forEach(modal => {
+            document.querySelectorAll('.info-modal.show').forEach(modal => {
                 window.closeInfoModal(modal.id);
             });
         }
