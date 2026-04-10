@@ -153,19 +153,6 @@ export const FILTER_PRESETS = {
             moistureConds: ['Wet']
         }
     },
-    'weekend': {
-        name: 'Weekend Crashes',
-        description: 'Crashes occurring on Saturdays and Sundays (Year 2023-2024 for performance)',
-        filters: {
-            yearFrom: 2023,
-            yearTo: 2024,
-            severities: [],
-            crashTypes: [],
-            areas: [],
-            suburbs: []
-            // Note: Day of week filter not available in preset system
-        }
-    },
     'hit-object': {
         name: 'Hit Fixed Object Crashes',
         description: 'Single vehicle crashes where vehicle hit a fixed object',
