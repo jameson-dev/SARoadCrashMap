@@ -92,31 +92,6 @@ export function captureCurrentFilterState() {
  * @param {Object} filters - Filter values
  * @returns {Array} Filtered crash data
  */
-export function applyFiltersWithCache(crashData, filters) {
-    perfMonitor.start('Apply filters');
-
-    // Check if we have cached results for these exact filters
-    if (filterCache.has(filters)) {
-        const cachedResults = filterCache.get(filters);
-        perfMonitor.end('Apply filters');
-        return cachedResults;
-    }
-
-    // Apply filters (no cache hit)
-    const filteredData = crashData.filter(row => {
-        return matchesBasicFilters(row, filters) &&
-               matchesDateTimeFilters(row, filters) &&
-               matchesCasualtyFilters(row, filters) &&
-               matchesUnitsFilters(row, filters);
-    });
-
-    // Cache the results
-    filterCache.set(filters, filteredData);
-
-    perfMonitor.end('Apply filters');
-    return filteredData;
-}
-
 /**
  * Get checked values from a checkbox menu
  * @param {string} menuId - ID of the checkbox menu element
