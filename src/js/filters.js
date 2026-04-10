@@ -871,11 +871,37 @@ export function initFilterWorker() {
             _workerReady = false;
         };
 
-        // Transfer the full dataset to the worker once.  This is a structured
-        // clone (one-time cost) so that filter messages carry only filter values.
+        // Project crash records to only the fields the worker needs for matching.
+        // Avoids cloning _coords, popup display fields, and full sub-record objects.
+        const CASUALTY_FIELDS = ['Casualty Type', 'AGE', 'Sex', 'Injury Extent', 'Seat Belt', 'Helmet'];
+        const UNIT_FIELDS = ['Unit Type', 'Towing', 'Rollover', 'Fire', 'Veh Year',
+                             'Number Occupants', 'Licence Type', 'Veh Reg State',
+                             'Direction Of Travel', 'Unit Movement'];
+        const workerData = dataState.crashData.map(row => ({
+            Year:              row.Year,
+            'CSEF Severity':   row['CSEF Severity'],
+            'Crash Type':      row['Crash Type'],
+            'Weather Cond':    row['Weather Cond'],
+            DayNight:          row.DayNight,
+            'DUI Involved':    row['DUI Involved'],
+            'Drugs Involved':  row['Drugs Involved'],
+            LGA:               row.LGA,
+            Suburb:            row.Suburb,
+            'Road Surface':    row['Road Surface'],
+            'Moisture Cond':   row['Moisture Cond'],
+            'Area Speed':      row['Area Speed'],
+            'Crash Date Time': row['Crash Date Time'],
+            _casualties: row._casualties
+                ? row._casualties.map(c => Object.fromEntries(CASUALTY_FIELDS.map(f => [f, c[f]])))
+                : [],
+            _units: row._units
+                ? row._units.map(u => Object.fromEntries(UNIT_FIELDS.map(f => [f, u[f]])))
+                : [],
+        }));
+
         _filterWorker.postMessage({
             type: 'INIT',
-            crashData: dataState.crashData,
+            crashData: workerData,
             heavyVehicleTypes: HEAVY_VEHICLE_TYPES
         });
     } catch (err) {
