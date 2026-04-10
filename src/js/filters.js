@@ -1203,9 +1203,7 @@ export function clearFilters(skipApply = false) {
     }
 
     // Update advanced filter badge
-    if (typeof updateAdvancedFilterBadge === 'function') {
-        updateAdvancedFilterBadge();
-    }
+    updateAdvancedFilterBadge();
 
     // Apply the cleared filters (unless skipApply is true, e.g., when called from applyPreset)
     if (!skipApply) {
@@ -1282,9 +1280,7 @@ export function clearSingleFilter(filterName) {
             break;
     }
 
-    if (typeof updateAdvancedFilterBadge === 'function') {
-        updateAdvancedFilterBadge();
-    }
+    updateAdvancedFilterBadge();
     applyFilters();
 }
 
