@@ -37,6 +37,7 @@ import {
 
 import { updateStatistics } from './analytics.js';
 import { showNotification } from './ui.js';
+import { debounce } from './performance.js';
 
 // ============================================================================
 // CANVAS RENDERER FOR PDF EXPORT
@@ -49,23 +50,6 @@ const canvasRenderer = L.canvas();
 // UTILITY FUNCTIONS
 // ============================================================================
 
-/**
- * Debounce utility function
- * @param {Function} func - Function to debounce
- * @param {number} wait - Wait time in milliseconds
- * @returns {Function} Debounced function
- */
-function debounce(func, wait) {
-    let timeout;
-    return function executedFunction(...args) {
-        const later = () => {
-            clearTimeout(timeout);
-            func(...args);
-        };
-        clearTimeout(timeout);
-        timeout = setTimeout(later, wait);
-    };
-}
 
 // ============================================================================
 // MAP INITIALIZATION
@@ -441,7 +425,7 @@ export function addMarkers(callback) {
 /**
  * Helper function to parse numeric values and remove leading zeros
  */
-function parseNumeric(value) {
+function formatInt(value) {
     if (!value) return value;
     const parsed = parseInt(value, 10);
     return isNaN(parsed) ? value : parsed.toString();
@@ -482,7 +466,7 @@ export function generatePopupContent(crash) {
                     <p style="margin: 3px 0; font-size: 12px;"><strong>Type:</strong> ${crash['Crash Type'] || 'N/A'}</p>
                     <p style="margin: 3px 0; font-size: 12px;"><strong>Weather:</strong> ${crash['Weather Cond'] || 'N/A'} | ${crash.DayNight || 'N/A'}</p>
                     <p style="margin: 3px 0; font-size: 12px;"><strong>Road:</strong> ${crash['Road Surface'] || 'N/A'} | ${crash['Moisture Cond'] || 'N/A'}</p>
-                    <p style="margin: 3px 0; font-size: 12px;"><strong>Speed Limit:</strong> ${parseNumeric(crash['Area Speed']) || 'N/A'} km/h</p>
+                    <p style="margin: 3px 0; font-size: 12px;"><strong>Speed Limit:</strong> ${formatInt(crash['Area Speed']) || 'N/A'} km/h</p>
                     ${crash['DUI Involved'] && crash['DUI Involved'].trim() ? '<p style="margin: 3px 0; font-size: 12px; color: red; font-weight: bold;">⚠ DUI Involved</p>' : ''}
                     ${crash['Drugs Involved'] && crash['Drugs Involved'].trim() ? '<p style="margin: 3px 0; font-size: 12px; color: red; font-weight: bold;">⚠ Drugs Involved</p>' : ''}
                 </div>`;
@@ -518,7 +502,7 @@ export function generatePopupContent(crash) {
                 const extraCount = casualties.length - 3;
                 html += `<div style="margin-top: 5px; font-size: 10px; color: #666;">`;
                 casualties.slice(0, 3).forEach((c, idx) => {
-                    const age = parseNumeric(c.AGE) || '?';
+                    const age = formatInt(c.AGE) || '?';
                     const sex = c.Sex || '?';
                     const type = c['Casualty Type'] || 'Unknown';
                     const injury = c['Injury Extent'] || 'Unknown';
@@ -532,7 +516,7 @@ export function generatePopupContent(crash) {
                 if (extraCount > 0) {
                     html += `<div id="${casExtraId}" style="display:none;">`;
                     casualties.slice(3).forEach((c, idx) => {
-                        const age = parseNumeric(c.AGE) || '?';
+                        const age = formatInt(c.AGE) || '?';
                         const sex = c.Sex || '?';
                         const type = c['Casualty Type'] || 'Unknown';
                         const injury = c['Injury Extent'] || 'Unknown';
@@ -587,13 +571,13 @@ export function generatePopupContent(crash) {
                 html += `<div style="margin-top: 5px; font-size: 10px; color: #666;">`;
                 units.slice(0, 3).forEach((u, idx) => {
                     const type = u['Unit Type'] || 'Unknown';
-                    const year = u['Veh Year'] ? ` (${parseNumeric(u['Veh Year'])})` : '';
-                    const occupants = u['Number Occupants'] ? `, ${parseNumeric(u['Number Occupants'])} occupants` : '';
+                    const year = u['Veh Year'] ? ` (${formatInt(u['Veh Year'])})` : '';
+                    const occupants = u['Number Occupants'] ? `, ${formatInt(u['Number Occupants'])} occupants` : '';
                     const regState = u['Veh Reg State'] ? `, Reg: ${u['Veh Reg State']}` : '';
                     const direction = u['Direction Of Travel'] ? `, ${u['Direction Of Travel']}` : '';
                     const movement = u['Unit Movement'] ? `, ${u['Unit Movement']}` : '';
                     // Driver demographics
-                    const driverAge = u.Age ? parseNumeric(u.Age) : '?';
+                    const driverAge = u.Age ? formatInt(u.Age) : '?';
                     const driverSex = u.Sex || '?';
                     const driverInfo = (u.Age || u.Sex) ? ` | Driver: ${driverAge}/${driverSex}` : '';
                     html += `<p style="margin: 3px 0 3px 10px;">
@@ -604,13 +588,13 @@ export function generatePopupContent(crash) {
                     html += `<div id="${unitExtraId}" style="display:none;">`;
                     units.slice(3).forEach((u, idx) => {
                         const type = u['Unit Type'] || 'Unknown';
-                        const year = u['Veh Year'] ? ` (${parseNumeric(u['Veh Year'])})` : '';
-                        const occupants = u['Number Occupants'] ? `, ${parseNumeric(u['Number Occupants'])} occupants` : '';
+                        const year = u['Veh Year'] ? ` (${formatInt(u['Veh Year'])})` : '';
+                        const occupants = u['Number Occupants'] ? `, ${formatInt(u['Number Occupants'])} occupants` : '';
                         const regState = u['Veh Reg State'] ? `, Reg: ${u['Veh Reg State']}` : '';
                         const direction = u['Direction Of Travel'] ? `, ${u['Direction Of Travel']}` : '';
                         const movement = u['Unit Movement'] ? `, ${u['Unit Movement']}` : '';
                         // Driver demographics
-                        const driverAge = u.Age ? parseNumeric(u.Age) : '?';
+                        const driverAge = u.Age ? formatInt(u.Age) : '?';
                         const driverSex = u.Sex || '?';
                         const driverInfo = (u.Age || u.Sex) ? ` | Driver: ${driverAge}/${driverSex}` : '';
                         html += `<p style="margin: 3px 0 3px 10px;">
@@ -1251,7 +1235,7 @@ const SA_LOCATIONS = [
 /**
  * Expand common abbreviations in search terms
  */
-export function expandAbbreviations(searchTerm) {
+function expandAbbreviations(searchTerm) {
     const terms = [searchTerm]; // Always include original term
 
     // Common abbreviations map
@@ -1296,7 +1280,7 @@ export function expandAbbreviations(searchTerm) {
 /**
  * Highlight matching text
  */
-export function highlightMatch(text, search) {
+function highlightMatch(text, search) {
     const safeText = escapeHtml(text);
     if (!search) return safeText;
     const escapedSearch = search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');

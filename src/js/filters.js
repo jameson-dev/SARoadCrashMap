@@ -19,9 +19,9 @@ import {
     updateFilterState
 } from './state.js';
 import { updateStatistics } from './analytics.js';
-import { showLoading, hideLoading, updateLoadingMessage } from './utils.js';
+import { showLoading, hideLoading, updateLoadingMessage, uniqueValues, showFilterNotification } from './utils.js';
 import { showNotification } from './ui.js';
-import { filterCache, perfMonitor, debounce } from './performance.js';
+import { debounce } from './performance.js';
 import { updateMapLayers } from './map-renderer.js';
 
 // Module-level variables
@@ -192,20 +192,6 @@ export function updateApplyButtonState() {
 // FILTER POPULATION
 // ============================================================================
 
-/**
- * Returns unique, alphabetically-sorted, non-empty values for a column
- * @param {Array} data - Data array to extract values from
- * @param {string} column - Column name
- * @returns {Array} Sorted unique values
- */
-function uniqueValues(data, column) {
-    return [...new Set(data.map(row => row[column]).filter(v => v))]
-        .sort((a, b) => {
-            const aStr = String(a);
-            const bStr = String(b);
-            return aStr.localeCompare(bStr);
-        });
-}
 
 /**
  * Append option elements to a select element
@@ -1149,23 +1135,6 @@ export function applyPreset(presetKey) {
     showFilterNotification(`Applied preset: ${preset.name}`);
 }
 
-/**
- * Show a filter notification toast
- * @param {string} message - Message to display
- */
-function showFilterNotification(message) {
-    const toast = document.createElement('div');
-    toast.className = 'filter-toast';
-    toast.textContent = message;
-    document.body.appendChild(toast);
-
-    setTimeout(() => toast.classList.add('show'), 10);
-
-    setTimeout(() => {
-        toast.classList.remove('show');
-        setTimeout(() => toast.remove(), 300);
-    }, 3000);
-}
 
 /**
  * Clear all filters and reset to defaults
