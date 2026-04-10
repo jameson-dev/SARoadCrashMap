@@ -392,12 +392,11 @@ export async function loadData() {
         // Load all three datasets in parallel for faster performance
         showLoading('Loading crash data (1/3)...');
 
-        const [crashDataResult, casualtyDataResult, unitsDataResult] = await Promise.all([
+        await Promise.all([
             loadCrashDataOnly(),
             loadCasualtyDataOnly(),
             loadUnitsDataOnly()
         ]);
-
 
         // Link data together after all loaded
         linkCrashData();
