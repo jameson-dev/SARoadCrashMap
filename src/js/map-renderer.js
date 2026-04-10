@@ -372,10 +372,9 @@ export function addMarkers(callback) {
 
     // Process markers in chunks during idle time to avoid blocking UI
     function processChunk(deadline) {
-        const markers = [];
-
         // Process as many markers as we can during this idle period
         while (processedCount < totalMarkers && (deadline.timeRemaining() > 0 || deadline.didTimeout)) {
+            const markers = [];
             const endIndex = Math.min(processedCount + chunkSize, totalMarkers);
 
             for (let i = processedCount; i < endIndex; i++) {
