@@ -670,11 +670,11 @@ export function addDensityMap() {
         densityData.push([coords[0], coords[1], weight]);
     });
 
-    // Fix Canvas2D performance warning before creating heatLayer
-    // Patch HTMLCanvasElement to add willReadFrequently attribute
+    // Leaflet.heat creates its canvas internally so we briefly patch getContext to
+    // pass willReadFrequently:true, suppressing the Canvas2D performance warning.
+    // try/finally guarantees the patch is always removed even if heatLayer throws.
     const originalGetContext = HTMLCanvasElement.prototype.getContext;
     const patchedCanvases = new WeakSet();
-
     HTMLCanvasElement.prototype.getContext = function(type, attributes) {
         if (type === '2d' && !patchedCanvases.has(this)) {
             patchedCanvases.add(this);
@@ -683,26 +683,27 @@ export function addDensityMap() {
         return originalGetContext.call(this, type, attributes);
     };
 
-    mapState.densityLayer = L.heatLayer(densityData, {
-        radius: 2,
-        blur: 1,
-        maxZoom: 17,
-        max: 1.75,  // Higher max = individual crashes show different colors by severity
-        minOpacity: 0.5,
-        gradient: {
-            0.0: 'rgba(0, 0, 255, 0)',
-            0.2: 'rgba(0, 100, 255, 0.7)',
-            0.4: 'rgba(0, 200, 200, 0.85)',
-            0.6: 'rgba(0, 255, 100, 1)',
-            0.75: 'rgba(255, 255, 0, 1)',
-            0.85: 'rgba(255, 150, 0, 1)',
-            0.9: 'rgb(255, 100, 75)',
-            1.0: 'rgb(255, 170, 175)'
-        }
-    }).addTo(mapState.map);
-
-    // Restore original getContext after heatLayer creation
-    HTMLCanvasElement.prototype.getContext = originalGetContext;
+    try {
+        mapState.densityLayer = L.heatLayer(densityData, {
+            radius: 2,
+            blur: 1,
+            maxZoom: 17,
+            max: 1.75,  // Higher max = individual crashes show different colors by severity
+            minOpacity: 0.5,
+            gradient: {
+                0.0: 'rgba(0, 0, 255, 0)',
+                0.2: 'rgba(0, 100, 255, 0.7)',
+                0.4: 'rgba(0, 200, 200, 0.85)',
+                0.6: 'rgba(0, 255, 100, 1)',
+                0.75: 'rgba(255, 255, 0, 1)',
+                0.85: 'rgba(255, 150, 0, 1)',
+                0.9: 'rgb(255, 100, 75)',
+                1.0: 'rgb(255, 170, 175)'
+            }
+        }).addTo(mapState.map);
+    } finally {
+        HTMLCanvasElement.prototype.getContext = originalGetContext;
+    }
 
     // Scale heatmap radius/blur with zoom level; stored so it can be removed later
     mapState.densityZoomListener = function() {
