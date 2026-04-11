@@ -1257,7 +1257,7 @@ export function exportFilteredData(exportAll = true) {
 
     // Add summary header
     csv += `SA Crash Data Export\n`;
-    csv += `Generated: ${new Date().toLocaleString()}\n`;
+    csv += `Generated: ${new Intl.DateTimeFormat('en-AU', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date())}\n`;
     csv += `Total Crashes: ${totalCrashes}\n`;
     csv += `Total Casualties: ${totalCasualties}\n`;
     csv += `Fatalities: ${totalFatalities}\n`;

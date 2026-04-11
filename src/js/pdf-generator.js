@@ -1047,7 +1047,7 @@ class PDFGenerator {
 
             // Subtitle information
             this.setFont(PDF_CONFIG.FONT_SIZE_SMALL, 'normal', PDF_CONFIG.COLOR_TEXT_LIGHT);
-            this.doc.text('Generated: ' + new Date().toLocaleString(), this.pageWidth / 2, this.yPos, { align: 'center' });
+            this.doc.text('Generated: ' + new Intl.DateTimeFormat('en-AU', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date()), this.pageWidth / 2, this.yPos, { align: 'center' });
 
             this.yPos += 10;
             this.doc.text('Total Crashes: ' + this.crashData.length.toLocaleString(), this.pageWidth / 2, this.yPos, { align: 'center' });

@@ -220,7 +220,7 @@ export function buildCheckboxDropdown(id, items) {
 
     const searchWrap = document.createElement('div');
     searchWrap.className = 'dropdown-search-wrap';
-    searchWrap.innerHTML = `<input type="text" class="dropdown-search" placeholder="Search..." oninput="filterDropdownItems('${id}', this.value)">`;
+    searchWrap.innerHTML = `<input type="text" class="dropdown-search" placeholder="Search..." aria-label="Search options" oninput="filterDropdownItems('${id}', this.value)">`;
     menu.appendChild(searchWrap);
 
     const list = document.createElement('div');

@@ -61,6 +61,25 @@
             --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.5);
         }
 
+        /* ── Skip link ── */
+        .skip-link {
+            position: absolute;
+            top: -48px;
+            left: 0;
+            background: var(--accent);
+            color: var(--accent-text);
+            padding: 10px 18px;
+            z-index: 99999;
+            border-radius: 0 0 6px 0;
+            font-weight: 600;
+            font-size: 14px;
+            text-decoration: none;
+            transition: top 0.2s;
+        }
+        .skip-link:focus {
+            top: 0;
+        }
+
         * {
             margin: 0;
             padding: 0;
@@ -148,7 +167,7 @@
             z-index: 1000;
             box-shadow: var(--shadow-lg);
             border: 1px solid var(--border);
-            transition: all 0.3s ease;
+            transition: background-color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
         }
 
         .controls-panel.collapsed {
@@ -208,7 +227,7 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            transition: all 0.3s;
+            transition: background-color 0.3s, transform 0.3s;
             border-radius: 4px;
         }
 
@@ -228,7 +247,7 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            transition: all 0.3s;
+            transition: background-color 0.3s, color 0.3s, transform 0.3s;
             border-radius: 50%;
             margin-right: 5px;
             font-weight: bold;
@@ -252,7 +271,7 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            transition: all 0.3s;
+            transition: background-color 0.3s, transform 0.3s;
             border-radius: 4px;
             margin-right: 5px;
         }
@@ -331,7 +350,7 @@
             font-size: 13px;
             font-weight: 500;
             cursor: pointer;
-            transition: all 0.3s;
+            transition: background-color 0.3s, box-shadow 0.3s;
         }
 
         .preset-select:hover {
@@ -340,8 +359,11 @@
         }
 
         .preset-select:focus {
-            outline: none;
             box-shadow: 0 0 0 3px var(--accent-shadow);
+        }
+
+        .preset-select:focus:not(:focus-visible) {
+            outline: none;
         }
 
         .preset-description {
@@ -375,7 +397,7 @@
             z-index: 10001;
             opacity: 0;
             transform: translateX(400px);
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            transition: opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1), transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
         .filter-toast.show {
@@ -403,7 +425,7 @@
             font-size: 13px;
             font-weight: 500;
             cursor: pointer;
-            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            transition: border-color 0.2s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
         select:hover, input[type="number"]:hover, input[type="text"]:hover {
@@ -412,10 +434,15 @@
         }
 
         select:focus, input[type="number"]:focus, input[type="text"]:focus {
-            outline: none;
             border-color: var(--accent);
             background: var(--bg-primary);
             box-shadow: 0 0 0 3px var(--accent-bg);
+        }
+
+        select:focus:not(:focus-visible),
+        input[type="number"]:focus:not(:focus-visible),
+        input[type="text"]:focus:not(:focus-visible) {
+            outline: none;
         }
 
         select:disabled, input:disabled {
@@ -434,7 +461,7 @@
             font-size: 11px;
             font-weight: 500;
             cursor: pointer;
-            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            transition: border-color 0.2s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1);
             color-scheme: light dark;
         }
 
@@ -444,10 +471,14 @@
         }
 
         input[type="date"]:focus, input[type="time"]:focus {
-            outline: none;
             border-color: var(--accent);
             background: var(--bg-primary);
             box-shadow: 0 0 0 3px var(--accent-bg);
+        }
+
+        input[type="date"]:focus:not(:focus-visible),
+        input[type="time"]:focus:not(:focus-visible) {
+            outline: none;
         }
 
         /* Prevent iOS Safari from zooming the page when an input is focused.
@@ -483,7 +514,7 @@
             background: var(--accent);
             border-radius: 50%;
             cursor: pointer;
-            transition: all 0.3s;
+            transition: background-color 0.3s, transform 0.3s;
         }
 
         input[type="range"]::-webkit-slider-thumb:hover {
@@ -498,7 +529,7 @@
             border-radius: 50%;
             cursor: pointer;
             border: none;
-            transition: all 0.3s;
+            transition: background-color 0.3s, transform 0.3s;
         }
 
         input[type="range"]::-moz-range-thumb:hover {
@@ -561,7 +592,7 @@
             color: var(--text-secondary);
             border-radius: 3px;
             cursor: pointer;
-            transition: all 0.2s;
+            transition: background-color 0.2s, color 0.2s, border-color 0.2s;
         }
 
         .select-all-btn:hover {
@@ -632,13 +663,16 @@
             color: var(--text-primary);
             border-radius: 4px;
             font-size: 11px;
-            transition: all 0.3s;
+            transition: border-color 0.3s, box-shadow 0.3s;
         }
 
         .area-search-input:focus {
-            outline: none;
             border-color: var(--accent);
             box-shadow: 0 0 0 2px var(--border);
+        }
+
+        .area-search-input:focus:not(:focus-visible) {
+            outline: none;
         }
 
         .area-search-input::placeholder {
@@ -720,7 +754,7 @@
             background: var(--border-light);
             border-radius: 6px;
             cursor: pointer;
-            transition: all 0.2s;
+            transition: background-color 0.2s;
             user-select: none;
         }
 
@@ -790,7 +824,7 @@
             font-size: 11px;
             color: var(--text-primary);
             cursor: pointer;
-            transition: all 0.2s;
+            transition: background-color 0.2s, color 0.2s;
             border-bottom: 1px solid var(--border-light);
         }
 
@@ -865,7 +899,7 @@
             border: 1px solid var(--border);
             border-radius: 6px;
             cursor: pointer;
-            transition: all 0.3s;
+            transition: background-color 0.3s, border-color 0.3s, transform 0.3s;
             font-size: 12px;
         }
 
@@ -900,7 +934,7 @@
             color: var(--text-secondary);
             cursor: pointer;
             border-radius: 10px;
-            transition: all 0.2s;
+            transition: background-color 0.2s, color 0.2s;
             position: relative;
             white-space: nowrap;
         }
@@ -980,7 +1014,7 @@
             font-size: 12px;
             font-weight: 600;
             cursor: pointer;
-            transition: all 0.2s ease;
+            transition: background-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -1066,7 +1100,7 @@
             font-size: 14px;
             font-weight: 700;
             cursor: pointer;
-            transition: all 0.3s;
+            transition: background-color 0.3s, transform 0.3s, box-shadow 0.3s;
             box-shadow: var(--shadow-sm);
         }
 
@@ -1091,7 +1125,7 @@
             font-size: 12px;
             font-weight: 700;
             cursor: pointer;
-            transition: all 0.3s;
+            transition: background-color 0.3s, border-color 0.3s, color 0.3s, transform 0.3s;
         }
 
         .clear-filters-btn:hover {
@@ -1206,7 +1240,7 @@
             font-size: 12px;
             font-weight: 600;
             cursor: pointer;
-            transition: all 0.3s;
+            transition: background-color 0.3s, color 0.3s;
         }
 
         .share-view-btn:hover {
@@ -1288,7 +1322,7 @@
             font-size: 11px;
             font-weight: bold;
             cursor: help;
-            transition: all 0.2s;
+            transition: border-color 0.2s, color 0.2s, transform 0.2s;
             position: relative;
             flex-shrink: 0;
         }
@@ -1319,7 +1353,7 @@
             pointer-events: none;
             opacity: 0;
             visibility: hidden;
-            transition: all 0.3s;
+            transition: opacity 0.3s, visibility 0.3s;
             white-space: normal;
             text-align: center;
         }
@@ -1408,7 +1442,7 @@
             font-size: 12px;
             font-weight: 600;
             cursor: pointer;
-            transition: all 0.3s;
+            transition: background-color 0.3s, color 0.3s, transform 0.3s, box-shadow 0.3s;
             position: relative;
         }
 
@@ -1535,7 +1569,7 @@
             font-weight: 500;
             cursor: pointer;
             border-bottom: 2px solid transparent;
-            transition: all 0.2s;
+            transition: color 0.2s, border-bottom-color 0.2s;
             white-space: nowrap;
         }
 
@@ -1578,7 +1612,7 @@
             font-size: 14px;
             font-weight: 600;
             cursor: pointer;
-            transition: all 0.2s;
+            transition: background-color 0.2s, transform 0.2s, box-shadow 0.2s;
         }
 
         .modal-apply-btn {
@@ -1828,8 +1862,12 @@
             justify-content: center;
             gap: 6px;
             cursor: pointer;
-            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            transition: background-color 0.2s cubic-bezier(0.4, 0, 0.2, 1), color 0.2s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.2s cubic-bezier(0.4, 0, 0.2, 1), transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.2s cubic-bezier(0.4, 0, 0.2, 1);
             border: none;
+        }
+
+        button:focus:not(:focus-visible),
+        .btn:focus:not(:focus-visible) {
             outline: none;
         }
 
@@ -1966,13 +2004,16 @@
             background: var(--bg-secondary);
             color: var(--text-primary);
             font-size: 13px;
-            transition: all 0.2s;
+            transition: border-color 0.2s, box-shadow 0.2s;
         }
 
         .tutorial-search-input:focus {
-            outline: none;
             border-color: var(--accent);
             box-shadow: 0 0 0 3px var(--accent-bg);
+        }
+
+        .tutorial-search-input:focus:not(:focus-visible) {
+            outline: none;
         }
 
         .tutorial-search-input::placeholder {
@@ -2227,7 +2268,7 @@
         .footer-links a {
             color: var(--accent);
             text-decoration: none;
-            transition: all 0.2s;
+            transition: color 0.2s;
             font-weight: 500;
         }
 
@@ -2322,7 +2363,7 @@
             cursor: pointer;
             font-size: 14px;
             font-weight: 600;
-            transition: all 0.3s;
+            transition: background-color 0.3s, transform 0.3s;
         }
 
         .info-modal-close:hover {
@@ -2539,7 +2580,7 @@
             color: var(--text-secondary);
             border-radius: 3px;
             cursor: pointer;
-            transition: all 0.2s;
+            transition: background-color 0.2s, color 0.2s, border-color 0.2s;
         }
 
         .checkbox-select-all:hover {
@@ -2570,7 +2611,7 @@
             font-size: 13px;
             font-weight: 500;
             cursor: pointer;
-            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            transition: border-color 0.2s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1);
             text-align: left;
             position: relative;
             white-space: nowrap;
@@ -2642,6 +2683,9 @@
             color: var(--text-primary);
             font-size: 12px;
             box-sizing: border-box;
+        }
+
+        .dropdown-search:focus:not(:focus-visible) {
             outline: none;
         }
 
@@ -2720,7 +2764,7 @@
             color: var(--text-secondary);
             border-radius: 3px;
             cursor: pointer;
-            transition: all 0.2s;
+            transition: background-color 0.2s, color 0.2s, border-color 0.2s;
         }
 
         .checkbox-dropdown-controls button:first-child:hover {
@@ -2750,7 +2794,7 @@
             z-index: 1000;
             box-shadow: var(--shadow-lg);
             border: 1px solid var(--border);
-            transition: all 0.3s ease;
+            transition: max-height 0.3s ease, max-width 0.3s ease;
             overflow: hidden;
         }
 
@@ -2958,7 +3002,7 @@
             color: var(--text-secondary);
             border-radius: 4px;
             cursor: pointer;
-            transition: all 0.15s;
+            transition: border-color 0.15s, color 0.15s, background-color 0.15s;
         }
 
         .chart-toggle-btn:hover {
@@ -3306,7 +3350,7 @@
             border-radius: 20px;
             box-shadow: var(--shadow-sm);
             backdrop-filter: blur(10px);
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            transition: max-width 0.3s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
         .active-filters-bar:hover {
@@ -3366,7 +3410,7 @@
             max-height: 0;
             padding: 0 14px;
             overflow: hidden;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            transition: max-height 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1), padding 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             opacity: 0;
             display: flex;
             flex-wrap: wrap;
@@ -3580,7 +3624,7 @@
     font-weight: 600;
     border-radius: 8px;
     cursor: pointer;
-    transition: all 0.2s;
+    transition: background-color 0.2s, transform 0.2s, box-shadow 0.2s;
 }
 
 .acknowledge-btn:hover {
@@ -3729,7 +3773,7 @@
     color: var(--text-primary);
     border-radius: 5px;
     cursor: pointer;
-    transition: all 0.2s;
+    transition: background-color 0.2s, border-color 0.2s, color 0.2s;
     min-width: 40px;
     display: flex;
     align-items: center;
@@ -3757,7 +3801,7 @@
     border-radius: 5px;
     cursor: pointer;
     line-height: 1;
-    transition: all 0.2s;
+    transition: background-color 0.2s, border-color 0.2s, color 0.2s, transform 0.2s;
 }
 
 .data-table-close-btn:hover {
@@ -3877,14 +3921,17 @@
     border-radius: 5px;
     background: var(--bg-primary);
     color: var(--text-primary);
-    transition: all 0.2s;
+    transition: border-color 0.2s, background-color 0.2s, box-shadow 0.2s;
 }
 
 .data-table-search:focus {
-    outline: none;
     border-color: var(--accent);
     background: var(--bg-secondary);
     box-shadow: 0 0 0 3px var(--accent-bg);
+}
+
+.data-table-search:focus:not(:focus-visible) {
+    outline: none;
 }
 
 .data-table-search::placeholder {
@@ -3936,7 +3983,7 @@
     background: var(--bg-primary);
     color: var(--text-primary);
     cursor: pointer;
-    transition: all 0.2s;
+    transition: border-color 0.2s, background-color 0.2s, box-shadow 0.2s;
 }
 
 .data-table-page-size:hover {
@@ -3945,9 +3992,12 @@
 }
 
 .data-table-page-size:focus {
-    outline: none;
     border-color: var(--accent);
     box-shadow: 0 0 0 3px var(--accent-bg);
+}
+
+.data-table-page-size:focus:not(:focus-visible) {
+    outline: none;
 }
 
 /* Jump to page */
@@ -3972,13 +4022,16 @@
     background: var(--bg-primary);
     color: var(--text-primary);
     text-align: center;
-    transition: all 0.2s;
+    transition: border-color 0.2s, box-shadow 0.2s;
 }
 
 .dt-jump-input:focus {
-    outline: none;
     border-color: var(--accent);
     box-shadow: 0 0 0 3px var(--accent-bg);
+}
+
+.dt-jump-input:focus:not(:focus-visible) {
+    outline: none;
 }
 
 /* Remove spinner arrows */
@@ -4005,7 +4058,7 @@
     background: var(--bg-primary);
     color: var(--text-primary);
     cursor: pointer;
-    transition: all 0.2s;
+    transition: background-color 0.2s, border-color 0.2s, color 0.2s, transform 0.2s;
     font-weight: 500;
 }
 
@@ -4032,7 +4085,7 @@
     background: var(--bg-primary);
     color: var(--text-primary);
     cursor: pointer;
-    transition: all 0.2s;
+    transition: background-color 0.2s, border-color 0.2s, color 0.2s, transform 0.2s;
     line-height: 1;
 }
 
@@ -4432,7 +4485,7 @@ body.draw-mode-active #map {
     color: var(--text-primary);
     border-radius: 6px;
     cursor: pointer;
-    transition: all 0.2s;
+    transition: border-color 0.2s, background-color 0.2s, color 0.2s;
     font-weight: 500;
 }
 
@@ -4603,7 +4656,7 @@ body.draw-mode-active #map {
     border: 1px solid var(--border-light);
     border-radius: 4px;
     cursor: move;
-    transition: all 0.2s ease;
+    transition: background-color 0.2s ease, border-color 0.2s ease, opacity 0.2s ease;
 }
 
 .pdf-draggable-item:hover {
@@ -4797,7 +4850,7 @@ body.draw-mode-active #map {
     display: flex;
     align-items: center;
     gap: 6px;
-    transition: all 0.2s ease;
+    transition: background-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
 }
 
 .position-map-btn:hover {

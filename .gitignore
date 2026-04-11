@@ -195,3 +195,5 @@ data/*.json
 !data/*.json.gz
 package-lock.json
 package.json
+/.agents
+skills-lock.json

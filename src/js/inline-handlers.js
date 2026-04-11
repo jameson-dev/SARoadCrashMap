@@ -43,7 +43,10 @@ function toggleCheckboxDropdown(dropdownId) {
         if (m !== menu && m.classList.contains('show')) {
             m.classList.remove('show');
             const otherTrigger = m.previousElementSibling;
-            if (otherTrigger) otherTrigger.classList.remove('open');
+            if (otherTrigger) {
+                otherTrigger.classList.remove('open');
+                otherTrigger.setAttribute('aria-expanded', 'false');
+            }
             const otherArrow = m.previousElementSibling?.querySelector('.dropdown-arrow');
             if (otherArrow) otherArrow.style.transform = 'rotate(0deg)';
             // Clear search in the closed dropdown
@@ -58,7 +61,10 @@ function toggleCheckboxDropdown(dropdownId) {
     // Toggle current dropdown
     if (menu.classList.contains('show')) {
         menu.classList.remove('show');
-        if (trigger) trigger.classList.remove('open');
+        if (trigger) {
+            trigger.classList.remove('open');
+            trigger.setAttribute('aria-expanded', 'false');
+        }
         if (arrow) arrow.style.transform = 'rotate(0deg)';
         // Clear search when closing
         const search = menu.querySelector('.dropdown-search');
@@ -68,7 +74,10 @@ function toggleCheckboxDropdown(dropdownId) {
         }
     } else {
         menu.classList.add('show');
-        if (trigger) trigger.classList.add('open');
+        if (trigger) {
+            trigger.classList.add('open');
+            trigger.setAttribute('aria-expanded', 'true');
+        }
         if (arrow) arrow.style.transform = 'rotate(180deg)';
         // Focus search input when opening
         const search = menu.querySelector('.dropdown-search');
@@ -163,6 +172,20 @@ function initCheckboxDropdowns() {
         }
     });
 
+    // Handle dropdown trigger keyboard activation (Enter / Space)
+    document.addEventListener('keydown', (e) => {
+        if (e.key !== 'Enter' && e.key !== ' ') return;
+        const trigger = e.target.closest('.checkbox-dropdown-trigger');
+        if (trigger) {
+            e.preventDefault();
+            const menu = trigger.nextElementSibling;
+            if (menu && menu.classList.contains('checkbox-dropdown-menu')) {
+                const dropdownId = menu.id.replace('Menu', '');
+                toggleCheckboxDropdown(dropdownId);
+            }
+        }
+    });
+
     // Handle search input
     document.addEventListener('input', (e) => {
         if (e.target.classList.contains('dropdown-search')) {
@@ -208,7 +231,10 @@ function initCheckboxDropdowns() {
             document.querySelectorAll('.checkbox-dropdown-menu.show').forEach(menu => {
                 menu.classList.remove('show');
                 const trigger = menu.previousElementSibling;
-                if (trigger) trigger.classList.remove('open');
+                if (trigger) {
+                    trigger.classList.remove('open');
+                    trigger.setAttribute('aria-expanded', 'false');
+                }
                 const arrow = trigger?.querySelector('.dropdown-arrow');
                 if (arrow) arrow.style.transform = 'rotate(0deg)';
             });

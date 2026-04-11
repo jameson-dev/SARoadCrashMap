@@ -44,6 +44,8 @@
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
+    <a href="#map" class="skip-link">Skip to map</a>
+
     <!-- First Visit Disclaimer Acknowledgment -->
     <div id="firstVisitOverlay" class="first-visit-overlay" style="display: none;">
         <div class="first-visit-popup">
@@ -100,13 +102,13 @@
         <div class="panel-header">
             <span>Explorer</span>
             <div class="flex-gap-small">
-                <button class="help-btn" onclick="openTutorial()" title="Open Usage Guide">
+                <button class="help-btn" onclick="openTutorial()" aria-label="Open usage guide">
                     <span>?</span>
                 </button>
-                <button class="theme-toggle-btn" onclick="toggleTheme()" title="Toggle Light/Dark Mode">
+                <button class="theme-toggle-btn" onclick="toggleTheme()" aria-label="Toggle light/dark mode">
                     <span id="themeIcon">☀️</span>
                 </button>
-                <button class="collapse-btn" onclick="togglePanelCollapse()" title="Collapse/Expand">
+                <button class="collapse-btn" onclick="togglePanelCollapse()" aria-label="Collapse panel">
                     <span id="collapseIcon">▲</span>
                 </button>
                 <!-- Mobile-only: explicit close button since the collapse button
@@ -120,7 +122,13 @@
         <div class="spatial-filters-row section-divider">
             <!-- Location Search -->
             <div class="filter-group spatial-filter-col">
-                <div class="location-search-header" onclick="toggleLocationSearch()">
+                <div class="location-search-header"
+                     onclick="toggleLocationSearch()"
+                     onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleLocationSearch();}"
+                     role="button"
+                     tabindex="0"
+                     aria-expanded="false"
+                     aria-controls="locationSearchContent">
                     <span class="header-text">🔍 Search</span>
                     <span class="toggle-icon">▼</span>
                 </div>
@@ -160,7 +168,13 @@
 
             <!-- Draw Area -->
             <div class="filter-group spatial-filter-col">
-                <div class="location-search-header" onclick="toggleDrawAreaSection()">
+                <div class="location-search-header"
+                     onclick="toggleDrawAreaSection()"
+                     onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleDrawAreaSection();}"
+                     role="button"
+                     tabindex="0"
+                     aria-expanded="false"
+                     aria-controls="drawAreaContent">
                     <span class="header-text">&#128208; Draw Area</span>
                     <span class="toggle-icon" id="drawAreaToggleIcon">&#9660;</span>
                 </div>
@@ -192,13 +206,13 @@
             <div class="filter-group">
                 <label class="filter-label">Crash Severity</label>
                 <div class="checkbox-dropdown" id="severityDropdown">
-                    <div class="checkbox-dropdown-trigger">
+                    <div class="checkbox-dropdown-trigger" role="button" tabindex="0" aria-haspopup="listbox" aria-expanded="false">
                         <span id="severityDisplay">All Severities</span>
                         <span class="dropdown-arrow">▼</span>
                     </div>
                     <div class="checkbox-dropdown-menu" id="severityMenu">
                         <div class="dropdown-search-wrap">
-                            <input type="text" class="dropdown-search" placeholder="Search...">
+                            <input type="text" class="dropdown-search" placeholder="Search..." aria-label="Search severity options">
                         </div>
                         <div class="dropdown-items-list" id="severityItemsList">
                             <div class="checkbox-dropdown-item">
@@ -229,7 +243,7 @@
             <div class="filter-group">
                 <label class="filter-label">Crash Type</label>
                 <div class="checkbox-dropdown" id="crashTypeDropdown">
-                    <div class="checkbox-dropdown-trigger">
+                    <div class="checkbox-dropdown-trigger" role="button" tabindex="0" aria-haspopup="listbox" aria-expanded="false">
                         <span id="crashTypeDisplay">All Types</span>
                         <span class="dropdown-arrow">▼</span>
                     </div>
@@ -242,7 +256,7 @@
             <div class="filter-group">
                 <label class="filter-label">Area</label>
                 <div class="checkbox-dropdown" id="areaDropdown">
-                    <div class="checkbox-dropdown-trigger">
+                    <div class="checkbox-dropdown-trigger" role="button" tabindex="0" aria-haspopup="listbox" aria-expanded="false">
                         <span id="areaDisplay">All Areas</span>
                         <span class="dropdown-arrow">▼</span>
                     </div>
@@ -255,7 +269,7 @@
             <div class="filter-group">
                 <label class="filter-label">Suburb</label>
                 <div class="checkbox-dropdown" id="suburbDropdown">
-                    <div class="checkbox-dropdown-trigger">
+                    <div class="checkbox-dropdown-trigger" role="button" tabindex="0" aria-haspopup="listbox" aria-expanded="false">
                         <span id="suburbDisplay">All Suburbs</span>
                         <span class="dropdown-arrow">▼</span>
                     </div>
@@ -299,11 +313,17 @@
 
         <div class="layer-controls">
             <div class="filter-label map-layers-label">Map Layers</div>
-            <div class="layer-toggle active" id="markersToggle" onclick="toggleLayer('markers')">
+            <div class="layer-toggle active" id="markersToggle"
+                 onclick="toggleLayer('markers')"
+                 onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleLayer('markers');}"
+                 role="button" tabindex="0" aria-pressed="true">
                 <span>🎯 Markers</span>
                 <span id="markersStatus">ON</span>
             </div>
-            <div class="layer-toggle" id="densityToggle" onclick="toggleLayer('density')">
+            <div class="layer-toggle" id="densityToggle"
+                 onclick="toggleLayer('density')"
+                 onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleLayer('density');}"
+                 role="button" tabindex="0" aria-pressed="false">
                 <div class="layer-label-container">
                     <span>💠 Point Density</span>
                     <div class="layer-info-icon" onclick="event.stopPropagation()" tabindex="0" role="button" aria-label="Layer info">
@@ -316,7 +336,10 @@
                 <span id="densityStatus">OFF</span>
             </div>
             <div class="layer-toggle" id="choroplethToggle">
-                <div class="layer-label-container layer-label-flex" onclick="toggleLayer('choropleth')">
+                <div class="layer-label-container layer-label-flex"
+                     onclick="toggleLayer('choropleth')"
+                     onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleLayer('choropleth');}"
+                     role="button" tabindex="0">
                     <span>🗺️ Choropleth</span>
                 </div>
                 <div class="choropleth-mode-pill">
@@ -374,7 +397,7 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h2>Advanced Filters</h2>
-                <button class="modal-close" onclick="closeAdvancedFilters()">&times;</button>
+                <button class="modal-close" onclick="closeAdvancedFilters()" aria-label="Close Advanced Filters">&times;</button>
             </div>
 
             <div class="modal-tabs">
@@ -733,9 +756,15 @@
 
     <!-- Analytics Panel -->
     <div class="analytics-panel collapsed" id="analyticsPanel">
-        <div class="analytics-header" onclick="toggleAnalyticsPanel()">
+        <div class="analytics-header"
+             onclick="toggleAnalyticsPanel()"
+             onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleAnalyticsPanel();}"
+             role="button"
+             tabindex="0"
+             aria-expanded="false"
+             aria-controls="analyticsPanel">
             <h3>📊 Analytics</h3>
-            <button class="analytics-close-btn" onclick="closeAnalyticsPanel(event)" title="Close">✕</button>
+            <button class="analytics-close-btn" onclick="closeAnalyticsPanel(event)" aria-label="Close analytics panel">✕</button>
         </div>
         <div class="analytics-content">
             <div class="chart-container">
