@@ -96,14 +96,8 @@ export function escapeCSV(value) {
  * @returns {Array} Sorted unique values
  */
 export function uniqueValues(data, column) {
-    const values = new Set();
-    data.forEach(row => {
-        const value = row[column];
-        if (value && value !== '' && value !== 'N/A') {
-            values.add(value);
-        }
-    });
-    return Array.from(values).sort();
+    return [...new Set(data.map(row => row[column]).filter(v => v))]
+        .sort((a, b) => String(a).localeCompare(String(b)));
 }
 
 /**
@@ -215,32 +209,6 @@ export function getLGAName(properties) {
 }
 
 /**
- * Expand abbreviations in search term
- * @param {string} searchTerm - Search term
- * @returns {string} Expanded search term
- */
-export function expandAbbreviations(searchTerm) {
-    const normalized = searchTerm.toLowerCase().trim();
-
-    const abbreviations = {
-        'mt': 'mount',
-        'st': 'saint',
-        'pt': 'port',
-        'nth': 'north',
-        'sth': 'south',
-        'ck': 'creek'
-    };
-
-    let expanded = normalized;
-    for (const [abbr, full] of Object.entries(abbreviations)) {
-        const regex = new RegExp('\\b' + abbr + '\\b', 'gi');
-        expanded = expanded.replace(regex, full);
-    }
-
-    return expanded;
-}
-
-/**
  * Highlight matching text
  * @param {string} text - Text to highlight
  * @param {string} search - Search term
@@ -248,7 +216,8 @@ export function expandAbbreviations(searchTerm) {
  */
 export function highlightMatch(text, search) {
     if (!search) return escapeHtml(text);
-    const regex = new RegExp(`(${search})`, 'gi');
+    const escapedSearch = search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regex = new RegExp(`(${escapedSearch})`, 'gi');
     return escapeHtml(text).replace(regex, '<strong>$1</strong>');
 }
 
@@ -307,19 +276,15 @@ export function hideLoading() {
  * @param {string} message - Notification message
  */
 export function showFilterNotification(message) {
-    let notif = document.getElementById('filterNotification');
+    const toast = document.createElement('div');
+    toast.className = 'filter-toast';
+    toast.textContent = message;
+    document.body.appendChild(toast);
 
-    if (!notif) {
-        notif = document.createElement('div');
-        notif.id = 'filterNotification';
-        notif.className = 'filter-notification';
-        document.body.appendChild(notif);
-    }
-
-    notif.textContent = message;
-    notif.classList.add('show');
+    setTimeout(() => toast.classList.add('show'), 10);
 
     setTimeout(() => {
-        notif.classList.remove('show');
+        toast.classList.remove('show');
+        setTimeout(() => toast.remove(), 300);
     }, 3000);
 }

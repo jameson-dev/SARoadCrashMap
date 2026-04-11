@@ -37,6 +37,7 @@ import {
 
 import { updateStatistics } from './analytics.js';
 import { showNotification } from './ui.js';
+import { debounce } from './performance.js';
 
 // ============================================================================
 // CANVAS RENDERER FOR PDF EXPORT
@@ -49,23 +50,6 @@ const canvasRenderer = L.canvas();
 // UTILITY FUNCTIONS
 // ============================================================================
 
-/**
- * Debounce utility function
- * @param {Function} func - Function to debounce
- * @param {number} wait - Wait time in milliseconds
- * @returns {Function} Debounced function
- */
-function debounce(func, wait) {
-    let timeout;
-    return function executedFunction(...args) {
-        const later = () => {
-            clearTimeout(timeout);
-            func(...args);
-        };
-        clearTimeout(timeout);
-        timeout = setTimeout(later, wait);
-    };
-}
 
 // ============================================================================
 // MAP INITIALIZATION
@@ -372,10 +356,9 @@ export function addMarkers(callback) {
 
     // Process markers in chunks during idle time to avoid blocking UI
     function processChunk(deadline) {
-        const markers = [];
-
         // Process as many markers as we can during this idle period
         while (processedCount < totalMarkers && (deadline.timeRemaining() > 0 || deadline.didTimeout)) {
+            const markers = [];
             const endIndex = Math.min(processedCount + chunkSize, totalMarkers);
 
             for (let i = processedCount; i < endIndex; i++) {
@@ -442,7 +425,7 @@ export function addMarkers(callback) {
 /**
  * Helper function to parse numeric values and remove leading zeros
  */
-function parseNumeric(value) {
+function formatInt(value) {
     if (!value) return value;
     const parsed = parseInt(value, 10);
     return isNaN(parsed) ? value : parsed.toString();
@@ -483,7 +466,7 @@ export function generatePopupContent(crash) {
                     <p style="margin: 3px 0; font-size: 12px;"><strong>Type:</strong> ${crash['Crash Type'] || 'N/A'}</p>
                     <p style="margin: 3px 0; font-size: 12px;"><strong>Weather:</strong> ${crash['Weather Cond'] || 'N/A'} | ${crash.DayNight || 'N/A'}</p>
                     <p style="margin: 3px 0; font-size: 12px;"><strong>Road:</strong> ${crash['Road Surface'] || 'N/A'} | ${crash['Moisture Cond'] || 'N/A'}</p>
-                    <p style="margin: 3px 0; font-size: 12px;"><strong>Speed Limit:</strong> ${parseNumeric(crash['Area Speed']) || 'N/A'} km/h</p>
+                    <p style="margin: 3px 0; font-size: 12px;"><strong>Speed Limit:</strong> ${formatInt(crash['Area Speed']) || 'N/A'} km/h</p>
                     ${crash['DUI Involved'] && crash['DUI Involved'].trim() ? '<p style="margin: 3px 0; font-size: 12px; color: red; font-weight: bold;">⚠ DUI Involved</p>' : ''}
                     ${crash['Drugs Involved'] && crash['Drugs Involved'].trim() ? '<p style="margin: 3px 0; font-size: 12px; color: red; font-weight: bold;">⚠ Drugs Involved</p>' : ''}
                 </div>`;
@@ -519,7 +502,7 @@ export function generatePopupContent(crash) {
                 const extraCount = casualties.length - 3;
                 html += `<div style="margin-top: 5px; font-size: 10px; color: #666;">`;
                 casualties.slice(0, 3).forEach((c, idx) => {
-                    const age = parseNumeric(c.AGE) || '?';
+                    const age = formatInt(c.AGE) || '?';
                     const sex = c.Sex || '?';
                     const type = c['Casualty Type'] || 'Unknown';
                     const injury = c['Injury Extent'] || 'Unknown';
@@ -533,7 +516,7 @@ export function generatePopupContent(crash) {
                 if (extraCount > 0) {
                     html += `<div id="${casExtraId}" style="display:none;">`;
                     casualties.slice(3).forEach((c, idx) => {
-                        const age = parseNumeric(c.AGE) || '?';
+                        const age = formatInt(c.AGE) || '?';
                         const sex = c.Sex || '?';
                         const type = c['Casualty Type'] || 'Unknown';
                         const injury = c['Injury Extent'] || 'Unknown';
@@ -588,13 +571,13 @@ export function generatePopupContent(crash) {
                 html += `<div style="margin-top: 5px; font-size: 10px; color: #666;">`;
                 units.slice(0, 3).forEach((u, idx) => {
                     const type = u['Unit Type'] || 'Unknown';
-                    const year = u['Veh Year'] ? ` (${parseNumeric(u['Veh Year'])})` : '';
-                    const occupants = u['Number Occupants'] ? `, ${parseNumeric(u['Number Occupants'])} occupants` : '';
+                    const year = u['Veh Year'] ? ` (${formatInt(u['Veh Year'])})` : '';
+                    const occupants = u['Number Occupants'] ? `, ${formatInt(u['Number Occupants'])} occupants` : '';
                     const regState = u['Veh Reg State'] ? `, Reg: ${u['Veh Reg State']}` : '';
                     const direction = u['Direction Of Travel'] ? `, ${u['Direction Of Travel']}` : '';
                     const movement = u['Unit Movement'] ? `, ${u['Unit Movement']}` : '';
                     // Driver demographics
-                    const driverAge = u.Age ? parseNumeric(u.Age) : '?';
+                    const driverAge = u.Age ? formatInt(u.Age) : '?';
                     const driverSex = u.Sex || '?';
                     const driverInfo = (u.Age || u.Sex) ? ` | Driver: ${driverAge}/${driverSex}` : '';
                     html += `<p style="margin: 3px 0 3px 10px;">
@@ -605,13 +588,13 @@ export function generatePopupContent(crash) {
                     html += `<div id="${unitExtraId}" style="display:none;">`;
                     units.slice(3).forEach((u, idx) => {
                         const type = u['Unit Type'] || 'Unknown';
-                        const year = u['Veh Year'] ? ` (${parseNumeric(u['Veh Year'])})` : '';
-                        const occupants = u['Number Occupants'] ? `, ${parseNumeric(u['Number Occupants'])} occupants` : '';
+                        const year = u['Veh Year'] ? ` (${formatInt(u['Veh Year'])})` : '';
+                        const occupants = u['Number Occupants'] ? `, ${formatInt(u['Number Occupants'])} occupants` : '';
                         const regState = u['Veh Reg State'] ? `, Reg: ${u['Veh Reg State']}` : '';
                         const direction = u['Direction Of Travel'] ? `, ${u['Direction Of Travel']}` : '';
                         const movement = u['Unit Movement'] ? `, ${u['Unit Movement']}` : '';
                         // Driver demographics
-                        const driverAge = u.Age ? parseNumeric(u.Age) : '?';
+                        const driverAge = u.Age ? formatInt(u.Age) : '?';
                         const driverSex = u.Sex || '?';
                         const driverInfo = (u.Age || u.Sex) ? ` | Driver: ${driverAge}/${driverSex}` : '';
                         html += `<p style="margin: 3px 0 3px 10px;">
@@ -671,11 +654,11 @@ export function addDensityMap() {
         densityData.push([coords[0], coords[1], weight]);
     });
 
-    // Fix Canvas2D performance warning before creating heatLayer
-    // Patch HTMLCanvasElement to add willReadFrequently attribute
+    // Leaflet.heat creates its canvas internally so we briefly patch getContext to
+    // pass willReadFrequently:true, suppressing the Canvas2D performance warning.
+    // try/finally guarantees the patch is always removed even if heatLayer throws.
     const originalGetContext = HTMLCanvasElement.prototype.getContext;
     const patchedCanvases = new WeakSet();
-
     HTMLCanvasElement.prototype.getContext = function(type, attributes) {
         if (type === '2d' && !patchedCanvases.has(this)) {
             patchedCanvases.add(this);
@@ -684,26 +667,27 @@ export function addDensityMap() {
         return originalGetContext.call(this, type, attributes);
     };
 
-    mapState.densityLayer = L.heatLayer(densityData, {
-        radius: 2,
-        blur: 1,
-        maxZoom: 17,
-        max: 1.75,  // Higher max = individual crashes show different colors by severity
-        minOpacity: 0.5,
-        gradient: {
-            0.0: 'rgba(0, 0, 255, 0)',
-            0.2: 'rgba(0, 100, 255, 0.7)',
-            0.4: 'rgba(0, 200, 200, 0.85)',
-            0.6: 'rgba(0, 255, 100, 1)',
-            0.75: 'rgba(255, 255, 0, 1)',
-            0.85: 'rgba(255, 150, 0, 1)',
-            0.9: 'rgb(255, 100, 75)',
-            1.0: 'rgb(255, 170, 175)'
-        }
-    }).addTo(mapState.map);
-
-    // Restore original getContext after heatLayer creation
-    HTMLCanvasElement.prototype.getContext = originalGetContext;
+    try {
+        mapState.densityLayer = L.heatLayer(densityData, {
+            radius: 2,
+            blur: 1,
+            maxZoom: 17,
+            max: 1.75,  // Higher max = individual crashes show different colors by severity
+            minOpacity: 0.5,
+            gradient: {
+                0.0: 'rgba(0, 0, 255, 0)',
+                0.2: 'rgba(0, 100, 255, 0.7)',
+                0.4: 'rgba(0, 200, 200, 0.85)',
+                0.6: 'rgba(0, 255, 100, 1)',
+                0.75: 'rgba(255, 255, 0, 1)',
+                0.85: 'rgba(255, 150, 0, 1)',
+                0.9: 'rgb(255, 100, 75)',
+                1.0: 'rgb(255, 170, 175)'
+            }
+        }).addTo(mapState.map);
+    } finally {
+        HTMLCanvasElement.prototype.getContext = originalGetContext;
+    }
 
     // Scale heatmap radius/blur with zoom level; stored so it can be removed later
     mapState.densityZoomListener = function() {
@@ -1251,7 +1235,7 @@ const SA_LOCATIONS = [
 /**
  * Expand common abbreviations in search terms
  */
-export function expandAbbreviations(searchTerm) {
+function expandAbbreviations(searchTerm) {
     const terms = [searchTerm]; // Always include original term
 
     // Common abbreviations map
@@ -1296,7 +1280,7 @@ export function expandAbbreviations(searchTerm) {
 /**
  * Highlight matching text
  */
-export function highlightMatch(text, search) {
+function highlightMatch(text, search) {
     const safeText = escapeHtml(text);
     if (!search) return safeText;
     const escapedSearch = search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');

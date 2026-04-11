@@ -499,9 +499,8 @@ export class FilterCache {
                 request.onsuccess = () => {
                     const cached = request.result;
                     if (cached) {
-                        // Check if cache is still valid (24 hours)
                         const age = Date.now() - cached.timestamp;
-                        if (age < 24 * 60 * 60 * 1000) {
+                        if (age < CACHE_CONFIG.FILTER_CACHE_MAX_AGE) {
                             // Restore to memory cache for fast access
                             this.cache.set(key, cached.results);
                             resolve(cached.results);

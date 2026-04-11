@@ -16,12 +16,13 @@ import {
     dataState,
     filterState,
     drawState,
-    updateFilterState
+    updateFilterState,
+    updateDataState
 } from './state.js';
 import { updateStatistics } from './analytics.js';
-import { showLoading, hideLoading, updateLoadingMessage } from './utils.js';
+import { showLoading, hideLoading, updateLoadingMessage, uniqueValues, showFilterNotification } from './utils.js';
 import { showNotification } from './ui.js';
-import { filterCache, perfMonitor, debounce } from './performance.js';
+import { debounce } from './performance.js';
 import { updateMapLayers } from './map-renderer.js';
 
 // Module-level variables
@@ -92,31 +93,6 @@ export function captureCurrentFilterState() {
  * @param {Object} filters - Filter values
  * @returns {Array} Filtered crash data
  */
-export function applyFiltersWithCache(crashData, filters) {
-    perfMonitor.start('Apply filters');
-
-    // Check if we have cached results for these exact filters
-    if (filterCache.has(filters)) {
-        const cachedResults = filterCache.get(filters);
-        perfMonitor.end('Apply filters');
-        return cachedResults;
-    }
-
-    // Apply filters (no cache hit)
-    const filteredData = crashData.filter(row => {
-        return matchesBasicFilters(row, filters) &&
-               matchesDateTimeFilters(row, filters) &&
-               matchesCasualtyFilters(row, filters) &&
-               matchesUnitsFilters(row, filters);
-    });
-
-    // Cache the results
-    filterCache.set(filters, filteredData);
-
-    perfMonitor.end('Apply filters');
-    return filteredData;
-}
-
 /**
  * Get checked values from a checkbox menu
  * @param {string} menuId - ID of the checkbox menu element
@@ -217,20 +193,6 @@ export function updateApplyButtonState() {
 // FILTER POPULATION
 // ============================================================================
 
-/**
- * Returns unique, alphabetically-sorted, non-empty values for a column
- * @param {Array} data - Data array to extract values from
- * @param {string} column - Column name
- * @returns {Array} Sorted unique values
- */
-function uniqueValues(data, column) {
-    return [...new Set(data.map(row => row[column]).filter(v => v))]
-        .sort((a, b) => {
-            const aStr = String(a);
-            const bStr = String(b);
-            return aStr.localeCompare(bStr);
-        });
-}
 
 /**
  * Append option elements to a select element
@@ -258,7 +220,7 @@ export function buildCheckboxDropdown(id, items) {
 
     const searchWrap = document.createElement('div');
     searchWrap.className = 'dropdown-search-wrap';
-    searchWrap.innerHTML = `<input type="text" class="dropdown-search" placeholder="Search..." oninput="filterDropdownItems('${id}', this.value)">`;
+    searchWrap.innerHTML = `<input type="text" class="dropdown-search" placeholder="Search..." aria-label="Search options" oninput="filterDropdownItems('${id}', this.value)">`;
     menu.appendChild(searchWrap);
 
     const list = document.createElement('div');
@@ -871,11 +833,37 @@ export function initFilterWorker() {
             _workerReady = false;
         };
 
-        // Transfer the full dataset to the worker once.  This is a structured
-        // clone (one-time cost) so that filter messages carry only filter values.
+        // Project crash records to only the fields the worker needs for matching.
+        // Avoids cloning _coords, popup display fields, and full sub-record objects.
+        const CASUALTY_FIELDS = ['Casualty Type', 'AGE', 'Sex', 'Injury Extent', 'Seat Belt', 'Helmet'];
+        const UNIT_FIELDS = ['Unit Type', 'Towing', 'Rollover', 'Fire', 'Veh Year',
+                             'Number Occupants', 'Licence Type', 'Veh Reg State',
+                             'Direction Of Travel', 'Unit Movement'];
+        const workerData = dataState.crashData.map(row => ({
+            Year:              row.Year,
+            'CSEF Severity':   row['CSEF Severity'],
+            'Crash Type':      row['Crash Type'],
+            'Weather Cond':    row['Weather Cond'],
+            DayNight:          row.DayNight,
+            'DUI Involved':    row['DUI Involved'],
+            'Drugs Involved':  row['Drugs Involved'],
+            LGA:               row.LGA,
+            Suburb:            row.Suburb,
+            'Road Surface':    row['Road Surface'],
+            'Moisture Cond':   row['Moisture Cond'],
+            'Area Speed':      row['Area Speed'],
+            'Crash Date Time': row['Crash Date Time'],
+            _casualties: row._casualties
+                ? row._casualties.map(c => Object.fromEntries(CASUALTY_FIELDS.map(f => [f, c[f]])))
+                : [],
+            _units: row._units
+                ? row._units.map(u => Object.fromEntries(UNIT_FIELDS.map(f => [f, u[f]])))
+                : [],
+        }));
+
         _filterWorker.postMessage({
             type: 'INIT',
-            crashData: dataState.crashData,
+            crashData: workerData,
             heavyVehicleTypes: HEAVY_VEHICLE_TYPES
         });
     } catch (err) {
@@ -976,7 +964,7 @@ export async function applyFilters() {
         }
 
         // Update filtered data in state
-        dataState.filteredData = filteredData;
+        updateDataState({ filteredData });
 
         // Update statistics
         updateStatistics();
@@ -1148,23 +1136,6 @@ export function applyPreset(presetKey) {
     showFilterNotification(`Applied preset: ${preset.name}`);
 }
 
-/**
- * Show a filter notification toast
- * @param {string} message - Message to display
- */
-function showFilterNotification(message) {
-    const toast = document.createElement('div');
-    toast.className = 'filter-toast';
-    toast.textContent = message;
-    document.body.appendChild(toast);
-
-    setTimeout(() => toast.classList.add('show'), 10);
-
-    setTimeout(() => {
-        toast.classList.remove('show');
-        setTimeout(() => toast.remove(), 300);
-    }, 3000);
-}
 
 /**
  * Clear all filters and reset to defaults
@@ -1232,9 +1203,7 @@ export function clearFilters(skipApply = false) {
     }
 
     // Update advanced filter badge
-    if (typeof updateAdvancedFilterBadge === 'function') {
-        updateAdvancedFilterBadge();
-    }
+    updateAdvancedFilterBadge();
 
     // Apply the cleared filters (unless skipApply is true, e.g., when called from applyPreset)
     if (!skipApply) {
@@ -1311,9 +1280,7 @@ export function clearSingleFilter(filterName) {
             break;
     }
 
-    if (typeof updateAdvancedFilterBadge === 'function') {
-        updateAdvancedFilterBadge();
-    }
+    updateAdvancedFilterBadge();
     applyFilters();
 }
 
