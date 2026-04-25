@@ -10,29 +10,22 @@ import {
     drawState,
     searchState,
     cacheState,
-    updateMapState,
-    updateDrawState,
-    updateFilterState,
-    updateSearchState,
-    updateCacheState,
-    clearSearchState,
-    clearDrawState
+    updateFilterState
 } from './state.js';
 
 import {
     SEVERITY_COLORS,
-    CRASH_TYPE_PALETTE,
-    MARKER_CONFIG
+    CRASH_TYPE_PALETTE
 } from './config.js';
 
 import {
-    convertCoordinates,
     escapeHtml,
     normalizeLGAName,
     getLGAName,
     showLoading,
     hideLoading,
-    updateLoadingMessage
+    updateLoadingMessage,
+    getSearchRadiusKm
 } from './utils.js';
 
 import { updateStatistics } from './analytics.js';
@@ -264,6 +257,22 @@ export function initMap() {
         }
     `;
     document.head.appendChild(style);
+
+    // Re-run GPS filter when the radius selector changes (only when GPS mode is active).
+    // Guard against double-binding if init ever runs twice (dataset flag).
+    const radiusSelect = document.getElementById('searchRadius');
+    if (radiusSelect && radiusSelect.dataset.gpsBound !== '1') {
+        radiusSelect.dataset.gpsBound = '1';
+        radiusSelect.addEventListener('change', () => {
+            if (searchState.gpsLocation) {
+                const { lat, lng } = searchState.gpsLocation;
+                updateGpsCircle(lat, lng, false);
+                if (typeof window.applyFilters === 'function') {
+                    window.applyFilters();
+                }
+            }
+        });
+    }
 }
 
 // ============================================================================
@@ -842,7 +851,7 @@ export function addChoropleth() {
                 `);
 
                 // Hover effects
-                layer.on('mouseover', function(e) {
+                layer.on('mouseover', function() {
                     this.setStyle({
                         weight: 3,
                         opacity: 1,
@@ -850,7 +859,7 @@ export function addChoropleth() {
                     });
                 });
 
-                layer.on('mouseout', function(e) {
+                layer.on('mouseout', function() {
                     mapState.choroplethLayer.resetStyle(this);
                 });
             }
@@ -964,7 +973,7 @@ export function addChoroplethBySuburb() {
             `);
 
             // Hover effects
-            layer.on('mouseover', function(e) {
+            layer.on('mouseover', function() {
                 this.setStyle({
                     weight: 2,
                     opacity: 1,
@@ -972,7 +981,7 @@ export function addChoroplethBySuburb() {
                 });
             });
 
-            layer.on('mouseout', function(e) {
+            layer.on('mouseout', function() {
                 mapState.choroplethLayer.resetStyle(this);
             });
         }
@@ -1409,15 +1418,23 @@ export function clearLocationSearch() {
         searchState.searchCircle = null;
     }
 
+    // Clear GPS state so the radius listener stops re-filtering
+    searchState.gpsLocation = null;
+    document.getElementById('gpsBtn')?.classList.remove('gps-btn-active');
+
     // Clear input and results
     const input = document.getElementById('locationSearch');
     const results = document.getElementById('searchResults');
     if (input) input.value = '';
-    if (results) results.style.display = 'none';
+    if (results) {
+        results.textContent = '';
+        delete results.dataset.source;
+        results.classList.add('hidden');
+    }
 
-    // Mark filters as changed to trigger proper state tracking
-    if (typeof window.markFiltersChanged === 'function') {
-        window.markFiltersChanged();
+    // Re-run filters so markers reflect the remaining active filters
+    if (typeof window.applyFilters === 'function') {
+        window.applyFilters();
     }
 }
 
@@ -1460,8 +1477,12 @@ export async function searchByLocation() {
         const lng = parseFloat(location.lon);
 
         // Get search radius
-        const radiusKm = parseFloat(document.getElementById('searchRadius')?.value || 5);
+        const radiusKm = getSearchRadiusKm();
         const radiusMeters = radiusKm * 1000;
+
+        // Entering text search clears GPS mode
+        searchState.gpsLocation = null;
+        document.getElementById('gpsBtn')?.classList.remove('gps-btn-active');
 
         // Clear previous search marker/circle
         if (searchState.searchMarker) {
@@ -1493,14 +1514,20 @@ export async function searchByLocation() {
         // Zoom to search area
         mapState.map.fitBounds(searchState.searchCircle.getBounds(), { padding: [50, 50] });
 
-        // Filter crashes within radius
+        // Filter crashes within radius using pre-cached coords.
+        // Bounding-box prefilter avoids an expensive distance call for far-field points.
+        const latDelta = radiusMeters / 111320;
+        const lngDelta = radiusMeters / (111320 * Math.cos(lat * Math.PI / 180));
+        const latMin = lat - latDelta;
+        const latMax = lat + latDelta;
+        const lngMin = lng - lngDelta;
+        const lngMax = lng + lngDelta;
         const nearbyCrashes = dataState.crashData.filter(crash => {
-            const coords = convertCoordinates(crash.ACCLOC_X, crash.ACCLOC_Y);
+            const coords = crash._coords;
             if (!coords) return false;
-
-            const [crashLat, crashLng] = coords;
-            const distance = mapState.map.distance([lat, lng], [crashLat, crashLng]);
-            return distance <= radiusMeters;
+            const [cLat, cLng] = coords;
+            if (cLat < latMin || cLat > latMax || cLng < lngMin || cLng > lngMax) return false;
+            return mapState.map.distance([lat, lng], coords) <= radiusMeters;
         });
 
         hideLoading();
@@ -1510,7 +1537,8 @@ export async function searchByLocation() {
         const resultsEl = document.getElementById('searchResults');
         if (resultsEl) {
             resultsEl.textContent = resultMsg;
-            resultsEl.style.display = 'block';
+            resultsEl.dataset.source = 'search';
+            resultsEl.classList.remove('hidden');
         }
 
         // Apply filter to show only nearby crashes
@@ -1523,6 +1551,126 @@ export async function searchByLocation() {
         hideLoading();
         showNotification('Error searching location. Please try again.', 'error');
     }
+}
+
+/**
+ * Draw/update the GPS radius circle. Visual only — filtering is handled by applyFilters().
+ */
+function updateGpsCircle(lat, lng, fitBounds) {
+    const radiusMeters = getSearchRadiusKm() * 1000;
+
+    if (searchState.searchCircle) {
+        mapState.map.removeLayer(searchState.searchCircle);
+    }
+    searchState.searchCircle = L.circle([lat, lng], {
+        radius: radiusMeters,
+        color: '#22c55e',
+        fillColor: '#22c55e',
+        fillOpacity: 0.08,
+        weight: 2
+    }).addTo(mapState.map);
+
+    if (fitBounds) {
+        mapState.map.fitBounds(searchState.searchCircle.getBounds(), { padding: [50, 50] });
+    }
+}
+
+/**
+ * Use the device GPS to centre the map on the user and filter nearby crashes
+ */
+export function useMyLocation() {
+    // Modern browsers require a secure context for geolocation. Without this
+    // check the call can fail silently or surface a generic permission error.
+    if (!window.isSecureContext) {
+        showNotification('GPS requires a secure (HTTPS) connection.', 'warning');
+        return;
+    }
+    if (!navigator.geolocation) {
+        showNotification('Geolocation is not supported by your browser.', 'warning');
+        return;
+    }
+
+    const btn = document.getElementById('gpsBtn');
+    // Re-entrancy guard: a second click while a request is in flight would
+    // race two callbacks that each overwrite the marker/circle and re-trigger
+    // applyFilters with divergent positions.
+    if (btn?.dataset.pending === '1') return;
+    if (btn) {
+        btn.dataset.pending = '1';
+        btn.setAttribute('disabled', '');
+    }
+
+    showLoading('Getting your location...');
+
+    const finish = () => {
+        hideLoading();
+        if (btn) {
+            btn.dataset.pending = '0';
+            btn.removeAttribute('disabled');
+        }
+    };
+
+    navigator.geolocation.getCurrentPosition(
+        (position) => {
+            const lat = position.coords.latitude;
+            const lng = position.coords.longitude;
+            const accuracy = position.coords.accuracy;
+
+            searchState.gpsLocation = { lat, lng };
+
+            if (searchState.searchMarker) {
+                mapState.map.removeLayer(searchState.searchMarker);
+            }
+            if (searchState.searchCircle) {
+                mapState.map.removeLayer(searchState.searchCircle);
+            }
+
+            const radiusMeters = getSearchRadiusKm() * 1000;
+            const accuracyText = Number.isFinite(accuracy)
+                ? `<br><small>Accuracy: ±${Math.round(accuracy)} m</small>`
+                : '';
+            const popupHtml = `<strong>📍 Your Location</strong>${accuracyText}`;
+
+            searchState.searchMarker = L.marker([lat, lng], {
+                icon: L.divIcon({
+                    className: '',
+                    html: '<div class="gps-marker-dot"><div class="gps-marker-pulse"></div></div>',
+                    iconSize: [20, 20],
+                    iconAnchor: [10, 10]
+                })
+            }).addTo(mapState.map).bindPopup(popupHtml).openPopup();
+
+            updateGpsCircle(lat, lng, true);
+            btn?.classList.add('gps-btn-active');
+
+            // Warn when the reported accuracy is larger than the active radius —
+            // the "nearby crashes" result is unlikely to be meaningful in that case.
+            if (Number.isFinite(accuracy) && accuracy > radiusMeters) {
+                showNotification(
+                    `Your location accuracy (±${Math.round(accuracy)} m) is larger than the ${radiusMeters / 1000} km search radius. Results may be inaccurate.`,
+                    'warning'
+                );
+            }
+
+            finish();
+
+            // Delegate filtering to applyFilters so GPS stacks on top of active panel filters
+            if (typeof window.applyFilters === 'function') {
+                window.applyFilters();
+            }
+        },
+        (error) => {
+            finish();
+            console.error('Geolocation error:', error);
+            const messages = {
+                1: 'Location access denied. Please allow location access in your browser settings.',
+                2: 'Unable to determine your location. Please try again.',
+                3: 'Location request timed out. Please try again.'
+            };
+            showNotification(messages[error.code] || 'Could not get your location.', 'warning');
+        },
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+    );
 }
 
 /**

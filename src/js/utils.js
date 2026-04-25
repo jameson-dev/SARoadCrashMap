@@ -57,6 +57,22 @@ export function parseNumeric(value) {
     return isNaN(parsed) ? 0 : parsed;
 }
 
+// Default radius (km) when the #searchRadius select is missing or unreadable.
+// Keep in sync with the `selected` option in index.html.
+const DEFAULT_SEARCH_RADIUS_KM = 2;
+
+/**
+ * Read the active search radius (km) from the #searchRadius select.
+ * Falls back to the HTML default if the element is missing or its value
+ * cannot be parsed as a positive finite number.
+ * @returns {number} Radius in kilometres
+ */
+export function getSearchRadiusKm() {
+    const raw = document.getElementById('searchRadius')?.value;
+    const parsed = parseFloat(raw);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : DEFAULT_SEARCH_RADIUS_KM;
+}
+
 /**
  * Escape HTML special characters
  * @param {string} str - String to escape
