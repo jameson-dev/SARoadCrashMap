@@ -16,10 +16,12 @@ import {
     dataState,
     filterState,
     drawState,
+    searchState,
+    mapState,
     updateFilterState
 } from './state.js';
 import { updateStatistics } from './analytics.js';
-import { showLoading, hideLoading, updateLoadingMessage } from './utils.js';
+import { showLoading, hideLoading, updateLoadingMessage, getSearchRadiusKm } from './utils.js';
 import { showNotification } from './ui.js';
 import { filterCache, perfMonitor, debounce } from './performance.js';
 import { updateMapLayers } from './map-renderer.js';
@@ -973,6 +975,45 @@ export async function applyFilters() {
                 matchesCasualtyFilters(row, filters) &&
                 matchesUnitsFilters(row, filters)
             );
+        }
+
+        // Apply GPS radius as an additional spatial constraint if active
+        if (searchState.gpsLocation && mapState.map) {
+            const { lat, lng } = searchState.gpsLocation;
+            const radiusKm = getSearchRadiusKm();
+            const radiusMeters = radiusKm * 1000;
+
+            // Bounding-box prefilter: cheap lat/lng comparison rejects the far-field
+            // before the expensive per-point Leaflet distance call.
+            const latDelta = radiusMeters / 111320;
+            const lngDelta = radiusMeters / (111320 * Math.cos(lat * Math.PI / 180));
+            const latMin = lat - latDelta;
+            const latMax = lat + latDelta;
+            const lngMin = lng - lngDelta;
+            const lngMax = lng + lngDelta;
+
+            filteredData = filteredData.filter(crash => {
+                const coords = crash._coords;
+                if (!coords) return false;
+                const [cLat, cLng] = coords;
+                if (cLat < latMin || cLat > latMax || cLng < lngMin || cLng > lngMax) return false;
+                return mapState.map.distance([lat, lng], coords) <= radiusMeters;
+            });
+            const resultsEl = document.getElementById('searchResults');
+            if (resultsEl) {
+                resultsEl.textContent = `Found ${filteredData.length} crashes within ${radiusKm}km of your location`;
+                resultsEl.dataset.source = 'gps';
+                resultsEl.classList.remove('hidden');
+            }
+        } else {
+            // GPS inactive: clear only if the currently shown text belongs to a past
+            // GPS session, so text-search results stay visible.
+            const resultsEl = document.getElementById('searchResults');
+            if (resultsEl && resultsEl.dataset.source === 'gps') {
+                resultsEl.textContent = '';
+                delete resultsEl.dataset.source;
+                resultsEl.classList.add('hidden');
+            }
         }
 
         // Update filtered data in state

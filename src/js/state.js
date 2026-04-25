@@ -52,7 +52,8 @@ export const searchState = {
     searchMarker: null,
     searchCircle: null,
     selectedSuggestionIndex: -1,
-    currentSuggestions: []
+    currentSuggestions: [],
+    gpsLocation: null  // { lat, lng } when GPS mode is active
 };
 
 // UI state
@@ -128,6 +129,7 @@ export function clearSearchState() {
     searchState.searchCircle = null;
     searchState.selectedSuggestionIndex = -1;
     searchState.currentSuggestions = [];
+    searchState.gpsLocation = null;
 }
 
 export function clearDrawState() {

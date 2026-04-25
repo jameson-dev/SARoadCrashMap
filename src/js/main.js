@@ -139,6 +139,7 @@ async function setupGlobalHandlers() {
     window.cancelDrawMode = map.cancelDrawMode;
     window.clearDrawArea = map.clearDrawArea;
     window.selectSuggestion = map.selectSuggestion;
+    window.useMyLocation = map.useMyLocation;
 }
 
 // Wait for DOM to be ready
